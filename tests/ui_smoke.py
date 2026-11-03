@@ -100,7 +100,7 @@ def main():
                 # All groups start checked; each master switches all options off/on.
                 assert page.locator('.sidebar nav [data-view]').evaluate_all('(nodes)=>nodes.map(n=>n.dataset.view)') == ['overview','map','table','countries']
                 assert page.locator('[data-view="quality"]').count() == 0
-                expect(page).to_have_title('Data Visualization Tool · Remediation Explorer')
+                expect(page).to_have_title('Data Visualization Tool · KPMG')
                 for field in ['sheets','years','domains','owners','entities','nis2','priority']:
                     group=page.locator(f'details[data-group="{field}"]')
                     group.evaluate('(el)=>{el.open=true}')

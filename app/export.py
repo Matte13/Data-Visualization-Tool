@@ -10,7 +10,7 @@ from .server import BASE_FILENAME, ROOT
 from .workbook import parse_workbook
 
 
-STYLESHEETS = ('styles.css', 'countries.css')
+STYLESHEETS = ('styles.css', 'countries.css', 'brand.css')
 SCRIPTS = ('model.js', 'countries.js', 'app.js')
 
 

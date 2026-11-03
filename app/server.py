@@ -362,7 +362,7 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
         for key, value in (headers or {}).items():
             self.send_header(key, value)
         self.end_headers()
@@ -446,6 +446,7 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         static = {
             "/": "index.html", "/index.html": "index.html",
             "/styles.css": "styles.css", "/countries.css": "countries.css",
+            "/brand.css": "brand.css",
             "/model.js": "model.js", "/countries.js": "countries.js", "/app.js": "app.js",
         }
         if path not in static:

@@ -33,6 +33,10 @@ L'importazione supporta file `.xlsx` compatibili fino a 10 MB, anche tramite tra
 
 ## Viste e filtri
 
+L’interfaccia web usa il logo KPMG del template e la palette aziendale: sfumature **viola `#7213EA` → blu `#1E49E2`** nella navigazione e nelle azioni principali, pannelli chiari per leggere i dati e colori coerenti per anni, domini e budget. Il nome del prodotto resta **Data Visualization Tool**, con indicazione di uso interno.
+
+Titoli, testo e controlli usano i font **KPMG / KPMG Bold già installati sul computer**; Arial è il ripiego quando non sono disponibili. Non vengono scaricati font da Internet. Il repository non redistribuisce né converte in webfont i font desktop incorporati nei template: la loro licenza distingue l’incorporamento nei documenti dall’uso web. Per mantenere la tipografia KPMG anche su computer privi dei font occorre aggiungere un pacchetto webfont aziendale autorizzato. Il foglio `web/brand.css` centralizza questa configurazione e viene incluso anche nella copia HTML offline.
+
 **Panoramica** mostra gli investimenti annuali, per dominio e per owner. Subito sotto, **Mappa Navigabile** esplora anno → dominio → remediation: le frecce rappresentano raggruppamenti, non dipendenze progettuali. **Remediation** presenta schede visive con dominio, owner, anno e budget Global/Local, ricerca, ordinamento e paginazione. **Country / legal entity** associa ogni entità ai suoi investimenti annuali con schede e barre sulla stessa scala; un click sull’anno apre la mappa filtrata per entità e anno.
 
 Tutti i filtri sono **selezionati di default**, incluso OT quando presente. Ogni gruppo (perimetro, anno, dominio, owner, entità, NIS2 e priorità) ha una casella **Seleziona tutti**: attivarla seleziona tutte le voci, disattivarla le esclude tutte. Una selezione vuota mostra zero risultati, mentre una selezione parziale è segnalata dalla casella intermedia. Durante le selezioni la barra laterale conserva posizione, gruppi aperti e focus del cursore.

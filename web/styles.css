@@ -20,3 +20,271 @@
 /* Presentation export remains reachable on narrow screens. */
 .heading-actions{flex-wrap:wrap}.export-menu{top:calc(100% + 6px)}
 @media(max-width:760px){.heading-actions{justify-content:flex-start}.heading-actions .pptx-button{flex:1 1 100%;padding:11px 14px}}
+
+/* KPMG internal application theme. Data colors remain shared with the charts. */
+:root {
+  --ink: #0c233c;
+  --muted: #647089;
+  --line: #dfe4f2;
+  --bg: #f6f7fc;
+  --navy: #00338d;
+  --teal: #7213ea;
+  --mint: #aceaff;
+  --blue: #1e49e2;
+  --kpmg-purple: #7213ea;
+  --kpmg-blue: #1e49e2;
+  --kpmg-gradient: linear-gradient(110deg, #7213ea 0%, #1e49e2 100%);
+  font-family: 'KPMG', 'KPMG Bold', Arial, sans-serif;
+  font-size: 15px;
+  color-scheme: light;
+}
+button, input, select, textarea, code,
+.map-year, .node-title, .node-sub, .node-budget, .node-code, .map-col-label {
+  font-family: 'KPMG', 'KPMG Bold', Arial, sans-serif;
+}
+button:focus-visible, a:focus-visible, input:focus-visible,
+select:focus-visible, [tabindex]:focus-visible {
+  outline-color: #7213ea;
+}
+h1, h2, h3, .kpi-value, .brand-name, .brand-line,
+.remediation-title, .detail-budgets strong {
+  font-family: 'KPMG', 'KPMG Bold', Arial, sans-serif;
+  font-weight: 400;
+}
+.sidebar {
+  background: linear-gradient(155deg, #7213ea 0%, #2730b5 54%, #00338d 100%);
+  color: #fff;
+  scrollbar-color: #a8b2fb transparent;
+}
+.sidebar button:focus-visible, .sidebar a:focus-visible,
+.sidebar input:focus-visible, .sidebar select:focus-visible {
+  outline-color: #aceaff;
+}
+.brand, .brand-name, .brand-line { color: #fff; }
+.brand-name { font-size: 19px; letter-spacing: 0; }
+.brand-line { font-size: 23px; }
+.brand-mark {
+  border-color: #ffffff80;
+  color: #fff;
+  border-radius: 4px;
+  background: #ffffff0b;
+}
+.brand-sub, .sidebar-label, .project-picker > label { color: #d6d9ff; }
+.sidebar-label, .project-picker > label { font-size: 10px; letter-spacing: 1.3px; }
+.project-picker > select, .select-filter select {
+  color: #fff;
+  background: #1833a6;
+  border-color: #aaa7ff80;
+  font-size: 13px;
+}
+.project-picker > strong { color: #fff; font-size: 14px; }
+.new-project-button {
+  color: #fff;
+  border-color: #c5c2ff80;
+  background: #ffffff0b;
+  font-size: 12px;
+}
+.nav-item { color: #e3e6ff; font-size: 14px; padding-block: 13px; }
+.nav-item:hover { background: #ffffff16; }
+.nav-item.active {
+  color: #fff;
+  background: #ffffff22;
+  box-shadow: inset 3px 0 #aceaff;
+}
+.nav-item.active svg { color: #aceaff; }
+.filter-label button, .sidebar-footer svg { color: #c5d9ff; }
+.filter-group summary { color: #e3e6ff; font-size: 13px; }
+.filter-group summary span { color: #fff; background: #ffffff18; font-size: 11px; }
+.check-option { color: #e1e3ff; font-size: 13px; }
+.check-option input { width: 14px; height: 14px; border-color: #a7b9ec; }
+.check-option input:checked, .check-option input:indeterminate {
+  background: #aceaff;
+  border-color: #aceaff;
+}
+.check-option input:checked:after, .check-option input:indeterminate:after { color: #00338d; }
+.check-option:has(input:checked), .master-option { color: #fff; }
+.sidebar-footer { color: #fff; font-size: 12px; }
+.sidebar-footer small { color: #d0d7ff; font-size: 10px; }
+.topbar, .empty-header { background: var(--kpmg-gradient); border-color: transparent; }
+.breadcrumb, .breadcrumb strong, .topbar .icon-button, .topbar .local-status,
+.empty-header .local-status { color: #fff; }
+.breadcrumb { font-size: 13px; }
+.local-status { font-size: 12px; }
+.topbar .button {
+  color: #fff;
+  background: #ffffff12;
+  border-color: #ffffff75;
+}
+.topbar .button:hover { background: #ffffff26; border-color: #fff; }
+h1 { font-size: 42px; line-height: 1.12; letter-spacing: -.4px; color: #00338d; }
+.page-heading h1, .welcome-page > h1 {
+  background: linear-gradient(110deg, #7213ea, #00338d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.page-heading p, .panel-description, .welcome-page > p,
+.welcome-features p, .welcome-format, .project-dialog > p {
+  color: #647089;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.button { color: #00338d; border-color: #d9def2; font-size: 13px; }
+.button:hover { background: #f3f0fd; border-color: #b7a2f2; }
+.button.primary { background: var(--kpmg-gradient); border-color: #7213ea; box-shadow: 0 3px 10px #7213ea18; }
+.button.primary:hover { background: linear-gradient(110deg, #510dbc, #00338d); border-color: #510dbc; }
+.button.small { font-size: 12px; }
+.icon-button { color: #52678d; }
+.eyebrow, .subtle-label, .source-line, .source-line strong { color: #647089; }
+.eyebrow-line { background: #7213ea; }
+.source-line { font-size: 12px; }
+.source-line svg, .welcome-features svg { color: #7213ea; }
+.text-button { color: #7213ea; font-size: 12px; }
+.text-button:hover { color: #00338d; }
+.export-menu { border-color: #dfe4f2; box-shadow: 0 10px 30px #00338d18; }
+.export-menu button { font-size: 13px; color: #00338d; }
+.export-menu button:hover { background: #f3f0fd; }
+.toolbar, .panel, .kpi, .remediation-card { border-color: #dfe4f2; box-shadow: 0 3px 12px #00338d05; }
+.search-box, .search-box input::placeholder { color: #647089; }
+.search-box input { font-size: 13px; }
+.scope-switch { background: #f0eef9; }
+.scope-switch button { color: #647089; font-size: 12px; }
+.scope-switch button.selected { background: #fff; color: #7213ea; box-shadow: 0 1px 5px #7213ea15; }
+.budget-select { color: #00338d; font-size: 12px; }
+.chip-label, .muted { color: #647089; }
+.filter-chip, .all-data-chip { background: #eee8fb; color: #510dbc; font-size: 11px; }
+.chip-row .text-button { color: #647089; font-size: 11px; }
+.kpi.accent { background: var(--kpmg-gradient); border-color: #7213ea; }
+.kpi.accent:after { border-color: #aceaff40; box-shadow: 0 0 0 20px #aceaff09, 0 0 0 40px #aceaff09; }
+.kpi-label { color: #647089; font-size: 12px; }
+.kpi-label span { color: #7587aa; }
+.kpi-value { color: #00338d; font-size: 35px; letter-spacing: -.5px; }
+.kpi-note { color: #647089; font-size: 11px; }
+.accent .kpi-value, .accent .kpi-label { color: #fff; }
+.accent .kpi-label span { color: #aceaff; }
+.accent .kpi-note { color: #e0e6ff; }
+.context-note { color: #52678d; background: #edf1fc; }
+.view-tabs { border-color: #dfe4f2; }
+.view-tabs > button { color: #647089; font-size: 13px; }
+.view-tabs > button.active { color: #7213ea; border-bottom-color: #7213ea; }
+.view-tabs > span { color: #647089; font-size: 11px; }
+.panel-title h2 { color: #00338d; font-size: 23px; letter-spacing: 0; }
+.panel-title > svg { color: #7213ea; }
+.panel-title .eyebrow, .legend, .legend small { color: #647089; }
+.legend { font-size: 12px; }
+.legend small { font-size: 10px; }
+.global, .bar-global { background: #7213ea; }
+.local, .bar-local { background: #1e49e2; }
+.bar-global, .bar-local { color: #fff; font-size: 10px; }
+.global-text { color: #7213ea; }
+.local-text { color: #1e49e2; }
+.year-column { color: #00338d; }
+.column-total, .year-column > strong { font-size: 13px; }
+.year-column > small, .chart-footnote, .small-note { color: #647089; font-size: 11px; }
+.owner-name { font-size: 13px; color: #00338d; }
+.owner-row > strong { font-size: 13px; }
+.owner-info small { color: #647089; font-size: 10px; }
+.owner-avatar { background: #eee8fb; color: #510dbc; font-size: 11px; }
+.owner-1 { background: #e8edff; color: #1e49e2; }
+.owner-2 { background: #e2f5ff; color: #006f9d; }
+.owner-3 { background: #e7ebf8; color: #00338d; }
+.mini-bar { background: #ecebf7; }
+.mini-bar i { background: linear-gradient(90deg, #7213ea, #1e49e2); }
+.domain-row:hover { background: #f7f5fd; }
+.domain-name, .domain-row > strong { font-size: 12px; color: #00338d; }
+.domain-track { background: #f0eef9; }
+.row-count { background: #eee8fb; color: #510dbc; font-size: 10px; }
+.year-pill { color: #00338d; border-color: #dfe4f2; background: #eef1fa; }
+.owner-badge { background: #eaf0ff; color: #00338d; font-size: 10px; }
+.group-pill, .source-tag, .source-link { background: #eee8fb; border-color: #ded3f9; color: #510dbc; }
+.map-panel { background: #fafaff; }
+.map-explanation, .map-path { color: #647089; font-size: 12px; }
+.map-explanation strong, .map-path strong { color: #00338d; }
+.map-node:hover rect { stroke: #7213ea; }
+.map-node.chosen rect { fill: #f0e9fc; stroke: #7213ea; }
+.map-edge { stroke: #dfe4f2; }
+.map-edge.highlight { stroke: #7213ea; }
+.map-year, .node-title, .node-budget { fill: #00338d; }
+.node-sub, .node-code, .map-col-label { fill: #647089; }
+.reference-card, .methodology { background: #f6f5fc; border-color: #dfe4f2; }
+.reference-card h3, .empty-state h2 { color: #00338d; }
+.reference-card p, .methodology ul, .reference-card small, .empty-state { color: #647089; }
+.remediation-explorer .panel-title h2 { font-size: 26px; }
+.card-toolbar { color: #647089; font-size: 12px; }
+.card-toolbar select { color: #00338d; border-color: #dfe4f2; font-size: 12px; }
+.remediation-card:hover { box-shadow: 0 6px 22px #7213ea12; }
+.remediation-title { color: #00338d; font-size: 21px; line-height: 1.3; }
+.remediation-domain { font-size: 11px; }
+.remediation-owner { color: #647089; font-size: 12px; }
+.remediation-budget-pair small { font-size: 11px; }
+.remediation-budget-pair strong { font-size: 21px; letter-spacing: 0; }
+.budget-global { background: #f1eafd; color: #510dbc; }
+.budget-local { background: #eaf0ff; color: #00338d; }
+.remediation-card-bottom { color: #647089; font-size: 10px; }
+.remediation-card-bottom > span:last-child { color: #7213ea; }
+.detail-drawer { border-left: 3px solid #7213ea; box-shadow: -10px 0 50px #00338d18; }
+.detail-drawer h2 { color: #00338d; font-size: 34px; }
+.detail-domain, .detail-tags, .detail-section small { color: #647089; }
+.detail-budgets { border-color: #dfe4f2; background: #f3f0fc; }
+.detail-budgets > div { border-color: #dfe4f2; }
+.detail-budgets small { color: #647089; font-size: 12px; }
+.detail-budgets strong { color: #00338d; font-size: 25px; }
+.detail-budgets > div:nth-child(n+3) strong { color: #510dbc; font-size: 20px; }
+.detail-section h3 { color: #00338d; font-size: 13px; letter-spacing: 0; }
+.detail-section p { color: #526078; font-size: 14px; line-height: 1.75; }
+.detail-section code { font-family: 'KPMG', 'KPMG Bold', Arial, sans-serif; background: #f3f0fc; border-color: #ded3f9; color: #510dbc; font-size: 12px; }
+.allocation-list > div { color: #647089; font-size: 13px; }
+.allocation-list strong { color: #00338d; }
+.main-footer { color: #647089; font-size: 11px; }
+.main-footer strong { color: #00338d; font-size: 15px; }
+.project-dialog { border-color: #ded3f9; }
+.project-dialog h2 { color: #00338d; font-size: 34px; }
+.project-field, .import-guidance { color: #647089; font-size: 13px; }
+.project-field > input { color: #00338d; background: #faf9ff; border-color: #dfe4f2; font-size: 14px; }
+.project-field > input[readonly] { background: #f3f0fc; color: #647089; }
+.project-dropzone { border-color: #b4a0e6; background: #f4f0fd; color: #7213ea; }
+.project-dropzone > strong { font-size: 14px; }
+.project-dropzone > span, .import-guidance > strong { color: #647089; font-size: 12px; }
+.project-dropzone:focus-within { outline-color: #7213ea; }
+.welcome-features h2 { color: #00338d; font-size: 23px; }
+.welcome-format strong { color: #00338d; }
+.toast { background: #00338d; border-color: #9c89f5; color: #fff; box-shadow: 0 5px 30px #00338d25; }
+.toast.error { background: #7d263b; border-color: #db9ca9; }
+.initial-loading .brand-mark { background: var(--kpmg-gradient); }
+.initial-loading h1 { color: #00338d; }
+.initial-loading p { color: #647089; }
+.initial-loading code { color: #510dbc; background: #eee8fb; }
+@media (min-width: 1500px) {
+  .page-heading h1 { font-size: 48px; }
+}
+@media (max-width: 1250px) {
+  .kpi-value { font-size: 30px; }
+  .view-tabs > button { font-size: 12px; }
+  .panel-title h2 { font-size: 22px; }
+  .owner-row > strong { font-size: 12px; }
+}
+@media (max-width: 760px) {
+  .brand-name { font-size: 19px; }
+  .breadcrumb { font-size: 12px; }
+  .page-heading h1 { font-size: 39px; }
+  .page-heading p { font-size: 13px; }
+  .kpi-value { font-size: clamp(18px, 5.1vw, 28px); }
+  .kpi-label, .kpi-note { font-size: 11px; }
+  .view-tabs > button { font-size: 13px; }
+  .domain-name, .domain-row > strong { font-size: 11px; }
+  .source-line, .chart-footnote, .small-note { font-size: 11px; }
+  .panel-title h2 { font-size: 22px; }
+  .remediation-title { font-size: 23px; }
+  .remediation-budget-pair strong { font-size: 23px; }
+  .detail-drawer h2 { font-size: 31px; }
+  .welcome-page > h1 { font-size: 43px; }
+  .welcome-page > p { font-size: 14px; }
+}
+@media print {
+  :root { background: white; }
+  .page-heading h1 { color: #00338d; background: none; }
+  .kpi-value { font-size: 25px; }
+  .remediation-title { font-size: 16px; }
+  .remediation-budget-pair strong { font-size: 17px; }
+  .main-footer { font-size: 9px; }
+}

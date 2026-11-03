@@ -63,6 +63,21 @@ class ServerTests(unittest.TestCase):
             self.request("/../runtime/projects.json")
         self.assertEqual(failure.exception.code, 404)
 
+    def test_brand_stylesheet_and_embedded_fonts_remain_local(self):
+        stylesheet = '@font-face{font-family:KPMG;src:url(data:font/woff2;base64,d09GMg==) format("woff2")}'
+        (self.root / "web" / "brand.css").write_text(stylesheet)
+        with self.request("/brand.css") as response:
+            self.assertEqual(response.read().decode(), stylesheet)
+            self.assertEqual(response.headers["Content-Type"], "text/css; charset=utf-8")
+            policy = response.headers["Content-Security-Policy"]
+            self.assertIn("font-src 'self' data:;", policy)
+            self.assertIn("default-src 'self';", policy)
+            self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+        # The stylesheet route does not expose an arbitrary asset directory.
+        with self.assertRaises(HTTPError) as failure:
+            self.request("/assets/../runtime/projects.json")
+        self.assertEqual(failure.exception.code, 404)
+
     def test_create_activate_restart_and_project_isolation(self):
         first = self.create()
         second = self.create(self.second, "Second project", "second.xlsx")

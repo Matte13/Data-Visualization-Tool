@@ -1,0 +1,16 @@
+/* Offline typography. Use the licensed corporate fonts already installed on
+   the workstation; this repository does not redistribute desktop font files.
+   An approved corporate webfont package can be added here when available. */
+:root{--font-brand:"KPMG","KPMG Bold",Arial,sans-serif;font-family:var(--font-brand)}
+body,button,input,select,textarea,h1,h2,h3,h4,.brand-name,#concept-map text{font-family:var(--font-brand)}
+.brand-mark.kpmg-brand{display:inline-flex;align-items:center;justify-content:center;width:64px;height:32px;min-width:64px;padding:0;border:0;border-radius:0;background:none;box-shadow:none;color:inherit}
+.kpmg-brand svg{display:block;width:100%;height:auto;max-height:32px}
+.sidebar .brand{align-items:center;gap:12px}
+.sidebar .brand-name{font-size:16px;line-height:1.15}
+.sidebar .brand-line{font-size:21px}
+.brand-sub{font-size:9px;letter-spacing:1.2px;line-height:1.5}
+.empty-header .kpmg-brand{width:76px;min-width:76px;height:34px}
+.initial-loading .kpmg-brand{width:96px;height:44px;color:#00338d;margin:0 auto 20px}
+.initial-loading .kpmg-brand svg{max-height:none}
+@media(max-width:1250px){.sidebar .brand{gap:9px}.sidebar .kpmg-brand{width:52px;min-width:52px}.sidebar .brand-name{font-size:14px}.sidebar .brand-line{font-size:19px}.sidebar .brand-sub{font-size:8px;letter-spacing:.65px}}
+@media(max-width:760px){.sidebar .kpmg-brand{width:64px;min-width:64px}.sidebar .brand-name{font-size:16px}.sidebar .brand-line{font-size:21px}.empty-header .brand{gap:10px}.empty-header .brand-name{font-size:15px}.empty-header .brand-line{font-size:20px}}
