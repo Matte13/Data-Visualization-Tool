@@ -2,8 +2,8 @@
 (function (root) {
   'use strict';
 
-  const FALLBACK_YEARS = ['#7213EA', '#1E49E2', '#007BA8', '#00338D', '#510DBC', '#4F53BD'];
-  const FALLBACK_DOMAINS = ['#7213EA', '#1E49E2', '#00338D', '#007BA8', '#510DBC'];
+  const FALLBACK_YEARS = ['#4b72bf', '#1b9b89', '#8a63bc', '#ca8640', '#527d97', '#af667c'];
+  const FALLBACK_DOMAINS = ['#3b8e9c', '#9270ad', '#b57f47', '#5f8e69', '#b56f7d'];
   const compareText = (a, b) => String(a).localeCompare(String(b), 'it', {numeric: true});
   const keyForYear = value => value == null ? '' : String(value);
   const yearLabel = value => value === '' ? 'Anno non specificato' : value;

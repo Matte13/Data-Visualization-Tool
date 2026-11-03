@@ -4,42 +4,46 @@
 /* Flags are local SVG images; names and budget associations stay unchanged. */
 .country-card-header h3{display:flex;align-items:center;gap:8px}.country-card-header h3>span:last-child{min-width:0}.country-flags{display:inline-flex;align-items:center;gap:4px;flex-shrink:0}.country-flag{display:block;width:24px;height:18px;object-fit:cover;border-radius:2px;box-shadow:0 0 0 1px #17384716}.country-flags-unknown{width:24px;height:18px;justify-content:center;color:#8ba3ae}@media(max-width:760px){.country-card-header h3{gap:6px}.country-flag{width:22px;height:16.5px}.country-flags{gap:3px}}
 
-/* Country associations use the same KPMG palette as the rest of the tool. */
-.country-section-heading h2 { color: #00338d; font-size: 31px; letter-spacing: 0; }
-.country-section-heading p, .country-aggregate > span, .country-aggregate > small { color: #647089; }
+/* Keep the original data palette within the KPMG interface. */
+.country-section-heading h2 { color: #244854; font-size: 31px; letter-spacing: 0; }
+.country-section-heading p { color: #80949e; }
+.country-aggregate > span { color: #8399a0; }
+.country-aggregate > small { color: #8fa4aa; }
 .country-section-heading p { font-size: 13px; }
-.country-aggregate { border-color: #dfe4f2; }
-.country-aggregate > strong { color: #1e49e2; font-size: 35px; letter-spacing: 0; }
+.country-aggregate { border-color: #dce6e8; }
+.country-aggregate > strong { color: #286f69; font-size: 35px; letter-spacing: 0; }
 .country-aggregate > span { font-size: 12px; }
 .country-aggregate > small { font-size: 11px; }
 .country-year-summary, .country-card { border-color: #dfe4f2; box-shadow: 0 3px 12px #00338d05; }
-.country-year-summary > strong { color: #00338d; font-size: 27px; letter-spacing: 0; }
+.country-year-summary > strong { color: #345362; font-size: 27px; letter-spacing: 0; }
 .country-year-heading { font-size: 13px; }
-.country-year-summary > small { color: #647089; font-size: 11px; }
-.country-reading-guide { color: #52678d; background: #edf1fc; border-color: #dfe4f2; font-size: 12px; }
-.country-reading-guide strong, .country-global-context strong { color: #00338d; }
-.country-global-context { color: #647089; font-size: 12px; }
+.country-year-summary > small { color: #8fa3ad; font-size: 11px; }
+.country-reading-guide { color: #77909c; background: #eaf1f5; border-color: #dfe9ed; font-size: 12px; }
+.country-reading-guide strong { color: #526f7d; }
+.country-global-context strong { color: #5d7d86; }
+.country-global-context { color: #80969e; font-size: 12px; }
 .country-unallocated { font-size: 12px; }
 .country-card-header { background: linear-gradient(110deg, #f8f4ff, #f4f7ff); }
-.country-ordinal { background: #eee8fb; border-color: #ded3f9; color: #510dbc; font-size: 12px; }
-.country-card-header h3 { color: #00338d; font-size: 21px; letter-spacing: 0; }
+.country-ordinal { background: #eff4f5; border-color: #e4ebed; color: #8aa4ac; font-size: 12px; }
+.country-card-header h3 { color: #355661; font-size: 21px; letter-spacing: 0; }
 .country-card-header > div:first-of-type > span { color: #647089; font-size: 10px; }
 .country-card-budget > span, .country-card-budget > small { color: #647089; font-size: 10px; }
-.country-total { color: #1e49e2; font-size: 27px; letter-spacing: 0; }
+.country-total { color: #376f6b; font-size: 27px; letter-spacing: 0; }
 .country-connection-line { color: #647089; font-size: 10px; margin-top: 13px; }
-.country-connection-line svg { color: #7213ea; }
-.country-connection-line > i { background: linear-gradient(90deg, #c7b2f2, #adc3f5); }
-.country-connection-line > i:after { border-left-color: #adc3f5; }
-.country-year-button { border-color: #dfe4f2; background: #fbfaff; }
+.country-connection-line svg { color: #89a9b0; }
+.country-connection-line > i { background: #dce8eb; }
+.country-connection-line > i:after { border-left-color: #c7dce1; }
+.country-year-button { border-color: #e4ebef; background: #f9fbfc; }
 .country-year-title { font-size: 12px; }
-.country-year-amount { color: #00338d; font-size: 23px; letter-spacing: 0; }
-.country-bar-track { background: #e9eaf6; }
-.country-year-caption { color: #647089; font-size: 10px; }
-.country-year-unknown .country-year-amount { color: #94640f; font-size: 17px; }
-.country-year-partial .country-year-caption { color: #94640f; }
-.country-year-zero .country-year-amount { color: #647089; }
+.country-year-amount { color: #456473; font-size: 23px; letter-spacing: 0; }
+.country-bar-track { background: #e8eef1; }
+.country-year-caption { color: #9badb6; font-size: 10px; }
+.country-year-unknown .country-year-amount { color: #9a8c6a; font-size: 17px; }
+.country-year-partial .country-year-caption { color: #aa9465; }
+.country-year-zero .country-year-amount { color: #92a6b0; }
 .country-card-footer { border-color: #e8e9f4; }
-.country-domain-chip, .country-other-domains { color: #647089; font-size: 10px; }
+.country-domain-chip { color: #78919e; font-size: 10px; }
+.country-other-domains { color: #9baeb6; font-size: 10px; }
 .country-explore { color: #7213ea; font-size: 12px; }
 .country-explore:hover { color: #00338d; }
 .country-method-note { color: #647089; font-size: 11px; }
@@ -56,7 +60,7 @@
 }
 @media (max-width: 760px) {
   .country-section-heading h2 { font-size: 29px; }
-  .country-aggregate { border-left-color: #7213ea; }
+  .country-aggregate { border-left-color: #83bfb3; }
   .country-year-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .country-year-summary > strong { font-size: clamp(17px, 5vw, 24px); }
   .country-card-header h3 { font-size: 21px; }
