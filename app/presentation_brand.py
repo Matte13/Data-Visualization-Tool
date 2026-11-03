@@ -67,35 +67,41 @@ def _plain_shape(slide, x, y, width, height, name):
     return shape
 
 
-def add_background(slide, width, height):
-    """Match the purple-to-blue base of Global Cyber Pitch slide 8."""
+def add_background(slide, width, height, *, dark=True):
+    """Use the gradient on cover/dividers and the reference's white content base."""
     slide.background.fill.solid()
-    slide.background.fill.fore_color.rgb = RGBColor.from_string(PURPLE)
+    slide.background.fill.fore_color.rgb = RGBColor.from_string(PURPLE if dark else 'FFFFFF')
     shape = _plain_shape(slide, 0, 0, width, height, 'dvt-brand-background')
-    gradient_fill(shape._element.spPr)
+    if dark:
+        gradient_fill(shape._element.spPr)
+    else:
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = RGBColor(255, 255, 255)
     return shape
 
 
-def add_brand_details(slide, *, cover=False):
+def add_brand_details(slide, *, cover=False, dark=True):
     """A quiet grid and gradient rule, behind content and outside data panels."""
     # The reference's digital grid is decorative; editor guides are not copied.
     # Keep it in the title band so it never interferes with chart labels.
-    for index in range(10):
-        x = 9.7 + index * .23
-        line = _plain_shape(slide, x, .15, .006, 1.20, 'dvt-grid')
-        gradient_fill(line._element.spPr, ('B5A1FF', CYAN), opacity=10000)
-    for index in range(5):
-        line = _plain_shape(slide, 9.7, .2 + index * .23, 2.07, .006, 'dvt-grid')
-        gradient_fill(line._element.spPr, ('B5A1FF', CYAN), opacity=10000)
+    if dark:
+        for index in range(10):
+            x = 9.7 + index * .23
+            line = _plain_shape(slide, x, .15, .006, 1.20, 'dvt-grid')
+            gradient_fill(line._element.spPr, ('B5A1FF', CYAN), opacity=10000)
+        for index in range(5):
+            line = _plain_shape(slide, 9.7, .2 + index * .23, 2.07, .006, 'dvt-grid')
+            gradient_fill(line._element.spPr, ('B5A1FF', CYAN), opacity=10000)
     rule = _plain_shape(slide, .8385, 1.435, 11.6163, .015, 'dvt-header-rule')
-    gradient_fill(rule._element.spPr, ('B89BFF', '76D2FF'), opacity=65000)
+    gradient_fill(rule._element.spPr, ('B89BFF', '76D2FF') if dark else (PURPLE, BLUE),
+                  opacity=65000 if dark else 35000)
     if cover:
         # A brand accent keeps the cover anchored without adding source content.
         accent = _plain_shape(slide, .8385, 1.53, .075, 3.55, 'dvt-cover-accent')
         gradient_fill(accent._element.spPr, ('ACEAFF', 'B59BFF'))
 
 
-def _footer_text(slide, name, text, x, y, width, height, size, *, align=PP_ALIGN.LEFT):
+def _footer_text(slide, name, text, x, y, width, height, size, *, align=PP_ALIGN.LEFT, color='FFFFFF'):
     box = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(width), Inches(height))
     box.name = name
     frame = box.text_frame; frame.clear(); frame.word_wrap = False
@@ -104,25 +110,27 @@ def _footer_text(slide, name, text, x, y, width, height, size, *, align=PP_ALIGN
         paragraph = frame.paragraphs[0] if index == 0 else frame.add_paragraph()
         paragraph.text = line; paragraph.alignment = align
         paragraph.font.name = 'Arial'; paragraph.font.size = Pt(size)
-        paragraph.font.color.rgb = RGBColor(255, 255, 255)
+        paragraph.font.color.rgb = RGBColor.from_string(color)
         paragraph.space_before = paragraph.space_after = Pt(0)
         paragraph.line_spacing = 1.0
     return box
 
 
-def add_footer(slide, page):
+def add_footer(slide, page, *, dark=True):
     """Original footer geometry, vector logo and wording, with copyright 2026."""
     logo = deepcopy(parse_xml(LOGO_PATH.read_bytes()))
     identity = logo.find('.//' + qn('p:cNvPr'))
     identity.set('id', str(slide.shapes._next_shape_id)); identity.set('name', 'dvt-kpmg-logo')
     for color in logo.iter(qn('a:srgbClr')):
-        color.set('val', 'FFFFFF')
+        color.set('val', 'FFFFFF' if dark else '00338D')
     slide.shapes._spTree.insert_element_before(logo, 'p:extLst')
-    _footer_text(slide, 'dvt-copyright', COPYRIGHT, 1.4928, 6.8537, 3.0176, .2020, 6)
+    footer_color = 'FFFFFF' if dark else '808080'
+    _footer_text(slide, 'dvt-copyright', COPYRIGHT, 1.4928, 6.8537, 3.0176, .2020, 6,
+                 color=footer_color)
     _footer_text(slide, 'dvt-classification', CLASSIFICATION,
-                 10.0655, 6.8849, 2.0409, .1010, 6, align=PP_ALIGN.RIGHT)
+                 10.0655, 6.8849, 2.0409, .1010, 6, align=PP_ALIGN.RIGHT, color=footer_color)
     _footer_text(slide, 'dvt-page-number', str(page), 12.229605, 6.853671, .265186, .163399,
-                 10, align=PP_ALIGN.RIGHT)
+                 10, align=PP_ALIGN.RIGHT, color='FFFFFF' if dark else BLUE)
 
 
 # Simple line illustrations, built as native freeform paths rather than images.
@@ -158,7 +166,7 @@ ICONS = {
 }
 
 
-def add_icon(slide, kind, x, y, size=.40, *, opacity=100000):
+def add_icon(slide, kind, x, y, size=.40, *, opacity=100000, dark=True):
     shape = _plain_shape(slide, x, y, size, size, 'dvt-icon-' + kind)
     shape.fill.background()
     properties = shape._element.spPr
@@ -182,5 +190,5 @@ def add_icon(slide, kind, x, y, size=.40, *, opacity=100000):
         paths.append(path)
     geometry.append(paths); properties.insert(1, geometry)
     line = properties.find(qn('a:ln')); line.set('w', str(Pt(1.4))); line.set('cap', 'rnd')
-    gradient_fill(line, ('C8A9FF', CYAN), opacity=opacity)
+    gradient_fill(line, ('C8A9FF', CYAN) if dark else (PURPLE, BLUE), opacity=opacity)
     return shape

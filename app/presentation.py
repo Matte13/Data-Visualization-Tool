@@ -9,11 +9,12 @@ from collections import defaultdict
 from io import BytesIO
 import json
 import math
-import textwrap
 
 from .presentation_style import apply_presentation_style
 from .presentation_brand import (add_background, add_brand_details, add_footer,
                                  add_icon, gradient_fill)
+from .presentation_summary import (combine_groups, compact_groups, compact_years,
+                                   compact_countries)
 
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
@@ -30,11 +31,12 @@ from lxml import etree
 
 THEME = {
     'font': 'Arial', 'title_font': 'KPMG Bold', 'navy': '00338D',
-    'blue': '1E49E2', 'purple': '7213EA', 'global': 'C8A9FF', 'local': 'ACEAFF',
-    'ink': 'FFFFFF', 'muted': 'E0DDFB', 'line': '8D80E8', 'light': '3824A3',
-    'white': 'FFFFFF', 'amber': 'FFDF96',
-    'years': ['D7BEFF', 'ACEAFF', 'AEBFFF', 'C8A9FF', '76D2FF', 'E3D7FF'],
+    'blue': '1E49E2', 'purple': '7213EA', 'global': '7213EA', 'local': '1E49E2',
+    'ink': '0C233C', 'muted': '647789', 'line': 'DFE4F2', 'light': 'F3F1FC',
+    'white': 'FFFFFF', 'amber': '94640F',
+    'years': ['7213EA', '1E49E2', '007BA8', '510DBC', '00338D'],
 }
+MAX_SLIDES = 15
 W, H = 13.333333, 7.5
 MARGIN, BODY_TOP, BODY_BOTTOM = .58, 1.58, 6.76
 # Global Cyber Pitch: title x=.8385in, y=.4722in, width=11.6163in.
@@ -110,6 +112,13 @@ def _rgb(value):
     return RGBColor.from_string(value)
 
 
+def _tone(slide, key):
+    """Per-slide colors keep concurrent exports independent of each other."""
+    dark = {'ink': 'FFFFFF', 'muted': 'E0DDFB', 'global': 'C8A9FF',
+            'local': 'ACEAFF', 'amber': 'FFDF96'}
+    return dark.get(key, THEME[key]) if getattr(slide, '_dvt_dark', False) else THEME[key]
+
+
 def _shape(slide, x, y, width, height, fill, *, line=None, radius=False, gradient=None):
     shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE if radius else MSO_SHAPE.RECTANGLE,
                                    Inches(_x(x)), Inches(y), Inches(_width(width, x)), Inches(height))
@@ -145,7 +154,7 @@ def _text(slide, text, x, y, width, height, *, size=16, color=None, bold=False,
         paragraph.text = line; paragraph.alignment = align
         paragraph.space_before = Pt(0); paragraph.space_after = Pt(0)
         paragraph.font.name = font or THEME['font']; paragraph.font.size = Pt(size)
-        paragraph.font.bold = bold; paragraph.font.color.rgb = _rgb(color or THEME['ink'])
+        paragraph.font.bold = bold; paragraph.font.color.rgb = _rgb(color or _tone(slide, 'ink'))
         paragraph.line_spacing = line_spacing
     return box
 
@@ -154,22 +163,36 @@ def _notes(slide, text):
     slide.notes_slide.notes_text_frame.text = str(text)
 
 
-def _slide(prs, report, title, subtitle='', *, section=''):
+def _slide(prs, report, title, subtitle='', *, section='', dark=False):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_background(slide, W, H)
+    slide._dvt_dark = dark
+    add_background(slide, W, H, dark=dark)
     heading = _text(slide, title, MARGIN, .4722, W - 2 * MARGIN, .5833,
-          size=40 if len(title)<85 else 36, color=THEME['white'], bold=False,
+          size=40 if len(title)<85 else 36, color=_tone(slide, 'ink'), bold=False,
           font=THEME['title_font'], line_spacing=.70)
     heading.name = 'dvt-title'
     heading.text_frame.margin_left = heading.text_frame.margin_right = 0
     heading.text_frame.margin_top = heading.text_frame.margin_bottom = 0
     for paragraph in heading.text_frame.paragraphs:
-        gradient_fill(paragraph._p.get_or_add_pPr().get_or_add_defRPr(), ('FFFFFF', 'ACEAFF'))
+        gradient_fill(paragraph._p.get_or_add_pPr().get_or_add_defRPr(),
+                      ('FFFFFF', 'ACEAFF') if dark else ('7213EA', '00338D'))
     if subtitle:
-        subheading = _text(slide, subtitle, MARGIN, 1.08, W - 2 * MARGIN, .30, size=12, color=THEME['muted'])
+        subheading = _text(slide, subtitle, MARGIN, 1.08, W - 2 * MARGIN, .30, size=12, color=_tone(slide, 'muted'))
         subheading.name = 'dvt-subtitle'
-    add_brand_details(slide, cover=section == 'Riepilogo')
-    add_footer(slide, len(prs.slides))
+    add_brand_details(slide, cover=section == 'Riepilogo', dark=dark)
+    add_footer(slide, len(prs.slides), dark=dark)
+    return slide
+
+
+def _divider(prs, report, title):
+    """Section title only; the corporate footer remains on every slide."""
+    slide = _slide(prs, report, title, section='Separatore', dark=True)
+    heading = next(shape for shape in slide.shapes if shape.name == 'dvt-title')
+    heading.top = Inches(2.65); heading.height = Inches(1.5)
+    for paragraph in heading.text_frame.paragraphs:
+        paragraph.font.size = Pt(72 if len(title) < 25 else 60)
+        paragraph.line_spacing = .90
+    _notes(slide, _source_notes(report))
     return slide
 
 
@@ -184,18 +207,22 @@ def _legend(slide, x, y, *, scope='all'):
 
 
 def _stat(slide, x, y, width, label, value, note=''):
+    dark = getattr(slide, '_dvt_dark', False)
     _shape(slide, x, y, width, 1.23, THEME['light'], radius=True,
-           gradient=('4520AD', '17399A'))
-    _shape(slide, x, y, .045, 1.23, THEME['local'], gradient=('C8A9FF', 'ACEAFF'))
-    kind = 'global' if 'global' in label.lower() else 'local' if 'local' in label.lower() else 'budget'
-    accent = THEME.get(kind, THEME['white'])
-    add_icon(slide, kind, _x(x + width - .64), y + .15, .34)
+           gradient=('4520AD', '17399A') if dark else None)
+    _shape(slide, x, y, .045, 1.23, THEME['local'],
+           gradient=('C8A9FF', 'ACEAFF') if dark else ('7213EA', '1E49E2'))
+    kind = ('global' if 'global' in label.lower() else 'local' if 'local' in label.lower()
+            else 'remediation' if 'remediation' in label.lower() else 'domain' if label == 'Domini'
+            else 'owner' if label == 'Owner' else 'budget')
+    accent = _tone(slide, kind) if kind in ('global', 'local') else _tone(slide, 'muted')
+    add_icon(slide, kind, _x(x + width - .64), y + .15, .34, dark=dark)
     _text(slide, label, x + .18, y + .13, width - .95, .27, size=12, color=accent)
     value_text = _money(value) if isinstance(value, (float, int)) or value is None else str(value)
     _text(slide, value_text, x + .18, y + .43, width - .36, .48,
-          size=32 if len(value_text) < 17 else 25, color=THEME['white'], font=THEME['title_font'], line_spacing=.8)
+          size=32 if len(value_text) < 17 else 25, color=_tone(slide, 'ink'), font=THEME['title_font'], line_spacing=.8)
     if note:
-        _text(slide, note, x + .18, y + .98, width - .36, .18, size=9, color=THEME['muted'])
+        _text(slide, note, x + .18, y + .98, width - .36, .18, size=9, color=_tone(slide, 'muted'))
 
 
 def _source_notes(report, extra=''):
@@ -255,7 +282,7 @@ def _groups_from_rows(rows, field, scope='all'):
 def _bars(slide, groups, x, y, width, height, *, scope='all', row_height=None, title=None, scale_max=None):
     """Editable rectangles and exact labels, using one scale per comparison chart."""
     if title:
-        add_icon(slide, 'domain' if title == 'Domini' else 'owner', _x(x), y + .015, .25)
+        add_icon(slide, 'domain' if title == 'Domini' else 'owner', _x(x), y + .015, .25, dark=False)
         _text(slide, title, x + .37, y, width - .37, .32, size=19,
               font=THEME['title_font'], color=THEME['local'])
         y += .47; height -= .47
@@ -274,7 +301,7 @@ def _bars(slide, groups, x, y, width, height, *, scope='all', row_height=None, t
               size=12 if len(label) > 38 else 13, color=THEME['ink'], valign=MSO_ANCHOR.MIDDLE)
         bx = x + label_width
         by = yy + max(.09, (row_height - .15) / 2)
-        _shape(slide, bx, by, bar_width, .15, '453CB1', radius=True)
+        _shape(slide, bx, by, bar_width, .15, 'E9EAF5', radius=True)
         global_value = 0 if scope == 'local' else group.get('global') or 0
         local_value = 0 if scope == 'global' else group.get('local') or 0
         current = bx
@@ -320,7 +347,7 @@ def _annual_chart(slide, groups, x, y, width, height, scope):
     chart.value_axis.tick_labels.font.color.rgb = _rgb(THEME['muted'])
     chart.value_axis.tick_labels.number_format = '#,##0" €"'
     chart.value_axis.has_major_gridlines = True
-    chart.value_axis.major_gridlines.format.line.color.rgb = _rgb('8F80E1')
+    chart.value_axis.major_gridlines.format.line.color.rgb = _rgb('DFE4F2')
     chart.value_axis.major_gridlines.format.line.width = Pt(.45)
     chart.value_axis.format.line.fill.background(); chart.category_axis.format.line.color.rgb = _rgb(THEME['line'])
     plot = chart.plots[0]; plot.gap_width = 95
@@ -332,175 +359,262 @@ def _annual_chart(slide, groups, x, y, width, height, scope):
     plot.data_labels.position = XL_LABEL_POSITION.CENTER
     plot.data_labels.number_format = '#,##0.##" €";-#,##0.##" €";'
     plot.data_labels.font.name = THEME['font']; plot.data_labels.font.size = Pt(11)
-    plot.data_labels.font.color.rgb = _rgb(THEME['navy'])
+    plot.data_labels.font.color.rgb = _rgb(THEME['white'])
     return chart
 
 
-def _country_card(slide, country, x, y, width, height, years, year_colors, domain_max):
-    totals = country.get('totals', {})
-    _shape(slide, x, y, width, height, THEME['light'], line=THEME['line'], radius=True,
-           gradient=('4420A7', '2238A4'))
-    add_icon(slide, 'global', _x(x + .20), y + .20, .33)
-    _text(slide, country.get('name', country.get('id', 'Country')), x + .68, y + .17, width - 2.53, .65,
-          size=21 if len(country.get('name', '')) < 38 else 17 if len(country.get('name', '')) < 65 else 13,
-          color=THEME['white'], font=THEME['title_font'])
-    _text(slide, 'Budget Local', x + width - 1.82, y + .15, 1.60, .20, size=10, color=THEME['muted'], align=PP_ALIGN.RIGHT)
-    _text(slide, _money(_known_value(totals, 'local')), x + width - 2.14, y + .41, 1.92, .40,
-          size=24, color=THEME['local'], font=THEME['title_font'], align=PP_ALIGN.RIGHT)
-    by_year = {str(group.get('label', '')): group for group in country.get('byYear', [])}
-    blocks = max(1, len(years)); gap = .11
-    block_width = (width - .4 - gap * (blocks - 1)) / blocks
-    for index, year in enumerate(years):
-        bx = x + .2 + index * (block_width + gap); by = y + .98
-        group = by_year.get(year)
-        value = _known_value(group, 'local') if group else None
-        _shape(slide, bx, by, block_width, 1.04, '30288B', radius=True)
-        _shape(slide, bx, by, block_width, .035, year_colors[year])
-        _text(slide, year or 'Anno non specificato', bx + .10, by + .11, block_width - .20, .22, size=11, color=year_colors[year], bold=True)
-        _text(slide, _money(value) if group else 'Nessuna voce', bx + .10, by + .43, block_width - .20, .32, size=16 if blocks <= 3 else 13, color=THEME['ink'], bold=True)
-        if group and group.get('missingLocal'):
-            _text(slide, 'Importo disponibile' if group.get('missingLocal') < group.get('count', 0) else 'Da verificare', bx + .10, by + .79, block_width - .20, .15, size=8, color=THEME['amber'])
-    domains = sorted(country.get('byDomain', []), key=lambda group: -(group.get('local') or 0))
-    _text(slide, 'Domini · budget Local', x + .20, y + 2.26, width - .40, .24,
+def _short(value, length):
+    text = str(value or '')
+    return text if len(text) <= length else text[:length - 1] + '…'
+
+
+def _count_bars(slide, groups, title, x, y, width, height, color):
+    # Ranking by row count is separate from ranking by investment.
+    counts = [{'label': group['label'], 'count': group.get('count', 0),
+               'global': group.get('count', 0), 'local': 0,
+               'selected': group.get('count', 0)} for group in groups]
+    shown = compact_groups(counts, limit=6, scope='global', other_label='Altri')
+    _text(slide, title, x, y, width, .35, size=22, font=THEME['title_font'], color=color)
+    maximum = max([group['count'] for group in shown] + [1])
+    row_height = min(.49, (height - .50) / max(1, len(shown)))
+    for index, group in enumerate(shown):
+        yy = y + .53 + index * row_height
+        _text(slide, _short(group['label'], 40), x, yy, width * .49, row_height,
+              size=12, valign=MSO_ANCHOR.MIDDLE)
+        bx = x + width * .51; bar_width = width * .35
+        _shape(slide, bx, yy + row_height / 2 - .07, bar_width, .14, 'E9EAF5', radius=True)
+        if group['count']:
+            _shape(slide, bx, yy + row_height / 2 - .07,
+                   bar_width * group['count'] / maximum, .14, color)
+        _text(slide, str(group['count']), x + width * .89, yy, width * .11, row_height,
+              size=13, bold=True, align=PP_ALIGN.RIGHT, valign=MSO_ANCHOR.MIDDLE)
+
+
+def _tint(color, amount):
+    amount = min(1, max(0, amount))
+    return ''.join(f'{round(255 + (int(color[index:index + 2], 16) - 255) * amount):02X}'
+                   for index in (0, 2, 4))
+
+
+def _country_cell_group(country, column):
+    members = set(column.get('members', [column['label']]))
+    groups = [group for group in country.get('byYear', []) if str(group['label']) in members]
+    return combine_groups(groups, column['label']) if groups else None
+
+
+def _country_matrix(slide, countries, columns, maximum):
+    label_width, total_width = 3.15, 1.75
+    column_width = (12.17 - label_width - total_width) / max(1, len(columns))
+    _text(slide, 'Country / legal entity', MARGIN, 1.65, label_width, .25,
           size=11, color=THEME['muted'])
-    _bars(slide, domains[:3], x + .20, y + 2.65, width - .40, 1.35,
-          scope='local', row_height=.42, scale_max=domain_max)
-    if len(domains) > 3:
-        _text(slide, f'Altri {len(domains) - 3} domini nelle note della slide.', x + .20, y + 4.04,
-              width - .40, .18, size=8, color=THEME['muted'])
-    if totals.get('missingLocal'):
-        _text(slide, 'Le attribuzioni non determinate sono escluse dagli importi.', x + .20, y + height - .35,
-              width - .40, .20, size=9, color=THEME['amber'])
+    for index, column in enumerate(columns):
+        x = MARGIN + label_width + index * column_width
+        _text(slide, column['label'], x + .08, 1.65, column_width - .16, .25,
+              size=12, bold=True, color=THEME['years'][index % len(THEME['years'])])
+    total_x = MARGIN + 12.17 - total_width
+    _text(slide, 'Totale Local', total_x, 1.65, total_width - .10, .25,
+          size=11, bold=True, color=THEME['navy'], align=PP_ALIGN.RIGHT)
+    row_height = .39
+    for row_index, country in enumerate(countries):
+        y = 2.02 + row_index * row_height
+        _shape(slide, MARGIN, y, 12.17, .36, 'F8F9FC', radius=True)
+        _text(slide, _short(country.get('name', country.get('id', '')), 40),
+              MARGIN + .09, y + .035, label_width - .18, .28,
+              size=12 if len(country.get('name', '')) < 30 else 10, color=THEME['navy'])
+        for index, column in enumerate(columns):
+            x = MARGIN + label_width + index * column_width
+            color = THEME['years'][index % len(THEME['years'])]
+            group = _country_cell_group(country, column)
+            value = _known_value(group, 'local') if group else None
+            partial = bool(group and value is not None and group.get('missingLocal'))
+            text = '—' if not group else 'n.d.' if value is None else _money(value) + (' †' if partial else '')
+            fraction = max(0, value or 0) / maximum
+            _shape(slide, x + .025, y, column_width - .05, .36,
+                   _tint(color, .04 + .22 * min(fraction, 1)), radius=True)
+            if fraction > 0:
+                _shape(slide, x + .06, y + .325, (column_width - .12) * min(fraction, 1), .022, color)
+            _text(slide, text, x + .08, y + .035, column_width - .16, .28,
+                  size=12 if len(columns) <= 3 else 10, color=THEME['ink'])
+        totals = country.get('totals', {})
+        total = _known_value(totals, 'local')
+        _text(slide, _money(total) + (' †' if total is not None and totals.get('missingLocal') else ''),
+              total_x, y + .035, total_width - .10, .28,
+              size=12, bold=True, color=THEME['navy'], align=PP_ALIGN.RIGHT)
+
+
+def _row_investment(row, scope):
+    values = ([row.get('globalBudget')] if scope == 'global' else [row.get('displayLocal')]
+              if scope == 'local' else [row.get('globalBudget'), row.get('displayLocal')])
+    known = [value for value in values if isinstance(value, (int, float)) and not isinstance(value, bool)]
+    return sum(known) if known else None
+
+
+def _remediation_list(slide, rows, scope):
+    ranked = sorted(rows, key=lambda row: (_row_investment(row, scope) is None,
+                    -(_row_investment(row, scope) or 0), str(row.get('key', ''))))
+    for label, x, color in [('Global', 8.95, THEME['global']), ('Local selezionato', 10.78, THEME['local'])]:
+        _text(slide, label, x, 1.63, 1.75, .22, size=10, bold=True, color=color)
+    for index, row in enumerate(ranked[:6]):
+        y = 1.97 + index * .73
+        _shape(slide, MARGIN, y, 12.17, .67, THEME['light'], radius=True)
+        _shape(slide, MARGIN, y, .04, .67, THEME['purple'])
+        name = str(row.get('name', ''))
+        _text(slide, _short(name, 125), .78, y + .055, 7.84, .37,
+              size=13 if len(name) < 85 else 11, bold=True, color=THEME['navy'])
+        _text(slide, _short(f'{row.get("year") or "Anno non specificato"} · '
+              f'{row.get("domain") or "Dominio non specificato"} · '
+              f'{row.get("id") or "ID assente"} · {row.get("key", "")}', 115),
+              .78, y + .46, 7.84, .16, size=8.5, color=THEME['muted'])
+        _text(slide, _money(row.get('globalBudget')), 8.95, y + .22, 1.68, .28,
+              size=13, bold=True, color=THEME['global'])
+        _text(slide, _money(row.get('displayLocal')), 10.78, y + .22, 1.75, .28,
+              size=13, bold=True, color=THEME['local'])
 
 
 def create_presentation(report: dict) -> bytes:
-    """Return a standard editable PPTX. All numbers come from the validated report."""
+    """Export an executive deck of at most 15 slides, with full source notes.
+
+    The cap is structural: 1 cover + 4 dividers + 3 budget + up to 3 years +
+    up to 2 country matrices + 2 remediation slides. Extra categories are
+    combined explicitly; no original source row is removed from the notes.
+    """
     rows = report.get('rows') or []
     if not rows:
         raise ValueError('Non ci sono remediation da esportare con i filtri selezionati.')
     prs = Presentation(); prs.slide_width = Inches(W); prs.slide_height = Inches(H)
     _apply_reference_theme(prs)
     prs.core_properties.title = (report.get('projectName') or 'Progetto') + ' — Piano di remediation'
-    prs.core_properties.subject = 'Dati filtrati dal workbook: budget Global, Local e country'
+    prs.core_properties.subject = 'Sintesi dei dati filtrati: budget, anni, country e remediation'
     prs.core_properties.author = 'Data Visualization Tool'
     scope = report.get('scope', 'all'); totals = report.get('totals', {})
     source = report.get('source', {})
-    years = sorted({str(group.get('label', '')) for group in report.get('byYear', [])})
-    year_colors = {year: THEME['years'][index % len(THEME['years'])] for index, year in enumerate(years)}
+    annual = report.get('byYear') or _groups_from_rows(rows, 'year', scope)
+    domains = report.get('byDomain') or _groups_from_rows(rows, 'domain', scope)
+    owners = report.get('byOwner') or _groups_from_rows(rows, 'owner', scope)
 
-    slide = _slide(prs, report, 'Piano di remediation', f'{report.get("projectName", "Progetto")} · {_scope_label(scope)}', section='Riepilogo')
-    cover_title=next(shape for shape in slide.shapes if shape.name == 'dvt-title')
-    cover_title.left=Inches(1.08)
-    cover_title.top=Inches(1.60);cover_title.width=Inches(6.50);cover_title.height=Inches(2.75)
-    cover_title.text_frame.text='Piano di\nremediation'
-    cover_title.text_frame.margin_left=cover_title.text_frame.margin_top=0
+    slide = _slide(prs, report, 'Piano di remediation',
+                   f'{report.get("projectName", "Progetto")} · {_scope_label(scope)}',
+                   section='Riepilogo', dark=True)
+    cover_title = next(shape for shape in slide.shapes if shape.name == 'dvt-title')
+    cover_title.left = Inches(1.08); cover_title.top = Inches(1.60)
+    cover_title.width = Inches(6.50); cover_title.height = Inches(2.75)
+    cover_title.text_frame.text = 'Piano di\nremediation'
     for paragraph in cover_title.text_frame.paragraphs:
-        paragraph.font.name=THEME['title_font'];paragraph.font.size=Pt(88)
-        paragraph.font.color.rgb=_rgb(THEME['white']);paragraph.line_spacing=.75
+        paragraph.font.name = THEME['title_font']; paragraph.font.size = Pt(88)
+        paragraph.font.color.rgb = _rgb('FFFFFF'); paragraph.line_spacing = .75
         gradient_fill(paragraph._p.get_or_add_pPr().get_or_add_defRPr(), ('FFFFFF', 'ACEAFF'))
-    # The cover's project label moves below the large headline, instead of competing with it.
-    cover_subtitle=next(shape for shape in slide.shapes if shape.name == 'dvt-subtitle')
-    cover_subtitle.top=Inches(4.50);cover_subtitle.width=Inches(6.60);cover_subtitle.height=Inches(.66)
+    cover_subtitle = next(shape for shape in slide.shapes if shape.name == 'dvt-subtitle')
+    cover_subtitle.top = Inches(4.50); cover_subtitle.width = Inches(6.60); cover_subtitle.height = Inches(.66)
     for paragraph in cover_subtitle.text_frame.paragraphs:
-        paragraph.font.size=Pt(19)
+        paragraph.font.size = Pt(19)
     _stat(slide, 8.46, 1.64, 4.30, 'Budget selezionato', _selected_value(totals, scope))
     _stat(slide, 8.46, 3.08, 4.30, 'Budget Global', _known_value(totals, 'global'), 'Importo di gruppo')
     _stat(slide, 8.46, 4.52, 4.30, 'Budget Local', _known_value(totals, 'local'), 'Totale disponibile')
-    _text(slide, 'DATA VISUALIZATION TOOL', MARGIN, .63, 7.3, .28, size=13, color=THEME['local'])
-    _text(slide, f'{len(rows)} righe di remediation · {len(report.get("countries", []))} entità · {len(years)} annualità', MARGIN, 5.36, 7.3, .35, size=14, color=THEME['ink'])
+    _text(slide, 'DATA VISUALIZATION TOOL', MARGIN, .63, 7.3, .28, size=13, color='ACEAFF')
+    _text(slide, f'{len(rows)} righe di remediation · {len(report.get("countries", []))} entità · {len(annual)} annualità',
+          MARGIN, 5.36, 7.3, .35, size=14)
     for index, (label, kind) in enumerate([('Global / Local', 'budget'), ('Anni', 'year'), ('Country', 'global')]):
         x = MARGIN + index * 2.45
         add_icon(slide, kind, _x(x), 5.90, .30)
-        _text(slide, label, x + .42, 5.91, 1.70, .24, size=11, color=THEME['local'])
+        _text(slide, label, x + .42, 5.91, 1.70, .24, size=11, color='ACEAFF')
         if index < 2:
-            _text(slide, '›', x + 2.06, 5.89, .23, .28, size=16, color=THEME['local'])
-    _text(slide, 'Fonte: ' + source.get('filename', ''), MARGIN, 6.31, 7.6, .23, size=10, color=THEME['muted'])
+            _text(slide, '›', x + 2.06, 5.89, .23, .28, size=16, color='ACEAFF')
+    _text(slide, 'Fonte: ' + _short(source.get('filename', ''), 100), MARGIN, 6.31, 7.6, .23,
+          size=10, color=_tone(slide, 'muted'))
     if totals.get('missingGlobal') or totals.get('missingLocal'):
-        _text(slide, 'Totali sulle stime disponibili; attribuzioni incerte separate.', MARGIN, 6.62, W - MARGIN * 2, .22, size=10, color=THEME['amber'])
+        _text(slide, 'Totali sulle stime disponibili; attribuzioni incerte separate.', MARGIN, 6.62,
+              W - MARGIN * 2, .22, size=10, color=_tone(slide, 'amber'))
     _notes(slide, _source_notes(report, '\n'.join(_filter_lines(report))))
 
-    annual = report.get('byYear', [])
-    for index, page in enumerate(_chunks(annual, 8)):
-        slide = _slide(prs, report, 'Budget per anno', 'Importi disponibili nel perimetro selezionato' + (f' · {index + 1}' if len(annual) > 8 else ''), section='Anni')
-        _annual_chart(slide, page, .75, 1.80, 11.8, 4.60, scope)
-        _text(slide, 'Global: budget di gruppo. Local: importo complessivo o attribuito alle entità selezionate.', MARGIN, 6.55, 12.1, .23, size=10, color=THEME['muted'])
-        _notes(slide, _source_notes(report, 'Budget annuali: ' + json.dumps(page, ensure_ascii=False, default=str)))
+    _divider(prs, report, 'Budget')
+    annual_overview = compact_years(annual, limit=8, scope=scope)
+    slide = _slide(prs, report, 'Budget per anno', 'Importi disponibili nel perimetro selezionato')
+    _annual_chart(slide, annual_overview, .75, 1.80, 11.8, 4.60, scope)
+    _text(slide, 'Global: budget di gruppo. Local: importo complessivo o attribuito alle entità selezionate.',
+          MARGIN, 6.55, 12.1, .23, size=10, color=THEME['muted'])
+    _notes(slide, _source_notes(report, 'Budget annuali completi: ' + json.dumps(annual, ensure_ascii=False, default=str)))
+    for groups, title, other in [(domains, 'Budget per dominio', 'Altri domini'),
+                                 (owners, 'Budget per owner', 'Altri owner')]:
+        shown = compact_groups(groups, limit=8, scope=scope, other_label=other)
+        subtitle = _scope_label(scope) + (' · 7 voci principali e altre aggregate' if len(groups) > 8 else '')
+        slide = _slide(prs, report, title, subtitle)
+        _legend(slide, MARGIN, 1.64, scope=scope)
+        _bars(slide, shown, MARGIN, 2.15, W - MARGIN * 2, 4.40, scope=scope)
+        _notes(slide, _source_notes(report, 'Gruppi completi: ' + json.dumps(groups, ensure_ascii=False, default=str)))
 
-    for field, title in [('byDomain', 'Budget per dominio'), ('byOwner', 'Budget per owner')]:
-        groups = report.get(field, [])
-        for index, page in enumerate(_chunks(groups, 8)):
-            slide = _slide(prs, report, title, _scope_label(scope) + (f' · pagina {index + 1} di {math.ceil(len(groups) / 8)}' if len(groups) > 8 else ''), section='Global / Local')
-            _legend(slide, MARGIN, 1.64, scope=scope)
-            _bars(slide, page, MARGIN, 2.15, W - MARGIN * 2, 4.45, scope=scope)
-            _notes(slide, _source_notes(report, json.dumps(page, ensure_ascii=False, default=str)))
+    _divider(prs, report, 'Anni')
+    for year_group in compact_years(annual, limit=3, scope=scope):
+        year = str(year_group.get('label', 'Anno non specificato'))
+        year_rows = year_group.get('rows') or []
+        members = year_group.get('members', [year])
+        if not year_rows:
+            year_rows = [row for row in rows if str(row.get('year') or 'Non specificato') in members]
+        year_domains = _groups_from_rows(year_rows, 'domain', scope)
+        year_owners = _groups_from_rows(year_rows, 'owner', scope)
+        subtitle = f'{year_group.get("count", len(year_rows))} righe selezionate'
+        if len(members) > 1:
+            subtitle += f' · {len(members)} annualità aggregate; dettaglio nelle note'
+        slide = _slide(prs, report, f'{year} · Budget e remediation', subtitle)
+        _stat(slide, MARGIN, 1.64, 3.93, 'Budget selezionato', _selected_value(year_group, scope))
+        _stat(slide, 4.70, 1.64, 3.93, 'Global', _known_value(year_group, 'global'))
+        _stat(slide, 8.82, 1.64, 3.93, 'Local', _known_value(year_group, 'local'))
+        _bars(slide, compact_groups(year_domains, limit=6, scope=scope, other_label='Altri domini'),
+              MARGIN, 3.22, 5.95, 3.33, scope=scope, title='Domini')
+        _bars(slide, compact_groups(year_owners, limit=6, scope=scope, other_label='Altri owner'),
+              6.95, 3.22, 5.79, 3.33, scope=scope, title='Owner')
+        _notes(slide, _source_notes(report, json.dumps({'years': members, 'domains': year_domains,
+                  'owners': year_owners}, ensure_ascii=False, default=str)))
 
-    # Year drilldown: no categories disappear; additional categories get further slides.
-    for year_group in annual:
-        year_rows = year_group.get('rows') or [row for row in rows if str(row.get('year') or 'Non specificato') == str(year_group.get('label'))]
-        domains = _groups_from_rows(year_rows, 'domain', scope)
-        owners = _groups_from_rows(year_rows, 'owner', scope)
-        domain_pages, owner_pages = _chunks(domains, 7), _chunks(owners, 7)
-        count = max(len(domain_pages), len(owner_pages), 1)
-        for index in range(count):
-            year = str(year_group.get('label', 'Anno non specificato'))
-            slide = _slide(prs, report, f'{year} · Budget e remediation', f'{year_group.get("count", len(year_rows))} righe selezionate' + (f' · pagina {index + 1} di {count}' if count > 1 else ''), section='Dettaglio annuale')
-            _stat(slide, MARGIN, 1.64, 3.93, 'Budget selezionato', _selected_value(year_group, scope))
-            _stat(slide, 4.70, 1.64, 3.93, 'Global', _known_value(year_group, 'global'))
-            _stat(slide, 8.82, 1.64, 3.93, 'Local', _known_value(year_group, 'local'))
-            _bars(slide, domain_pages[index] if index < len(domain_pages) else [], MARGIN, 3.22, 5.95, 3.45, scope=scope, title='Domini')
-            _bars(slide, owner_pages[index] if index < len(owner_pages) else [], 6.95, 3.22, 5.79, 3.45, scope=scope, title='Owner')
-            _notes(slide, _source_notes(report, json.dumps({'year': year, 'domains': domains, 'owners': owners}, ensure_ascii=False, default=str)))
-
+    _divider(prs, report, 'Country / legal entity')
     countries = report.get('countries', [])
-    if countries:
-        # Two wide country cards keep both the entity/year relation and exact values legible.
-        country_pages = _chunks(countries, 2)
-        year_pages = _chunks(years, 4) or [[]]
-        for country_page in country_pages:
-            for year_page in year_pages:
-                slide = _slide(prs, report, 'Country · Budget Local per anno', 'Solo importi attribuibili alle entità. Il budget Global resta di gruppo.', section='Country / legal entity')
-                domain_max=max([group.get('local') or 0 for country in country_page for group in country.get('byDomain', [])]+[1])
-                for index, country in enumerate(country_page):
-                    _country_card(slide, country, MARGIN + index * 6.20, 1.72, 6.0, 4.62, year_page, year_colors, domain_max)
-                _text(slide, 'Barre dei domini sulla stessa scala nella slide. Importi non attribuibili esclusi; dettaglio completo nelle note.', MARGIN, 6.56, 12.1, .23, size=10, color=THEME['muted'])
-                _notes(slide, _source_notes(report, 'Dettaglio completo delle country della slide:\n' + json.dumps(country_page, ensure_ascii=False, default=str)))
+    shown_countries = compact_countries(countries, limit=22)
+    # A per-entity Local-budget filter can include rows absent from the group
+    # overview. Build country columns from those actual associations as well.
+    country_years = defaultdict(list)
+    for country in countries:
+        for group in country.get('byYear', []):
+            country_years[str(group['label'])].append(group)
+    matrix_years = [combine_groups(groups, label) for label, groups in country_years.items()]
+    columns = compact_years(matrix_years or annual, limit=5, scope='local')
+    maximum = max([_known_value(group, 'local') or 0 for country in shown_countries
+                   for column in columns for group in [_country_cell_group(country, column)] if group] + [1])
+    country_pages = _chunks(shown_countries, 11) or [[]]
+    for index, page in enumerate(country_pages):
+        subtitle = f'{len(countries)} entità nel perimetro · {index + 1}/{len(country_pages)}'
+        slide = _slide(prs, report, 'Budget Local per country e anno', subtitle)
+        if page:
+            _country_matrix(slide, page, columns, maximum)
+        else:
+            _text(slide, 'Nessuna attribuzione per country nel perimetro selezionato.',
+                  MARGIN, 2.40, 12.17, .60, size=20, color=THEME['navy'])
+        _text(slide, 'Il budget Global resta di gruppo. — nessuna voce · n.d. stima assente · † importo parziale. '
+              'Attribuzioni incerte escluse.', MARGIN, 6.55, 12.17, .23, size=9, color=THEME['muted'])
+        _notes(slide, _source_notes(report, 'Dettaglio completo delle country:\n' +
+                  json.dumps(countries if index == 0 else page, ensure_ascii=False, default=str)))
 
-    # All rows, including duplicate or absent source IDs, remain represented independently.
-    # Their long original descriptions and exact fields remain unabridged in speaker notes.
-    for index, page in enumerate(_chunks(rows, 3)):
-        slide = _slide(prs, report, 'Remediation selezionate', f'Appendice · {index * 3 + 1}–{index * 3 + len(page)} di {len(rows)} · testi completi nelle note', section='Appendice')
-        for offset, row in enumerate(page):
-            y = 1.65 + offset * 1.66
-            _shape(slide, MARGIN, y, 12.17, 1.50, THEME['light'], radius=True,
-                   gradient=('4620AC', '2137A3'))
-            _shape(slide, MARGIN, y, .045, 1.50, THEME['local'], gradient=('C8A9FF', 'ACEAFF'))
-            key = str(row.get('key') or f'{row.get("sheet", "")}:{row.get("excelRow", "")}')
-            _text(slide, key + (' · ' + str(row['id']) if row.get('id') else ' · ID assente'), .78, y + .10, 3.1, .22, size=10, color=THEME['muted'])
-            name = str(row.get('name', ''))
-            _text(slide, name if len(name)<=180 else name[:177]+'…', .78, y + .37, 7.55, .60, size=16 if len(name) < 120 else 12, color=THEME['white'], bold=True)
-            _text(slide, f'{row.get("domain") or "Dominio non specificato"} · {row.get("owner") or "Owner non specificato"} · {row.get("year") or "Anno non specificato"}', .78, y + 1.06, 7.60, .28, size=10, color=THEME['muted'])
-            _text(slide, 'Global', 8.80, y + .13, 1.68, .19, size=9, color=THEME['muted'])
-            _text(slide, _money(row.get('globalBudget')), 8.80, y + .40, 1.68, .30, size=15, color=THEME['global'], bold=True)
-            _text(slide, 'Local selezionato', 10.69, y + .13, 1.84, .19, size=9, color=THEME['muted'])
-            _text(slide, _money(row.get('displayLocal')), 10.69, y + .40, 1.84, .30, size=15, color=THEME['local'], bold=True)
-            _text(slide, 'Complete ' + _money(row.get('localComplete')), 8.80, y + .91, 1.80, .24, size=8.5, color=THEME['muted'])
-            _text(slide, 'Business ' + _money(row.get('localBusiness')), 10.69, y + .91, 1.84, .24, size=8.5, color=THEME['muted'])
-            if row.get('displayLocal') is None:
-                _text(slide, 'Attribuzione / stima da verificare', 8.80, y + 1.19, 3.71, .18, size=8, color=THEME['amber'])
-        _notes(slide, _source_notes(report, 'RIGHE ORIGINALI COMPLETE — nessuna deduplicazione o modifica dei testi:\n' + json.dumps(page, ensure_ascii=False, indent=2, default=str)))
+    _divider(prs, report, 'Remediation')
+    cut = (len(rows) + 1) // 2
+    marker = 'RIGHE ORIGINALI COMPLETE — nessuna deduplicazione o modifica dei testi:\n'
+    slide = _slide(prs, report, 'Remediation per anno e dominio', 'Numero di voci nel perimetro selezionato')
+    _stat(slide, MARGIN, 1.64, 3.93, 'Voci di remediation', str(len(rows)))
+    _stat(slide, 4.70, 1.64, 3.93, 'Domini', str(len(domains)))
+    _stat(slide, 8.82, 1.64, 3.93, 'Owner', str(len(owners)))
+    _count_bars(slide, annual, 'Anni', MARGIN, 3.22, 5.95, 3.22, THEME['purple'])
+    _count_bars(slide, domains, 'Domini', 6.95, 3.22, 5.79, 3.22, THEME['blue'])
+    _text(slide, 'Tutte le voci e i testi originali sono conservati nelle note delle ultime due slide.',
+          MARGIN, 6.55, 12.17, .23, size=10, color=THEME['muted'])
+    _notes(slide, _source_notes(report, marker + json.dumps(rows[:cut], ensure_ascii=False, indent=2, default=str)))
 
-    # Short method/filter appendix; long filter values are paginated rather than cut.
-    note_lines = _filter_lines(report)
-    note_lines += ['Fonte: ' + source.get('filename', ''), 'SHA-256: ' + source.get('sha256', '')]
-    note_lines += [str(note) for note in report.get('notes', [])]
-    wrapped = []
-    for line in note_lines:
-        wrapped.extend(textwrap.wrap(line, width=115, replace_whitespace=False) or [''])
-        wrapped.append('')
-    for index, page in enumerate(_chunks(wrapped, 17)):
-        slide = _slide(prs, report, 'Dati e filtri', 'Perimetro dell’esportazione e note della fonte', section='Appendice')
-        _text(slide, '\n'.join(page), MARGIN, 1.66, 12.17, 4.99, size=13, color=THEME['ink'])
-        _notes(slide, _source_notes(report, '\n'.join(note_lines)))
+    slide = _slide(prs, report, 'Remediation per investimento',
+                   f'{min(6, len(rows))} di {len(rows)} voci · Ordinate per budget selezionato ({_scope_label(scope)})')
+    _remediation_list(slide, rows, scope)
+    _text(slide, 'Sintesi dei dati filtrati. Filtri, note della fonte e testi completi sono nelle note della presentazione.',
+          MARGIN, 6.55, 12.17, .23, size=10, color=THEME['muted'])
+    method = '\n'.join(_filter_lines(report)) + '\nNote della fonte: ' + json.dumps(report.get('notes', []), ensure_ascii=False)
+    _notes(slide, _source_notes(report, method + '\n' + marker +
+                               json.dumps(rows[cut:], ensure_ascii=False, indent=2, default=str)))
 
+    if len(prs.slides) > MAX_SLIDES:
+        raise ValueError('La presentazione supera il limite di 15 slide.')
     output = BytesIO(); prs.save(output)
     return apply_presentation_style(output.getvalue())
