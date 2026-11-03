@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '..');
 const data = JSON.parse(execFileSync(process.env.PYTHON || 'python', ['-c',
   "import json,sys;sys.path.insert(0,'tests');from fixtures import make_workbook;from app.workbook import parse_workbook;print(json.dumps(parse_workbook(make_workbook(),'demo.xlsx')))"
 ], {cwd:root, encoding:'utf8'}));
-const filters = patch => ({query:'',sheets:['Remediations'],years:[],domains:[],owners:[],entities:[],scope:'all',localBudget:'all',nis2:'all',priority:'all',...patch});
+const filters = patch => ({query:'',sheets:['Remediations'],years:null,domains:null,owners:null,entities:null,scope:'all',localBudget:'all',nis2:'all',priority:'all',...patch});
 const filtered = patch => M.filterRows(data.rows,filters(patch));
 const source = row => data.rows.find(r=>r.key===`Remediations:${row}`);
 const entity = index => `Demo Entity ${String(index).padStart(2,'0')}`;
@@ -51,7 +51,7 @@ test('yes, no and unspecified priority remain distinct',()=>{
   assert.equal(filtered({priority:'missing'}).length,2);
 });
 test('NIS2 no and unknown values are never combined',()=>{
-  const yes=filtered({sheets:[],nis2:'yes'}),no=filtered({sheets:[],nis2:'no'}),missing=filtered({sheets:[],nis2:'missing'});
+  const yes=filtered({sheets:null,nis2:'yes'}),no=filtered({sheets:null,nis2:'no'}),missing=filtered({sheets:null,nis2:'missing'});
   assert.equal(yes.length+no.length+missing.length,7);
   assert.ok(no.every(r=>r.nis2.toLowerCase()==='no'));
   assert.ok(missing.every(r=>!r.nis2));
@@ -116,4 +116,83 @@ test('money formatting distinguishes absent estimates, zero and cents',()=>{
 test('empty result remains a real zero-row result',()=>{
   const rows=filtered({query:'does not exist in the synthetic source'});
   assert.equal(rows.length,0);assert.equal(M.totals(rows).count,0);
+});
+
+test('explicitly empty multiselects mean no results across every dimension',()=>{
+  for (const key of ['sheets','years','domains','owners','entities','nis2','priority']) {
+    assert.deepEqual(filtered({[key]:[]}),[],`${key} empty must select nothing`);
+  }
+  assert.deepEqual(filtered({entities:[],entityScope:'all'}),[]);
+});
+test('null and absent selections retain the unrestricted pure-model behavior',()=>{
+  assert.equal(M.filterRows(data.rows,{}).length,7);
+  assert.equal(M.filterRows(data.rows,{sheets:null,years:null,domains:null,owners:null,entities:null}).length,7);
+  assert.equal(M.localAmount(source(6)),810);
+  assert.equal(M.localAmount(source(6),null),810);
+  assert.equal(M.localAmount(source(6),[]),0);
+});
+test('all checked options preserve group totals including ambiguous source budgets',()=>{
+  const all={
+    sheets:[...new Set(data.rows.map(r=>r.sheet))],
+    years:[...new Set(data.rows.map(r=>String(r.year)))],
+    domains:[...new Set(data.rows.map(r=>r.domain))],
+    owners:[...new Set(data.rows.map(r=>r.owner||'Non specificato'))],
+    entities:data.entities.map(e=>e.id),entityScope:'all',
+    nis2:['yes','no','missing'],priority:['yes','no','missing'],
+  };
+  const rows=M.filterRows(data.rows,all);
+  assert.equal(rows.length,7);
+  assert.equal(M.totals(rows,null).local,3490);
+  assert.equal(M.totals(rows,null).missingLocal,0);
+  assert.deepEqual(M.aggregate(rows,'sheet',null).map(g=>[g.label,g.local]),[['Remediations',3190],['OT',300]]);
+});
+test('all-country positive budget filter uses source totals rather than fabricated allocations',()=>{
+  const rows=filtered({entities:data.entities.map(e=>e.id),entityScope:'all',localBudget:'positive'});
+  assert.deepEqual(rows.map(r=>r.key),['Remediations:4','Remediations:5','Remediations:6']);
+  assert.equal(M.totals(rows,null).local,3190);
+  assert.ok(rows.some(r=>r.allocationStatus==='ambiguous'));
+});
+test('partial country selection uses allocations and retains missing and ambiguous distinctions',()=>{
+  const entities=[entity(6)];
+  const rows=filtered({entities,entityScope:'selected'});
+  assert.ok(!rows.some(r=>r.key==='Remediations:5'));
+  assert.ok(rows.some(r=>r.key==='Remediations:6'));
+  const totals=M.totals(rows,entities);
+  assert.equal(totals.local,100);
+  assert.equal(totals.unresolvedLocal,810);
+  assert.equal(totals.missingLocal,2);
+});
+test('status arrays allow multiple checked values and keep legacy string choices working',()=>{
+  const nis2=filtered({nis2:['yes','missing']});
+  assert.equal(nis2.length,4);
+  assert.ok(nis2.every(r=>r.nis2.toLowerCase()!=='no'));
+  const priority=filtered({priority:['no','missing']});
+  assert.equal(priority.length,4);
+  assert.ok(priority.every(r=>r.priority!=='yes'));
+  assert.deepEqual(filtered({nis2:['yes']}).map(r=>r.key),filtered({nis2:'yes'}).map(r=>r.key));
+  assert.deepEqual(filtered({priority:['missing']}).map(r=>r.key),filtered({priority:'missing'}).map(r=>r.key));
+});
+test('bulk partial selections combine without changing the selected values',()=>{
+  const selections={years:['2027','2029'],domains:['Governance'],owners:['Supplier A'],
+    entities:data.entities.map(e=>e.id),entityScope:'all',priority:['yes','missing']};
+  const snapshot=JSON.stringify(selections);
+  const rows=filtered(selections);
+  assert.deepEqual(rows.map(r=>r.key),['Remediations:4','Remediations:8']);
+  assert.equal(JSON.stringify(selections),snapshot);
+  assert.equal(M.totals(rows,null).local,1380);
+});
+test('empty entity amounts are zero while missing estimates in selected entities stay null',()=>{
+  assert.equal(M.localAmount(source(4),[]),0);
+  assert.equal(M.localAmount(source(8),[]),0);
+  assert.equal(M.localAmount(source(8),[entity(1)]),null);
+  assert.equal(M.localAmount(source(8),[entity(21)]),0);
+  assert.equal(M.localAmount(source(4),[entity(1),entity(1)]),100);
+});
+test('CSV scope labels and values distinguish whole group and selected entities',()=>{
+  const group=M.csv([source(6)],null),partial=M.csv([source(6)],[entity(1)]),empty=M.csv([source(4)],[]);
+  assert.ok(group.includes('Budget Local complessivo EUR'));
+  assert.ok(group.includes('"3000";"810";'));
+  assert.ok(partial.includes('Budget Local EUR (entità selezionate)'));
+  assert.ok(partial.includes('"3000";"";'));
+  assert.ok(empty.includes('"1000";"0";'));
 });

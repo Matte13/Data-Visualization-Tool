@@ -1,6 +1,6 @@
 # Tracciato Excel supportato
 
-Atlas importa progetti diversi con lo **stesso tracciato**, non qualsiasi file Excel. I contenuti delle righe, anni, domini, owner, entity e gruppi possono cambiare. I fogli obbligatori sono `LE_List` e `Remediations`; `OT` è facoltativo. Gli altri fogli non vengono interpretati come sorgenti aggiuntive di remediation.
+Data Visualization Tool importa progetti diversi con lo **stesso tracciato**, non qualsiasi file Excel. I contenuti delle righe, anni, domini, owner, entity e gruppi possono cambiare. I fogli obbligatori sono `LE_List` e `Remediations`; `OT` è facoltativo. Gli altri fogli non vengono interpretati come sorgenti aggiuntive di remediation.
 
 ## LE_List
 

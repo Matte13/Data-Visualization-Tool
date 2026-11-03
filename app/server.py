@@ -345,7 +345,7 @@ class ExplorerServer(ThreadingHTTPServer):
 
 
 class ExplorerHandler(BaseHTTPRequestHandler):
-    server_version = "RemediationExplorer/1.0"
+    server_version = "DataVisualizationTool/1.0"
     sys_version = ""
     timeout = 30
 
@@ -442,7 +442,11 @@ class ExplorerHandler(BaseHTTPRequestHandler):
             return self._send(HTTPStatus.OK, content,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 {"Content-Disposition": "attachment; filename*=UTF-8''" + quote(filename)})
-        static = {"/": "index.html", "/index.html": "index.html", "/styles.css": "styles.css", "/app.js": "app.js", "/model.js": "model.js"}
+        static = {
+            "/": "index.html", "/index.html": "index.html",
+            "/styles.css": "styles.css", "/countries.css": "countries.css",
+            "/model.js": "model.js", "/countries.js": "countries.js", "/app.js": "app.js",
+        }
         if path not in static:
             return self._error(HTTPStatus.NOT_FOUND, "Risorsa non trovata.")
         file = self.server.store.root / "web" / static[path]
@@ -501,7 +505,7 @@ class ExplorerHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Remediation Explorer — navigazione Excel locale")
+    parser = argparse.ArgumentParser(description="Data Visualization Tool — navigazione Excel locale")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
@@ -511,7 +515,7 @@ def main():
         server = ExplorerServer((args.host, args.port), store, hosts)
     except (StorageError, ValueError, OSError) as error:
         parser.exit(1, str(error) + "\n")
-    print(f"Remediation Explorer avviato sulla porta {server.server_port}. Archivio: {store.persistence}.", flush=True)
+    print(f"Data Visualization Tool avviato sulla porta {server.server_port}. Archivio: {store.persistence}.", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

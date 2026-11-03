@@ -1,1 +1,1 @@
-"""Remediation Explorer: deterministic, local workbook navigation."""
+"""Data Visualization Tool: deterministic, local workbook navigation."""

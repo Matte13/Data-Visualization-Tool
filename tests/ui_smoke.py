@@ -19,7 +19,7 @@ from playwright.sync_api import sync_playwright, expect
 
 
 def main():
-    with tempfile.TemporaryDirectory(prefix='atlas-browser-') as directory:
+    with tempfile.TemporaryDirectory(prefix='data-visualization-tool-browser-') as directory:
         tmp = Path(directory)
         shutil.copytree(ROOT / 'web', tmp / 'web')
         # No data/base.xlsx: a clean Git checkout must start with a real empty workspace.
@@ -74,8 +74,40 @@ def main():
                 expect(page.locator('.welcome-page')).to_be_visible()
                 assert page.request.get(address+'/api/projects').json()['projects'] == []
                 import_file(alpha, 'alpha.xlsx', 'Alpha project')
-                expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(9590))
-                expect(page.locator('.kpi-value').nth(3)).to_have_text('05')
+                expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(11090))
+                expect(page.locator('.kpi-value').nth(3)).to_have_text('07')
+                # All groups start checked; each master switches all options off/on.
+                assert page.locator('.sidebar nav [data-view]').evaluate_all('(nodes)=>nodes.map(n=>n.dataset.view)') == ['overview','map','table','countries']
+                assert page.locator('[data-view="quality"]').count() == 0
+                expect(page).to_have_title('Data Visualization Tool · Remediation Explorer')
+                for field in ['sheets','years','domains','owners','entities','nis2','priority']:
+                    group=page.locator(f'details[data-group="{field}"]')
+                    group.evaluate('(el)=>{el.open=true}')
+                    master=group.locator('input[data-filter-all]')
+                    expect(master).to_be_checked()
+                    assert group.locator('input[data-filter]').evaluate_all('(nodes)=>nodes.every(n=>n.checked)')
+                    master.uncheck()
+                    expect(page.locator('.kpi-value').nth(3)).to_have_text('00')
+                    expect(page.locator('.empty-state')).to_be_visible()
+                    master.check()
+                    expect(page.locator('.kpi-value').nth(3)).to_have_text('07')
+                page.locator('input[data-filter="domains"][value="Governance"]').uncheck()
+                expect(page.locator('.kpi-value').nth(3)).to_have_text('04')
+                assert page.locator('input[data-filter-all="domains"]').evaluate('(el)=>el.indeterminate')
+                page.locator('input[data-filter-all="domains"]').check()
+                expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(11090))
+                # Preserve both scroll containers, checkbox focus and the actual sidebar node.
+                focus=page.locator('input[data-filter="entities"][value="Alpha Entity 20"]')
+                focus.scroll_into_view_if_needed();focus.focus()
+                before=focus.evaluate('(el)=>({side:el.closest(".sidebar").scrollTop,inner:el.closest(".filter-options").scrollTop})')
+                page.evaluate('window.testSidebar=document.querySelector(".sidebar")')
+                page.keyboard.press('Space')
+                after=focus.evaluate('(el)=>({side:el.closest(".sidebar").scrollTop,inner:el.closest(".filter-options").scrollTop,focused:document.activeElement===el,open:el.closest("details").open})')
+                assert abs(before['side']-after['side'])<1 and abs(before['inner']-after['inner'])<1,(before,after)
+                assert after['focused'] and after['open']
+                assert page.evaluate('window.testSidebar===document.querySelector(".sidebar")')
+                page.keyboard.press('Space')
+                expect(focus).to_be_checked()
                 first_id = project_id('Alpha project')
                 # A failed catalog refresh must not undo a successful project save.
                 def unavailable_catalog(route):
@@ -91,20 +123,20 @@ def main():
                 assert first_id != second_id
                 expect(page.locator('.source-line')).to_contain_text('3 entità')
                 expect(page.locator('input[data-filter="sheets"][value="OT"]')).to_have_count(0)
-                activate(first_id, 9590)
+                activate(first_id, 11090)
                 expect(page.locator('.source-line')).to_contain_text('21 entità')
                 page.locator('#search').fill('backup')
                 expect(page.locator('.kpi-value').nth(3)).to_have_text('01')
                 activate(second_id, 7480)
                 expect(page.locator('#search')).to_have_value('')
                 expect(page.locator('.kpi-value').nth(3)).to_have_text('05')
-                activate(first_id, 9590)
+                activate(first_id, 11090)
                 # Updating one project preserves both the other project and its own initial import.
                 import_file(alpha_update, 'alpha-updated.xlsx', creating=False)
-                expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(9640))
+                expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(11140))
                 activate(second_id, 7480)
                 expect(page.locator('.source-line strong')).to_have_text('beta.xlsx')
-                activate(first_id, 9640)
+                activate(first_id, 11140)
                 # Hold a reset response to prove project-changing actions are guarded while busy.
                 held_reset = []
                 def hold_reset(route):
@@ -115,10 +147,10 @@ def main():
                 expect(page.locator('[data-action="new-project"]')).to_be_disabled()
                 expect(page.locator('[data-action="import"]')).to_be_disabled()
                 expect(page.locator('[data-action="restore"]')).to_be_disabled()
-                expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(9640))
+                expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(11140))
                 assert len(held_reset) == 1
                 held_reset[0].continue_()
-                expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(9590))
+                expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(11090))
                 expect(page.locator('#project-select')).to_be_enabled()
                 expect(page.locator('#project-select')).to_have_value(first_id)
                 page.unroute('**/api/reset*', hold_reset)
@@ -127,13 +159,14 @@ def main():
                 page.locator('[data-owner="Supplier B"]').click()
                 expect(page.locator('.kpi-value').nth(3)).to_have_text('02')
                 expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(3400))
-                page.locator('tbody [data-detail]').first.click()
+                page.locator('.remediation-card[data-detail]').first.click()
                 expect(page.locator('.detail-drawer')).to_be_visible()
                 expect(page.locator('.formula-section code')).to_contain_text('J')
                 page.keyboard.press('Escape')
                 expect(page.locator('.detail-drawer')).to_have_count(0)
                 reset_filters()
                 page.locator('details[data-group="entities"]').evaluate('(el) => {el.open = true}')
+                page.locator('input[data-filter-all="entities"]').uncheck()
                 page.locator('input[data-filter="entities"][value="Alpha Entity 01"]').check()
                 expect(page.locator('details[data-group="entities"]')).to_have_attribute('open','')
                 page.locator('[data-scope="local"]').click()
@@ -143,8 +176,9 @@ def main():
                 page.locator('#search').fill('insurance')
                 expect(page.locator('.kpi-value').nth(1)).to_have_text('Non stimato')
                 page.locator('#search').fill('')
-                expect(page.locator('.kpi-value').nth(3)).to_have_text('05')
+                expect(page.locator('.kpi-value').nth(3)).to_have_text('07')
                 page.locator('details[data-group="entities"]').evaluate('(el) => {el.open = true}')
+                page.locator('input[data-filter-all="entities"]').uncheck()
                 page.locator('input[data-filter="entities"][value="Alpha Entity 01"]').check()
                 expect(page.locator('.context-note')).to_contain_text('810')
                 reset_filters()
@@ -152,7 +186,19 @@ def main():
                 expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(11090))
                 expect(page.locator('.kpi-value').nth(3)).to_have_text('07')
                 reset_filters()
-                page.screenshot(path='/tmp/atlas-multiproject.png',full_page=True)
+                page.screenshot(path='/tmp/data-visualization-tool-multiproject.png',full_page=True)
+                # Country association cards use shared year colors and lead directly to the map.
+                page.locator('.view-tabs [data-view="countries"]').click()
+                expect(page.locator('.country-card')).to_have_count(21)
+                expect(page.locator('.country-investments table')).to_have_count(0)
+                page.evaluate('window.scrollTo(0,0)')
+                page.screenshot(path='/tmp/data-visualization-tool-countries.png',full_page=True)
+                page.locator('.country-year-button[data-entity="Alpha Entity 01"][data-country-year="2028"]').click()
+                expect(page.locator('#concept-map')).to_be_visible()
+                expect(page.locator('.map-path')).to_contain_text('2028')
+                assert page.locator('input[data-filter="entities"]:checked').count()==1
+                assert page.locator('input[data-filter="years"]:checked').count()==1
+                reset_filters()
                 # Mappa, PNG, and standalone export of only the active project.
                 page.locator('.view-tabs [data-view="map"]').click()
                 page.locator('[data-map-year="2028"]').click()
@@ -173,29 +219,34 @@ def main():
                 expect(offline.locator('#project-select')).to_have_count(0)
                 expect(offline.locator('[data-action="new-project"]')).to_have_count(0)
                 expect(offline.locator('[data-action="import"]')).to_have_count(0)
+                offline.locator('.view-tabs [data-view="countries"]').click()
+                expect(offline.locator('.country-card')).to_have_count(21)
+                offline.locator('.country-year-button[data-entity="Alpha Entity 01"][data-country-year="2028"]').click()
+                expect(offline.locator('#concept-map')).to_be_visible()
+                offline.locator('.chip-row [data-action="reset"]').click()
                 offline.locator('.view-tabs [data-view="table"]').click()
-                expect(offline.locator('tbody tr')).to_have_count(5)
+                expect(offline.locator('.remediation-card')).to_have_count(7)
                 offline.locator('[data-action="export-menu"]').click()
                 with offline.expect_download() as event:
                     offline.locator('[data-action="csv"]').click()
                 csvpath=tmp/'rows.csv';event.value.save_as(csvpath)
                 with csvpath.open(encoding='utf-8-sig',newline='') as file:
-                    assert len(list(csv.reader(file,delimiter=';'))) == 6
+                    assert len(list(csv.reader(file,delimiter=';'))) == 8
                 offline.close()
                 cli_html=standalone_html(alpha,'alpha.xlsx')
                 offline=fresh_offline(cli_html)
-                expect(offline.locator('.kpi-value').nth(0)).to_have_text(euro(9590))
+                expect(offline.locator('.kpi-value').nth(0)).to_have_text(euro(11090))
                 offline.close()
                 # Spreadsheet source strings cannot inject HTML/script into the exported view.
                 hostile=copy.deepcopy(store.snapshot())
                 hostile['rows'][0]['name']='</script><img src=x onerror="window.INJECTED=true">'
-                start=cli_html.index('<script>window.ATLAS_DATA=');end=cli_html.index('</script>',start)
+                start=cli_html.index('<script>window.DVT_DATA=');end=cli_html.index('</script>',start)
                 safe_json=json.dumps(hostile,ensure_ascii=False).replace('<','\\u003c')
-                hostile_html=cli_html[:start]+'<script>window.ATLAS_DATA='+safe_json+';'+cli_html[end:]
+                hostile_html=cli_html[:start]+'<script>window.DVT_DATA='+safe_json+';'+cli_html[end:]
                 offline=fresh_offline(hostile_html)
-                expect(offline.locator('.kpi-value').nth(3)).to_have_text('05')
+                expect(offline.locator('.kpi-value').nth(3)).to_have_text('07')
                 offline.locator('.view-tabs [data-view="table"]').click()
-                expect(offline.locator('.name-cell').first).to_contain_text('</script><img')
+                expect(offline.locator('.remediation-title').first).to_contain_text('</script><img')
                 assert offline.evaluate('window.INJECTED') is None
                 offline.close()
                 assert not requests,requests
@@ -217,15 +268,15 @@ def main():
                 page.set_viewport_size({'width':390,'height':844})
                 page.locator('[data-action="menu"]').click()
                 page.locator('.sidebar [data-view="countries"]').click()
-                expect(page.locator('.country-table')).to_be_visible()
+                expect(page.locator('.country-investments')).to_be_visible()
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-                page.screenshot(path='/tmp/atlas-multiproject-mobile.png',full_page=True)
+                page.screenshot(path='/tmp/data-visualization-tool-multiproject-mobile.png',full_page=True)
                 page.set_viewport_size({'width':1440,'height':1100})
                 page.locator('.view-tabs [data-view="overview"]').click()
-                page.pdf(path='/tmp/atlas-multiproject.pdf',format='A4',landscape=True,print_background=True)
+                page.pdf(path='/tmp/data-visualization-tool-multiproject.pdf',format='A4',landscape=True,print_background=True)
                 assert not errors,errors
                 browser.close()
-                print('UI PASS: empty boot, multiple projects, different LE groups, saved catalog recovery, delayed reset guard, switch/update/reset isolation, filters, map/PNG, offline HTML, CSV, XSS, restart, mobile, PDF')
+                print('UI PASS: empty boot, multiple projects, different LE groups, saved catalog recovery, delayed reset guard, switch/update/reset isolation, all/none filters, sidebar scroll/focus, visual country links, map/PNG, offline HTML, CSV, XSS, restart, mobile, PDF')
         finally:
             server.shutdown();server.server_close();thread.join(timeout=3)
 
