@@ -1,0 +1,2 @@
+# Optional for local use; included in the container image.
+psycopg[binary]==3.2.10

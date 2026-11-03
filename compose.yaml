@@ -1,0 +1,37 @@
+# Default: docker compose up --build (local filesystem persistence).
+# PostgreSQL: set DATABASE_URL and POSTGRES_PASSWORD in .env, then run
+# docker compose --profile postgres up --build. Example DATABASE_URL:
+# postgresql://explorer:<your-password>@db:5432/remediation
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+    volumes:
+      - workbook-state:/app/runtime
+    restart: unless-stopped
+  db:
+    image: postgres:16-alpine
+    profiles: [postgres]
+    environment:
+      POSTGRES_DB: remediation
+      POSTGRES_USER: explorer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U explorer -d remediation"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+volumes:
+  workbook-state:
+  postgres-data:

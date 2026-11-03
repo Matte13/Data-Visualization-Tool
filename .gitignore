@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+runtime/
+test-results/
+.DS_Store
+# Private input workbooks, generated client exports and local audit reports
+data/*.xlsx
+dist/
+docs/data-audit.md
+docs/validation.md
+*.zip
+# Attachments are never project source
+*.xlsx
+*.m4a
+*.docx

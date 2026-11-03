@@ -1,0 +1,318 @@
+/* Atlas — self-contained client. All views derive from the unchanged workbook rows. */
+(() => {
+  'use strict';
+  const M = window.RemediationModel;
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const icon = (name, size = 18) => {
+    const paths = {grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+      table:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M3 15h18"/>',map:'<rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-5h14v5"/>',
+      globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',check:'<path d="m5 12 4 4L19 6"/>',shield:'<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/>',
+      upload:'<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',download:'<path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/>',arrow:'<path d="M5 12h14m-5-5 5 5-5 5"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',
+      present:'<rect x="3" y="3" width="18" height="13" rx="2"/><path d="M12 16v5m-4 0h8"/>',filter:'<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-11v1"/>',chevron:'<path d="m9 5 7 7-7 7"/>',file:'<path d="M14 2H5v20h14V7zM14 2v5h5M8 12h8m-8 4h8"/>',warning:'<path d="m12 3 10 18H2zM12 9v5m0 3v1"/>',reset:'<path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/>',print:'<path d="M6 8V2h12v6M6 17H3V8h18v9h-3M6 14h12v8H6z"/>',link:'<path d="m10 14 4-4m-6 6-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0m2 1 2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0"/>',menu:'<path d="M3 6h18M3 12h18M3 18h18"/>'};
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.grid}</svg>`;
+  };
+  const defaultFilters = () => ({query:'',sheets:['Remediations'],years:[],domains:[],owners:[],entities:[],scope:'all',localBudget:'all',nis2:'all',priority:'all'});
+  let projects = [], activeProjectId = null, pendingFile = null;
+  let data, standalone = Boolean(window.ATLAS_DATA), state = {view:'overview',filters:defaultFilters(),page:1,pageSize:15,sort:'source',direction:1,detail:null,mapYear:null,mapDomain:null,mapPage:0,presentation:false,busy:false,menu:false,filterOpen:['sheets','years'],projectDialog:null,projectName:''};
+  if (window.ATLAS_STATE) { Object.assign(state, window.ATLAS_STATE); state.filters = {...defaultFilters(), ...window.ATLAS_STATE.filters}; }
+  const views = [['overview','grid','Panoramica'],['table','table','Remediation'],['map','map','Mappa navigabile'],['countries','globe','Country / legal entity'],['quality','shield','Qualità dei dati']];
+  const unique = field => [...new Set(data.rows.map(r => String(r[field] || 'Non specificato')))].sort((a,b) => a.localeCompare(b,'it'));
+  const currentRows = () => M.filterRows(data.rows, state.filters);
+  const money = M.money;
+  const scopeTotals = rows => {
+    const result = M.totals(rows,state.filters.entities);
+    return {...result,displayGlobal:state.filters.scope === 'local' ? 0 : result.global,displayLocal:state.filters.scope === 'global' ? 0 : result.local};
+  };
+  const fieldName = field => ({years:'Anno',domains:'Dominio',owners:'Owner',entities:'Country / LE',sheets:'Foglio'})[field];
+  function checks(field, values, {open = false, label} = {}) {
+    return `<details class="filter-group" ${state.filterOpen.includes(field) ? 'open' : ''} data-group="${field}"><summary>${esc(label || fieldName(field))}<span>${state.filters[field].length || 'Tutti'}</span></summary><div class="filter-options">${values.map(v => `<label class="check-option"><input type="checkbox" data-filter="${field}" value="${esc(v)}" ${state.filters[field].includes(String(v)) ? 'checked' : ''}><span>${esc(v)}</span></label>`).join('')}</div></details>`;
+  }
+  function selectFilter(field,label,options) {
+    return `<label class="select-filter">${esc(label)}<select data-select="${field}" aria-label="${esc(label)}">${options.map(([v,l]) => `<option value="${v}" ${state.filters[field] === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
+  }
+  function sidebar() {
+    return `<aside class="sidebar"><a class="brand" href="#" data-action="home"><span class="brand-mark">A<span></span></span><span>atlas<span class="brand-sub">REMEDIATION EXPLORER</span></span></a>
+      ${projectPicker()}
+      <div class="sidebar-label">ESPLORA I DATI</div><nav aria-label="Viste principali">${views.map(([id,i,label]) => `<button data-view="${id}" class="nav-item ${state.view === id ? 'active' : ''}" ${state.view === id ? 'aria-current="page"' : ''}>${icon(i)}<span>${label}</span>${id === 'quality' ? '<span class="nav-dot"></span>' : ''}</button>`).join('')}</nav>
+      <div class="sidebar-divider"></div><div class="sidebar-label filter-label">FILTRI DI NAVIGAZIONE <button title="Azzera filtri" aria-label="Azzera filtri" data-action="reset">${icon('reset',15)}</button></div>
+      <div class="sidebar-filters">${checks('sheets',[...new Set(data.rows.map(r=>r.sheet))],{open:true,label:'Perimetro dati'})}${checks('years',unique('year'),{open:true})}${checks('domains',unique('domain'))}${checks('owners',unique('owner'))}${checks('entities',data.entities.map(e=>e.name))}
+      ${selectFilter('nis2','Riferimento NIS2',[['all','Tutti'],['yes','Sì'],['no','No'],['missing','Non specificato']])}${selectFilter('priority','Priorità nel file',[['all','Tutte'],['yes','Sì'],['no','No'],['missing','Non specificata']])}</div>
+      <div class="sidebar-footer">${icon('shield',16)}<span>Elaborazione locale<small>Nessun servizio AI o cloud</small></span><span class="status-dot"></span></div></aside>`;
+  }
+  function chips() {
+    const chips = ['sheets','years','domains','owners','entities'].flatMap(field => state.filters[field].map(value =>
+      `<button class="filter-chip" data-remove-field="${field}" data-value="${esc(value)}" title="Rimuovi filtro">${esc(fieldName(field))}: ${esc(value)} ${icon('close',12)}</button>`));
+    for (const [field,label] of [['nis2','NIS2'],['priority','Priorità'],['localBudget','Budget local'],['scope','Livello']]) {
+      if (state.filters[field] !== 'all') chips.push(`<button class="filter-chip" data-clear="${field}">${label}: ${esc({positive:'Con budget',zero:'Budget zero',missing:'Non determinato',yes:'Sì',no:'No',local:'Local',global:'Global'}[state.filters[field]])} ${icon('close',12)}</button>`);
+    }
+    return `<div class="chip-row"><span class="chip-label">Vista corrente</span>${chips.length ? chips.join('') : '<span class="muted">Tutti i dati</span>'}<button class="text-button" data-action="reset">Azzera filtri</button></div>`;
+  }
+  function toolbar() {
+    return `<div class="toolbar"><label class="search-box">${icon('search')}<input id="search" placeholder="Cerca remediation, dominio o owner…" value="${esc(state.filters.query)}" aria-label="Cerca remediation"></label>
+    <div class="scope-switch" role="group" aria-label="Livello budget da rappresentare" title="Scegli i budget da rappresentare nei grafici. Per selezionare le righe usa il filtro budget Local.">${[['all','Global + Local'],['global','Global'],['local','Local']].map(([v,l]) => `<button data-scope="${v}" class="${state.filters.scope===v?'selected':''}" aria-pressed="${state.filters.scope===v}">${l}</button>`).join('')}</div>
+    <select class="budget-select" data-select="localBudget" aria-label="Filtra per budget locale">${[['all','Tutti i budget local'],['positive','Con budget local > 0'],['zero','Budget local = 0'],['missing','Budget local non determinato']].map(([v,l])=>`<option value="${v}" ${state.filters.localBudget===v?'selected':''}>${l}</option>`).join('')}</select></div>`;
+  }
+  const summaryMoney = (t, field, compact=false) => t.count && t[field === 'global' ? 'missingGlobal' : 'missingLocal'] === t.count ? 'Non stimato' : money(t[field],compact);
+  const selectedMoney = (t, compact=false) => {
+    const unknownG=t.count && t.missingGlobal===t.count, unknownL=t.count && t.missingLocal===t.count;
+    if ((state.filters.scope==='global'&&unknownG)||(state.filters.scope==='local'&&unknownL)||(unknownG&&unknownL)) return 'Non stimato';
+    return money(t.displayGlobal+t.displayLocal,compact);
+  };
+  const budgetMoney = (t, compact=false) => selectedMoney({...t,displayGlobal:state.filters.scope==='local'?0:t.global,displayLocal:state.filters.scope==='global'?0:t.local},compact);
+  function kpis(rows) {
+    const t=scopeTotals(rows), entities=state.filters.entities.length;
+    const cards=[['Investimento selezionato',selectedMoney(t),`${state.filters.scope==='all'?'Global + Local':state.filters.scope==='global'?'Solo Global':'Solo Local'} · ${t.missingGlobal || t.missingLocal ? 'stime disponibili' : 'valori da Excel'}`,'accent',icon('arrow',18)],
+      ['Budget Global',summaryMoney(t,'global'),(t.missingGlobal?'Stima incompleta · ':'')+(entities?'Budget di gruppo, non ripartito per country':'Investimento a livello di gruppo'),'',icon('globe',19)],
+      ['Budget Local',summaryMoney(t,'local'),(t.missingLocal?'Stima incompleta · ':'')+(entities?`${entities} entità · attribuzione da formule`:'Complessivo, non somma dei costi unitari'),'',icon('map',19)],
+      ['Righe di remediation',String(rows.length).padStart(2,'0'),`${new Set(rows.map(r=>r.domain)).size} domini · ${new Set(rows.map(r=>r.owner).filter(Boolean)).size} owner`,'',icon('table',19)]];
+    return `<div class="kpi-grid">${cards.map(([l,v,sub,c,i])=>`<article class="kpi ${c}"><div class="kpi-label">${l}<span>${i}</span></div><div class="kpi-value">${v}</div><div class="kpi-note">${sub}</div></article>`).join('')}</div>
+    ${entities ? `<div class="context-note">${icon('info',16)}<span>Il Global resta un budget di gruppo: non è una quota delle country selezionate. Il Local include solo attribuzioni ricostruibili.${t.missingLocal ? ` <strong>${t.missingLocal} righe senza attribuzione certa (${money(t.unresolvedLocal)} complessivi) restano visibili ma sono escluse dal Local selezionato.</strong>` : ''}</span></div>` : ''}`;
+  }
+  const panelTitle=(eyebrow,title,aside='')=>`<div class="panel-title"><div><span class="eyebrow">${eyebrow}</span><h2>${title}</h2></div>${aside}</div>`;
+  function overview(rows) {
+    const annual=M.aggregate(rows,'year',state.filters.entities).sort((a,b)=>a.label.localeCompare(b.label));
+    const domains=M.aggregate(rows,'domain',state.filters.entities).sort((a,b)=>(b.global+b.local)-(a.global+a.local));
+    const owners=M.aggregate(rows,'owner',state.filters.entities).sort((a,b)=>(b.global+b.local)-(a.global+a.local));
+    const totalOf=x=>(state.filters.scope==='local'?0:x.global)+(state.filters.scope==='global'?0:x.local);
+    const max=Math.max(...annual.map(totalOf),1);
+    return `<div class="overview-grid"><section class="panel annual-panel">${panelTitle('ORIZZONTE TEMPORALE','Il piano degli investimenti','<span class="subtle-label">EUR · valori complessivi</span>')}<div class="legend"><span><i class="legend-dot global"></i>Global</span><span><i class="legend-dot local"></i>Local</span><small>Clicca un anno per esplorarlo</small></div>
+      <div class="annual-chart">${annual.map(a=>{const g=state.filters.scope==='local'?0:a.global,l=state.filters.scope==='global'?0:a.local;return `<button class="year-column" data-year="${a.label}" aria-label="Filtra anno ${a.label}, ${esc(budgetMoney(a))}"><span class="column-total">${budgetMoney(a,true)}</span><span class="bar-track"><span class="stacked-bar" style="height:${Math.max(2,(g+l)/max*100)}%"><span class="bar-local" style="flex:${l}">${l>max*.1?money(l,true):''}</span><span class="bar-global" style="flex:${g}">${g>max*.1?money(g,true):''}</span></span></span><strong>${esc(a.label)}</strong><small>${a.count} righe</small></button>`}).join('')}</div>
+      <div class="chart-footnote">Un’unica annualità per riga, come nel file di origine.</div></section>
+      <section class="panel owner-panel">${panelTitle('RESPONSABILITÀ','Investimenti per owner',icon('globe',19))}<div class="owner-list">${owners.map((o,i)=>`<button class="owner-row" data-owner="${esc(o.label)}"><span class="owner-avatar owner-${i%4}">${esc(o.label.slice(0,2))}</span><span class="owner-info"><span class="owner-name">${esc(o.label)}</span><span class="mini-bar"><i style="width:${Math.max(1,totalOf(o)/Math.max(...owners.map(totalOf),1)*100)}%"></i></span><small>${o.count} righe di remediation</small></span><strong>${budgetMoney(o,true)}</strong>${icon('chevron',14)}</button>`).join('')}</div><p class="small-note">Owner riportati dal file; nessuna attribuzione automatica dei fornitori.</p></section>
+      <section class="panel domain-panel">${panelTitle('AREE DI INTERVENTO','Dove si concentra il budget',`<span class="subtle-label">${domains.length} domini</span>`)}<div class="domain-chart">${domains.map(d=>`<button class="domain-row" data-domain="${esc(d.label)}"><span class="domain-name">${esc(d.label)}</span><span class="domain-track"><span class="domain-stack" style="width:${Math.max(1,totalOf(d)/Math.max(...domains.map(totalOf),1)*100)}%"><i class="global" style="flex:${state.filters.scope==='local'?0:d.global}"></i><i class="local" style="flex:${state.filters.scope==='global'?0:d.local}"></i></span></span><strong>${budgetMoney(d,true)}</strong><span class="row-count">${d.count}</span></button>`).join('')}</div><div class="chart-footnote">Seleziona un dominio per aprire il dettaglio delle remediation. <span class="global-text">■ Global</span> <span class="local-text">■ Local</span></div></section>
+    </div>`;
+  }
+  const sourceRef=row=>`${row.sheet} · riga ${row.excelRow}`;
+  function sortedRows(rows) {
+    if(state.sort==='source') return rows;
+    return [...rows].sort((a,b)=> {
+      const v=state.sort==='local'?M.localAmount(a,state.filters.entities):a[state.sort];
+      const w=state.sort==='local'?M.localAmount(b,state.filters.entities):b[state.sort];
+      if(v==null) return w==null?0:1;if(w==null)return -1;
+      return state.direction*(typeof v==='number'?v-w:String(v).localeCompare(String(w),'it',{numeric:true}));
+    });
+  }
+  function tableView(rows) {
+    const sorted=sortedRows(rows), pages=Math.max(1,Math.ceil(rows.length/state.pageSize));state.page=Math.min(state.page,pages);
+    const th=(field,label)=>`<th><button data-sort="${field}">${label}<span>${state.sort===field?(state.direction===1?'↑':'↓'):'↕'}</span></button></th>`;
+    return `<section class="panel table-panel">${panelTitle('REGISTRO DI ORIGINE','Tutte le remediation',`<span class="subtle-label">${rows.length} righe · clicca per il dettaglio</span>`)}<div class="table-scroll"><table class="data-table"><thead><tr>${th('id','ID / fonte')}${th('name','Remediation e dominio')}${th('year','Anno')}${th('owner','Owner')}${th('globalBudget','Global €')}${th('local','Local €')}<th>NIS2</th><th></th></tr></thead><tbody>${sorted.slice((state.page-1)*state.pageSize,state.page*state.pageSize).map(r=>`<tr data-detail="${esc(r.key)}" tabindex="0" role="button" aria-label="Dettaglio ${esc(r.name)}"><td><span class="source-id">${esc(r.id||'ID assente')}</span><small>${esc(sourceRef(r))}</small></td><td class="name-cell"><strong>${esc(r.name)}</strong><small>${esc(r.domain)}</small>${r.allocationStatus!=='mapped'?'<span class="inline-warning">Attribuzione da verificare</span>':''}</td><td><span class="year-pill">${esc(r.year||'—')}</span></td><td><span class="owner-badge">${esc(r.owner||'Non specificato')}</span></td><td class="numeric">${money(r.globalBudget)}</td><td class="numeric">${money(M.localAmount(r,state.filters.entities))}</td><td>${badgeStatus(r.nis2)}</td><td>${icon('chevron',15)}</td></tr>`).join('')}</tbody></table></div><div class="table-footer"><span>Righe ${(state.page-1)*state.pageSize+1}–${Math.min(state.page*state.pageSize,rows.length)} di ${rows.length}</span><label>Per pagina <select id="page-size">${[15,30,62,100].map(n=>`<option ${state.pageSize===n?'selected':''}>${n}</option>`).join('')}</select></label><div class="pagination"><button data-action="prev-page" ${state.page===1?'disabled':''}>←</button><span>${state.page} / ${pages}</span><button data-action="next-page" ${state.page===pages?'disabled':''}>→</button></div></div></section>`;
+  }
+  function badgeStatus(value) {
+    const v=String(value||'').toLowerCase();return ['yes','nis 2','nis2'].includes(v)?'<span class="status-badge yes">Sì</span>':v==='no'?'<span class="status-badge no">No</span>':'<span class="muted">—</span>';
+  }
+  function wrapSvg(text,max=29,maxLines=3) {
+    const words=String(text).split(/\s+/),lines=[''];
+    for(const word of words){if((lines.at(-1)+' '+word).trim().length>max&&lines.at(-1))lines.push(word);else lines[lines.length-1]=(lines.at(-1)+' '+word).trim();}
+    if(lines.length>maxLines){lines.length=maxLines;lines[maxLines-1]=lines.at(-1).slice(0,max-1)+'…';}return lines;
+  }
+  function svgText(text,x,y,max=29,maxLines=3,cls='node-title') {
+    return `<text class="${cls}" x="${x}" y="${y}">${wrapSvg(text,max,maxLines).map((line,i)=>`<tspan x="${x}" dy="${i?17:0}">${esc(line)}</tspan>`).join('')}</text>`;
+  }
+  function mapView(rows) {
+    const years=[...new Set(rows.map(r=>r.year))].sort();if(!years.includes(state.mapYear))state.mapYear=years[0];
+    const yearRows=rows.filter(r=>r.year===state.mapYear),domains=M.aggregate(yearRows,'domain',state.filters.entities);
+    if(!domains.some(d=>d.label===state.mapDomain))state.mapDomain=domains[0]?.label;
+    const focused=yearRows.filter(r=>r.domain===state.mapDomain),pages=Math.max(1,Math.ceil(focused.length/6));state.mapPage=Math.min(state.mapPage,pages-1);
+    const visible=focused.slice(state.mapPage*6,state.mapPage*6+6), height=Math.max(590,domains.length*76+82,visible.length*105+85);
+    const yearNodes=years.map((y,i)=>{const yy=105+i*145,t=scopeTotals(rows.filter(r=>r.year===y));return `<g class="map-node ${y===state.mapYear?'chosen':''}" role="button" tabindex="0" data-map-year="${y}" aria-label="Esplora anno ${y}"><rect x="20" y="${yy}" width="172" height="102" rx="10"/><text x="38" y="${yy+31}" class="map-year">${y}</text><text x="38" y="${yy+57}" class="node-budget">${esc(selectedMoney(t,true))}</text><text x="38" y="${yy+80}" class="node-sub">${t.count} righe</text></g>`}).join('');
+    const domainNodes=domains.map((d,i)=>{const yy=70+i*76,total=(state.filters.scope==='local'?0:d.global)+(state.filters.scope==='global'?0:d.local);return `<g class="map-node ${d.label===state.mapDomain?'chosen':''}" role="button" tabindex="0" data-map-domain="${esc(d.label)}" aria-label="Esplora ${esc(d.label)}"><rect x="290" y="${yy}" width="250" height="65" rx="8"/>${svgText(d.label,306,yy+23,31,2)}<text x="306" y="${yy+55}" class="node-sub">${esc(budgetMoney(d,true))} · ${d.count} righe</text></g>`}).join('');
+    const detailNodes=visible.map((r,i)=>{const yy=70+i*105;return `<g class="map-node leaf" role="button" tabindex="0" data-detail="${esc(r.key)}" aria-label="Dettaglio ${esc(r.name)}"><rect x="640" y="${yy}" width="330" height="94" rx="8"/><text x="656" y="${yy+18}" class="node-code">${esc(r.id||`Riga ${r.excelRow}`)} · ${esc(r.owner||'Owner non specificato')}</text>${svgText(r.name,656,yy+39,39,2)}<text x="656" y="${yy+82}" class="node-sub">G ${esc(money(r.globalBudget,true))} · L ${esc(money(M.localAmount(r,state.filters.entities),true))}</text></g>`}).join('');
+    const chosenY=105+years.indexOf(state.mapYear)*145+51,chosenD=70+domains.findIndex(d=>d.label===state.mapDomain)*76+32;
+    const edges=domains.map((d,i)=>`<path class="map-edge ${d.label===state.mapDomain?'highlight':''}" d="M192 ${chosenY} C240 ${chosenY},240 ${102+i*76},282 ${102+i*76}"/>`).join('')+visible.map((r,i)=>`<path class="map-edge highlight" d="M540 ${chosenD} C590 ${chosenD},590 ${117+i*105},632 ${117+i*105}"/>`).join('');
+    return `<section class="panel map-panel">${panelTitle('LEGGI IL PIANO, UN LIVELLO ALLA VOLTA','Dall’anno alla singola remediation','<button class="button small" data-action="png">'+icon('download',15)+' Salva PNG</button>')}<div class="map-explanation">Seleziona un anno e un dominio. I collegamenti rappresentano <strong>raggruppamenti</strong>, non dipendenze progettuali.</div><div class="map-path"><span>${state.mapYear}</span>${icon('chevron',14)}<strong>${esc(state.mapDomain)}</strong><span class="map-page-controls"><button data-action="map-prev" ${state.mapPage===0?'disabled':''}>←</button>${state.mapPage+1}/${pages}<button data-action="map-next" ${state.mapPage===pages-1?'disabled':''}>→</button></span></div><div class="map-scroll"><svg id="concept-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 995 ${height}" role="img" aria-label="Mappa anno, dominio e remediation"><defs><marker id="map-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="995" height="${height}" fill="#fbfcfd"/><text x="20" y="32" class="map-col-label">01 / ANNO</text><text x="290" y="32" class="map-col-label">02 / DOMINIO</text><text x="640" y="32" class="map-col-label">03 / REMEDIATION · ${focused.length} RIGHE</text>${edges}${yearNodes}${domainNodes}${detailNodes}</svg></div></section>`;
+  }
+  function countriesView() {
+    const base=M.filterRows(data.rows,{...state.filters,entities:[]}),years=[...new Set(base.map(r=>r.year))].sort(),ambiguous=base.filter(r=>r.allocationStatus!=='mapped');
+    return `<section class="panel">${panelTitle('CONFRONTO LOCALE','Country e legal entity',`<span class="subtle-label">${data.entities.length} entità nel file</span>`)}<p class="panel-description">Budget locale attribuito tramite formule e gruppi di LE_List. Il Global non viene distribuito alle singole entità. Questa vista confronta tutte le entità mantenendo gli altri filtri.</p><div class="table-scroll"><table class="data-table country-table"><thead><tr><th>Country / legal entity</th><th>Gruppi LE_List</th><th>Backup</th>${years.map(y=>`<th class="numeric">${y} · Local €</th>`).join('')}<th class="numeric">Totale Local €</th><th></th></tr></thead><tbody>${data.entities.map(e=>{const entityTotals=M.totals(base,[e.id]);return `<tr class="${state.filters.entities.includes(e.id)?'country-selected':''}"><td><strong>${esc(e.name)}</strong></td><td>${e.groups.map(g=>`<span class="group-pill">${g}</span>`).join('')}</td><td>${esc(e.backup||'Non specificato')}</td>${years.map(y=>`<td class="numeric">${summaryMoney(M.totals(base.filter(r=>r.year===y),[e.id]),'local')}</td>`).join('')}<td class="numeric"><strong>${summaryMoney(entityTotals,'local')}</strong></td><td><button class="text-button" data-entity="${esc(e.id)}">Esplora ${icon('arrow',14)}</button></td></tr>`}).join('')}</tbody></table></div><div class="chart-footnote">${ambiguous.length} righe escluse dalla ripartizione perché l’attribuzione non è certa: ${money(M.sum(ambiguous,'localTotal'))} di budget Local complessivo. Gli importi sommano le stime disponibili; quelle mancanti restano escluse. <button data-view="quality" class="text-button">Vedi le note</button></div></section>`;
+  }
+  function qualityView() {
+    const selectedSheets=state.filters.sheets;
+    const issues=data.issues.filter(issue=>!selectedSheets.length||!issue.rowKeys?.length||issue.rowKeys.some(key=>selectedSheets.some(sheet=>key.startsWith(sheet+':'))));
+    return `<section class="panel">${panelTitle('TRASPARENZA DELLA FONTE','Note e riconciliazione','<span class="source-tag">Sorgente invariata</span>')}<p class="panel-description">Gli ID ripetuti non causano deduplicazioni automatiche: ogni riga del file rimane distinta. Le segnalazioni descrivono il file importato. Non correggono le remediation e non escludono righe dai totali complessivi. I filtri analitici non nascondono queste note del perimetro.</p>
+    <div class="reference-grid">${['Remediations','OT'].filter(sheet=>!selectedSheets.length||selectedSheets.includes(sheet)).map(sheet=>{const rows=data.rows.filter(r=>r.sheet===sheet),t=M.totals(rows);return `<article class="reference-card"><span class="eyebrow">${sheet} · ${rows.length} righe</span><h3>${money(t.global+t.local)}</h3><p>Global ${money(t.global)}<br>Local complessivo ${money(t.local)}</p><small>Somma delle righe importate, senza filtri analitici.</small></article>`}).join('')}</div>
+    <div class="issue-list">${issues.map(issue=>`<article class="issue"><span class="issue-icon">${icon(issue.severity==='error'?'warning':'info',19)}</span><div><span class="issue-code">${esc(issue.code)}</span><p>${esc(issue.message)}</p><div class="issue-links">${(issue.rowKeys||[]).map(key=>{const r=data.rows.find(r=>r.key===key);return r?`<button class="source-link" data-detail="${esc(key)}">${esc(sourceRef(r))} ${icon('arrow',12)}</button>`:''}).join('')}</div></div></article>`).join('')}</div>
+    <div class="methodology"><h3>Come leggere i numeri</h3><ul><li><strong>Global</strong>: budget di gruppo della colonna I; non moltiplicato per il numero di country.</li><li><strong>Local complessivo</strong>: colonna L. Complete e Business Oriented sono costi unitari, non totali di gruppo.</li><li><strong>Country / LE</strong>: attribuzione del budget dai gruppi espliciti di LE_List e dai moltiplicatori della formula, non conferma dell’applicabilità operativa.</li><li><strong>Righe annuali</strong>: ogni riga è mantenuta, anche con ID ripetuto o assente. I filtri Excel e le righe nascoste non escludono dati.</li><li><strong>OT</strong>: perimetro separato e opzionale. Nessun collegamento con i Findings viene inventato.</li><li><strong>Valori vuoti</strong>: “Non stimato” è distinto da zero. I totali mostrano soltanto gli importi disponibili.</li></ul></div></section>`;
+  }
+  function detailPanel() {
+    const r=data.rows.find(r=>r.key===state.detail);if(!r)return '';
+    const issues=data.issues.filter(i=>i.rowKeys?.includes(r.key));
+    const text=(label,value)=>`<section class="detail-section"><h3>${label}</h3><p>${esc(value||'Non specificato nel file')}</p></section>`;
+    return `<div class="drawer-overlay" data-action="close-detail"></div><aside class="detail-drawer" role="dialog" aria-modal="true" aria-label="Dettaglio remediation" tabindex="-1"><div class="drawer-top"><span class="eyebrow">DETTAGLIO DELLA FONTE</span><button id="close-detail" class="icon-button" data-action="close-detail" aria-label="Chiudi dettaglio">${icon('close')}</button></div><span class="source-tag">${esc(sourceRef(r))}${r.id?' · '+esc(r.id):' · ID originale assente'}</span><h2>${esc(r.name)}</h2><p class="detail-domain">${esc(r.domain)}</p><div class="detail-tags"><span class="year-pill">${r.year||'Anno non specificato'}</span><span class="owner-badge">${esc(r.owner||'Owner non specificato')}</span><span>NIS2 ${badgeStatus(r.nis2)}</span><span>Priorità ${badgeStatus(r.priority)}</span></div>
+    <div class="detail-budgets"><div><small>Budget Global</small><strong>${money(r.globalBudget)}</strong></div><div><small>${state.filters.entities.length?'Local · entità selezionate':'Local complessivo'}</small><strong>${money(M.localAmount(r,state.filters.entities))}</strong></div><div><small>Complete · unitario</small><strong>${money(r.localComplete)}</strong></div><div><small>Business Oriented · unitario</small><strong>${money(r.localBusiness)}</strong></div></div>
+    ${text('Attività Global · testo originale',r.globalDescription)}${text('Attività Local · testo originale',r.localDescription)}${text('Applicable Countries · da verificare',r.applicableCountries)}${r.existingCoverage?text('Who has this? · testo originale',r.existingCoverage):''}
+    <section class="detail-section formula-section"><h3>Tracciabilità del budget Local</h3><code>${esc(r.localFormula||'Formula non presente nel file')}</code><p>${esc(r.allocationNote||'Attribuzione da formule e LE_List.')}</p><small>Local complessivo originale: ${money(r.localTotal)}</small></section>
+    ${issues.length?`<section class="detail-section detail-alert"><h3>${icon('info',16)} Note su questa riga</h3>${issues.map(i=>`<p>${esc(i.message)}</p>`).join('')}</section>`:''}
+    ${r.allocations?.length?`<section class="detail-section"><h3>Attribuzione del budget locale</h3><p class="small-note">Derivata da formula e LE_List; non è una conferma dell’applicabilità.</p><div class="allocation-list">${r.allocations.map(a=>`<div><span>${esc(a.entityId)}</span><strong>${money(a.amount)}</strong></div>`).join('')}</div></section>`:''}</aside>`;
+  }
+  function emptyView() {return `<section class="panel empty-state">${icon('search',34)}<h2>Nessuna remediation corrisponde ai filtri</h2><p>Prova a rimuovere un filtro o a cambiare la ricerca.</p><button class="button primary" data-action="reset">Azzera filtri</button></section>`;}
+  function projectPicker() {
+    const projectName=data?.project?.name || data?.source?.filename?.replace(/\.xlsx$/i,'') || 'Progetto';
+    return `<div class="project-picker"><label for="project-select">PROGETTO ATTIVO</label>${standalone?`<strong>${esc(projectName)}</strong>`:`<select id="project-select" aria-label="Progetto attivo" ${state.busy?'disabled':''}>${projects.map(p=>`<option value="${esc(p.id)}" ${p.id===activeProjectId?'selected':''}>${esc(p.name)}</option>`).join('')}</select><button class="new-project-button" data-action="new-project" ${state.busy?'disabled':''}>+ Nuovo progetto</button>`}</div>`;
+  }
+  function projectDialog() {
+    if(!state.projectDialog)return '';
+    const creating=state.projectDialog==='create';
+    return `<div class="project-overlay"></div><section class="project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title" tabindex="-1"><div class="drawer-top"><span class="eyebrow">ARCHIVIO PROGETTI</span><button class="icon-button" data-action="close-project" aria-label="Chiudi importazione" ${state.busy?'disabled':''}>${icon('close')}</button></div><h2 id="project-dialog-title">${creating?'Nuovo progetto':'Aggiorna Excel'}</h2><p>${creating?'Assegna un nome e carica l’Excel del progetto. Sarà conservato separatamente dagli altri.':'Sostituisci l’Excel del progetto attivo. Gli altri progetti non vengono modificati.'}</p><label class="project-field" for="project-name">Nome progetto<input id="project-name" maxlength="100" value="${esc(creating?state.projectName:data?.project?.name||'Progetto')}" ${!creating?'readonly':''} placeholder="Es. Cyber roadmap · Progetto Alfa"></label><label class="project-dropzone" for="project-file">${icon('upload',28)}<strong>${pendingFile?esc(pendingFile.name):'Seleziona il file Excel'}</strong><span>.xlsx · massimo 10 MB · stesso tracciato</span><input type="file" id="project-file" accept=".xlsx" ${state.busy?'disabled':''}></label><div class="import-guidance"><strong>Formato supportato</strong><span>Fogli Remediations e LE_List; OT opzionale. I dati e i gruppi delle entità possono cambiare. Le formule devono avere risultati ricalcolati e salvati.</span></div><div class="project-dialog-actions"><button class="button" data-action="close-project" ${state.busy?'disabled':''}>Annulla</button><button class="button primary" id="submit-project" data-action="submit-project" ${state.busy?'disabled':''}>${state.busy?'Importazione…':creating?'Crea progetto':'Aggiorna progetto'}</button></div></section>`;
+  }
+  function renderEmpty() {
+    document.body.classList.remove('presentation','filters-open');
+    $('#app').innerHTML=`<header class="empty-header"><a class="brand" href="#"><span class="brand-mark">A</span><span>atlas<span class="brand-sub">REMEDIATION EXPLORER</span></span></a><span class="local-status"><span class="status-dot"></span>Archivio locale</span></header><main class="welcome-page"><span class="eyebrow">CYBER SECURITY · REMEDIATION EXPLORER</span><h1>I tuoi progetti.<br><span>Una visione chiara dei dati.</span></h1><p>Carica un Excel e naviga remediation, budget e country.<br>Ogni progetto ha il suo spazio, tutti i filtri lavorano offline.</p><button class="button primary" data-action="new-project">${icon('upload',18)} Crea il primo progetto</button><div class="welcome-features"><article>${icon('grid',25)}<h2>Una panoramica leggibile</h2><p>Investimenti per anno, dominio e owner, senza cambiare i dati della fonte.</p></article><article>${icon('map',25)}<h2>Dal piano al dettaglio</h2><p>Tabella, mappa navigabile e confronto del budget locale per entità.</p></article><article>${icon('shield',25)}<h2>Dati nel tuo ambiente</h2><p>Nessun modello AI, nessuna chiamata esterna. Archivio locale o PostgreSQL.</p></article></div><div class="welcome-format">Formato Excel: <strong>Remediations + LE_List</strong>, foglio OT opzionale. Usa lo stesso tracciato per i progetti futuri.</div></main>${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
+    document.body.style.overflow=state.projectDialog?'hidden':'';
+    if(state.projectDialog)$('#project-name')?.focus();
+  }
+  function render() {
+    if(!data){renderEmpty();return;}
+    const active=document.activeElement,focusId=active?.id,position=active?.selectionStart,focusFilter=active?.dataset.filter,focusValue=active?.value;
+    const sidebarScroll=$('.sidebar')?.scrollTop||0;
+    const groups=[...document.querySelectorAll('details[data-group]')];if(groups.length)state.filterOpen=groups.filter(g=>g.open).map(g=>g.dataset.group);
+    const ambiguousCount=data.rows.filter(r=>r.allocationStatus==='ambiguous').length;
+    const rows=currentRows(),view=views.find(v=>v[0]===state.view),sheetLabel=state.filters.sheets.length?state.filters.sheets.join(' + '):'Remediations + OT';
+    document.body.classList.toggle('presentation',state.presentation);
+    document.body.classList.toggle('filters-open',state.menu);
+    $('#app').innerHTML=`${sidebar()}<div class="main-shell"><header class="topbar"><div class="breadcrumb"><button class="icon-button mobile-menu" data-action="menu" aria-label="Apri navigazione">${icon('menu')}</button><span>Workspace</span>${icon('chevron',12)}<strong>${view[2]}</strong></div><div class="topbar-right"><span class="local-status"><span class="status-dot"></span>${standalone?'Copia offline':'Dati locali'}</span><button class="button small" data-action="presentation">${icon('present',15)}${state.presentation?'Esci presentazione':'Presentazione'}</button></div></header>
+      <main id="main-content"><div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span>CYBER SECURITY · INVESTMENT ROADMAP</div><h1>${state.view==='overview'?'Una visione chiara.<br><span>Un piano navigabile.</span>':esc(view[2])}</h1><p>${state.view==='overview'?'Dalle remediation agli investimenti: esplora il piano, un livello alla volta.':'Esplora i dati originali con gli stessi filtri in tutte le viste.'}</p></div><div class="heading-actions"><button class="button" data-action="export-menu">${icon('download',16)} Esporta ${icon('chevron',12)}</button>${!standalone?`<button class="button primary" data-action="import" ${state.busy?'disabled':''}>${icon('upload',16)} ${state.busy?'Importazione…':'Aggiorna Excel'}</button>`:''}${state.exportMenu?`<div class="export-menu"><button data-action="csv">${icon('table',16)} CSV delle righe filtrate</button><button data-action="html">${icon('file',16)} Copia HTML offline</button><button data-action="print">${icon('print',16)} Stampa / salva PDF</button>${!standalone?`<button data-action="source">${icon('download',16)} Excel originale</button>`:''}</div>`:''}</div></div>
+      <div class="source-line">${icon('file',15)}<strong>${esc(data.source.filename)}</strong><span>•</span><span>${esc(sheetLabel)}</span><span>•</span><span>${data.rows.length} righe disponibili · ${data.entities.length} entità</span>${!standalone?`<button class="text-button" data-action="restore" ${state.busy?'disabled':''}>Ripristina prima importazione</button>`:''}</div>
+      ${toolbar()}${chips()}${kpis(rows)}
+      <div class="data-notice">${icon('info',16)}<p><strong>Numeri del file, senza interpretazioni.</strong> ${ambiguousCount?`${ambiguousCount} righe hanno un’attribuzione geografica da verificare; `:''}le stime mancanti restano distinte da zero.</p><button data-view="quality">Note della fonte ${icon('arrow',14)}</button></div>
+      <div class="view-tabs" role="navigation" aria-label="Seleziona vista">${views.map(([id,i,l])=>`<button data-view="${id}" class="${state.view===id?'active':''}">${icon(i,16)}${l}</button>`).join('')}<span>${rows.length} righe selezionate</span></div>
+      <div id="view-content">${state.view==='quality'?qualityView():state.view==='countries'?countriesView():!rows.length?emptyView():state.view==='table'?tableView(rows):state.view==='map'?mapView(rows):overview(rows)}</div>
+      <footer class="main-footer"><span><strong>atlas</strong> / Remediation Explorer</span><span>Fonte Excel · importi in EUR · nessun dato generato</span><span>SHA-256 ${esc(data.source.sha256?.slice(0,12)||'—')}</span></footer></main></div>${detailPanel()}${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
+    if($('.sidebar'))$('.sidebar').scrollTop=sidebarScroll;
+    if(focusFilter){const input=[...document.querySelectorAll('input[data-filter]')].find(i=>i.dataset.filter===focusFilter&&i.value===focusValue);input?.focus({preventScroll:true});}
+    if(focusId&&$('#'+focusId)){const input=$('#'+focusId);input.focus();if(typeof position==='number'&&input.setSelectionRange) input.setSelectionRange(position,position);}
+    if(state.projectDialog){$('#project-name')?.focus();document.body.style.overflow='hidden';}
+    else if(state.detail) {$('#close-detail')?.focus(); document.body.style.overflow='hidden';} else document.body.style.overflow='';
+  }
+  let toastTimer;
+  function toast(message,error=false){clearTimeout(toastTimer);const el=$('#toast');el.textContent=message;el.className='toast visible'+(error?' error':'');toastTimer=setTimeout(()=>el.classList.remove('visible'),6500);}
+  function setFilters(patch){Object.assign(state.filters,patch);state.page=1;state.mapPage=0;render();}
+  function download(content,type,filename){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  function exportHtml(){
+    if(!window.ATLAS_CSS||!window.ATLAS_MODEL||!window.ATLAS_APP) { toast('Preparazione esportazione in corso. Riprova tra un istante.',true); return; }
+    const doc=document.documentElement.cloneNode(true);doc.querySelector('#app').innerHTML='<div class="initial-loading">Apertura della copia offline…</div>';
+    doc.querySelectorAll('script').forEach(el=>el.remove());doc.querySelectorAll('link[rel="stylesheet"]').forEach(el=>el.remove());
+    const style=document.createElement('style');style.textContent=window.ATLAS_CSS;doc.querySelector('head').appendChild(style);
+    for(const contents of ['window.ATLAS_DATA='+JSON.stringify(data).replace(/</g,'\\u003c')+';window.ATLAS_STATE='+JSON.stringify({view:state.view,filters:state.filters,mapYear:state.mapYear,mapDomain:state.mapDomain,mapPage:state.mapPage,pageSize:state.pageSize,sort:state.sort,direction:state.direction}).replace(/</g,'\\u003c')+';', window.ATLAS_MODEL, window.ATLAS_APP]) {const script=document.createElement('script');script.textContent=contents;doc.querySelector('body').appendChild(script);}
+    // Scripts are static application code; source cell text is JSON-escaped above.
+    download('<!doctype html>\n'+doc.outerHTML,'text/html;charset=utf-8','Atlas-remediation-offline.html');toast('Copia offline salvata: include tutti i dati e i filtri.');
+  }
+  async function exportPng(){const svg=$('#concept-map');if(!svg)return;const clone=svg.cloneNode(true),style=document.createElementNS('http://www.w3.org/2000/svg','style');style.textContent=window.ATLAS_CSS||'';clone.insertBefore(style,clone.firstChild);const view=svg.viewBox.baseVal;clone.setAttribute('width',view.width*2);clone.setAttribute('height',view.height*2);const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=view.width*2;canvas.height=view.height*2;canvas.getContext('2d').drawImage(img,0,0);URL.revokeObjectURL(url);canvas.toBlob(b=>{if(b)download(b,'image/png',`Atlas-mappa-${state.mapYear}.png`);},'image/png');};img.onerror=()=>{URL.revokeObjectURL(url);toast('Impossibile esportare la mappa.',true);};img.src=url;}
+  async function refreshProjects() {
+    const response=await fetch('/api/projects');const result=await response.json();
+    if(!response.ok)throw new Error(result.error||'Archivio progetti non disponibile.');
+    projects=result.projects;activeProjectId=data?.project?.id||result.activeProjectId;
+  }
+  function acceptProject(document) {
+    data=document;activeProjectId=document.project.id;
+    const entry={id:document.project.id,name:document.project.name,filename:document.source.filename,rows:document.rows.length,entities:document.entities.length};
+    const previous=projects.findIndex(project=>project.id===entry.id);
+    if(previous<0)projects.push(entry);else projects[previous]={...projects[previous],...entry};
+  }
+  async function refreshSavedProjects() {
+    try {await refreshProjects();return '';}
+    catch {return ' Il progetto è salvato; l’elenco non è stato aggiornato. Ricarica la pagina per riprovare.';}
+  }
+  function resetProjectView() {
+    clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.menu=false;state.exportMenu=false;state.projectDialog=null;state.projectName='';pendingFile=null;
+  }
+  function openProjectDialog(mode, file=null) {
+    if(state.busy)return;
+    state.exportMenu=false;state.projectDialog=mode;pendingFile=file;state.projectName=file?file.name.replace(/\.xlsx$/i,''):'';render();
+  }
+  async function activateProject(id) {
+    if(state.busy||id===activeProjectId)return;
+    clearTimeout(searchTimer);state.busy=true;render();
+    try {const response=await fetch('/api/projects/'+encodeURIComponent(id)+'/activate',{method:'POST'});const result=await response.json();if(!response.ok)throw new Error(result.error||'Progetto non disponibile.');acceptProject(result);resetProjectView();state.busy=false;render();toast('Progetto aperto: '+result.project.name);}
+    catch(error){state.busy=false;render();toast(error.message,true);}
+  }
+  async function importWorkbook(file){
+    if(state.busy)return;
+    if(!file)return toast('Seleziona il file Excel del progetto.',true);
+    if(!file.name.toLowerCase().endsWith('.xlsx'))return toast('Seleziona un file Excel .xlsx.',true);
+    if(file.size>10*1024*1024)return toast('Il limite di importazione è 10 MB.',true);
+    const creating=state.projectDialog==='create';const name=state.projectName.trim();
+    if(creating&&!name)return toast('Inserisci il nome del progetto.',true);
+    clearTimeout(searchTimer);state.busy=true;state.exportMenu=false;render();
+    const path=creating?'/api/projects?filename='+encodeURIComponent(file.name)+'&name='+encodeURIComponent(name):'/api/workbook?filename='+encodeURIComponent(file.name)+'&projectId='+encodeURIComponent(data.project.id);
+    try {const response=await fetch(path,{method:'POST',body:file,headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}});const result=await response.json();if(!response.ok)throw new Error(result.error||'Importazione non riuscita.');acceptProject(result);resetProjectView();const warning=await refreshSavedProjects();state.busy=false;render();toast((creating?'Progetto creato. I dati degli altri progetti sono conservati.':'Excel aggiornato per il progetto attivo.')+warning);}
+    catch(error){state.busy=false;render();toast(error.message,true);}
+  }
+  async function restoreProject() {
+    if(state.busy||!data?.project)return;
+    const targetId=data.project.id;
+    clearTimeout(searchTimer);state.busy=true;state.exportMenu=false;render();
+    let message='',failed=false;
+    try {const response=await fetch('/api/reset?projectId='+encodeURIComponent(targetId),{method:'POST'});const result=await response.json();if(!response.ok)throw new Error(result.error||'Ripristino non riuscito.');acceptProject(result);resetProjectView();const warning=await refreshSavedProjects();message='Prima importazione del progetto ripristinata.'+warning;}
+    catch(error){message=error.message;failed=true;}
+    finally {state.busy=false;render();toast(message,failed);}
+  }
+  async function action(name){
+    if(['csv','html','source','presentation','restore'].includes(name)) {state.exportMenu=false;render();}
+    switch(name){
+      case 'home':state.view='overview';render();break;
+      case 'menu':state.menu=!state.menu;render();break;
+      case 'reset':state.filters=defaultFilters();state.page=1;state.mapPage=0;render();break;
+      case 'presentation':state.presentation=!state.presentation;render();break;
+      case 'export-menu':state.exportMenu=!state.exportMenu;render();break;
+      case 'close-detail':state.detail=null;render();break;
+      case 'prev-page':state.page--;render();break;
+      case 'next-page':state.page++;render();break;
+      case 'map-prev':state.mapPage--;render();break;
+      case 'map-next':state.mapPage++;render();break;
+      case 'new-project':openProjectDialog('create');break;
+      case 'import':openProjectDialog('update');break;
+      case 'submit-project':await importWorkbook(pendingFile);break;
+      case 'close-project':if(!state.busy){state.projectDialog=null;pendingFile=null;render();}break;
+      case 'csv':download(M.csv(sortedRows(currentRows()),state.filters.entities),'text/csv;charset=utf-8','Atlas-remediation-filtrate.csv');break;
+      case 'html':exportHtml();break;
+      case 'png':await exportPng();break;
+      case 'print':state.exportMenu=false;render();window.print();break;
+      case 'source':{const a=document.createElement('a');a.href='/api/source?projectId='+encodeURIComponent(data.project.id);a.download=data.source.filename;a.click();break;}
+      case 'restore':await restoreProject();break;
+    }
+  }
+  document.addEventListener('click',event=>{
+    const el=event.target.closest('[data-action],[data-view],[data-detail],[data-scope],[data-year],[data-domain],[data-owner],[data-entity],[data-sort],[data-remove-field],[data-clear],[data-map-year],[data-map-domain]');if(!el){if(state.exportMenu&&!event.target.closest('.export-menu,.heading-actions')){state.exportMenu=false;render();}return;}
+    if(el.hasAttribute('disabled'))return;
+    event.preventDefault();
+    if(el.dataset.action){action(el.dataset.action);return;}
+    if(el.dataset.view){state.view=el.dataset.view;state.exportMenu=false;state.menu=false;render();return;}
+    if(el.dataset.detail){state.detail=el.dataset.detail;render();return;}
+    if(el.dataset.scope){setFilters({scope:el.dataset.scope});return;}
+    if(el.dataset.year){setFilters({years:[el.dataset.year]});return;}
+    if(el.dataset.domain){state.view='table';setFilters({domains:[el.dataset.domain]});return;}
+    if(el.dataset.owner){state.view='table';setFilters({owners:[el.dataset.owner]});return;}
+    if(el.dataset.entity){state.view='table';setFilters({entities:[el.dataset.entity]});return;}
+    if(el.dataset.sort){state.direction=state.sort===el.dataset.sort?-state.direction:1;state.sort=el.dataset.sort;render();return;}
+    if(el.dataset.removeField){setFilters({[el.dataset.removeField]:state.filters[el.dataset.removeField].filter(v=>v!==el.dataset.value)});return;}
+    if(el.dataset.clear){setFilters({[el.dataset.clear]:'all'});return;}
+    if(el.dataset.mapYear){state.mapYear=Number(el.dataset.mapYear);state.mapPage=0;render();return;}
+    if(el.dataset.mapDomain){state.mapDomain=el.dataset.mapDomain;state.mapPage=0;render();return;}
+  });
+  document.addEventListener('change',event=>{const el=event.target;
+    if(el.dataset.filter){const field=el.dataset.filter;setFilters({[field]:el.checked?[...state.filters[field],el.value]:state.filters[field].filter(v=>v!==el.value)});}
+    if(el.dataset.select)setFilters({[el.dataset.select]:el.value});
+    if(el.id==='page-size'){state.pageSize=Number(el.value);state.page=1;render();}
+    if(el.id==='project-select')activateProject(el.value);
+    if(el.id==='project-file'){pendingFile=el.files[0]||null;if(pendingFile&&!state.projectName.trim())state.projectName=pendingFile.name.replace(/\.xlsx$/i,'');render();}
+  });
+  let searchTimer;document.addEventListener('input',e=>{if(e.target.id==='project-name'){state.projectName=e.target.value;}if(e.target.id==='search'){const value=e.target.value;clearTimeout(searchTimer);searchTimer=setTimeout(()=>setFilters({query:value}),150);}});
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){if(state.projectDialog){if(!state.busy){state.projectDialog=null;pendingFile=null;render();}}else if(state.exportMenu){state.exportMenu=false;render();}else if(state.detail){state.detail=null;render();}else if(state.presentation){state.presentation=false;render();}return;}
+    if((event.key==='Enter'||event.key===' ')&&event.target.matches('[role="button"]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}
+    if(event.key==='Tab'&&(state.detail||state.projectDialog)){const drawer=state.projectDialog?$('.project-dialog'):$('.detail-drawer'),items=[...drawer.querySelectorAll('button,a,input,select,[tabindex="0"]')].filter(el=>!el.disabled);if(!items.length)return;if(event.shiftKey&&document.activeElement===items[0]){event.preventDefault();items.at(-1).focus();}else if(!event.shiftKey&&document.activeElement===items.at(-1)){event.preventDefault();items[0].focus();}}
+  });
+  document.addEventListener('dragover',e=>{if(!standalone){e.preventDefault();}});
+  document.addEventListener('drop',e=>{if(!standalone){e.preventDefault();if(!state.busy)openProjectDialog('create',e.dataTransfer.files[0]);}});
+  async function boot(){
+    try{
+      if(standalone){data=window.ATLAS_DATA;window.ATLAS_CSS=[...document.querySelectorAll('style')].map(e=>e.textContent).join('\n');}
+      else{await refreshProjects();const response=await fetch('/api/workbook'+(activeProjectId?'?projectId='+encodeURIComponent(activeProjectId):''));if(response.status===404){data=null;}else if(!response.ok){const error=await response.json();throw new Error(error.error||'Caricamento dati non riuscito');}else{acceptProject(await response.json());}}
+      render();
+      if(!standalone){const assets=await Promise.all(['styles.css','model.js','app.js'].map(async url=>{const response=await fetch(url);if(!response.ok)throw new Error('Risorsa non disponibile');return response.text();}));[window.ATLAS_CSS,window.ATLAS_MODEL,window.ATLAS_APP]=assets;}
+      else{const scripts=[...document.querySelectorAll('script')];window.ATLAS_MODEL=scripts.find(s=>s.textContent.includes('Pure, deterministic view calculations'))?.textContent||'';window.ATLAS_APP=scripts.find(s=>s.textContent.includes('Atlas — self-contained client'))?.textContent||'';}
+    }catch(error){$('#app').innerHTML=`<div class="initial-loading"><span class="brand-mark">A</span><h1>Impossibile aprire i dati</h1><p>${esc(error.message)}</p><p>Avvia il server locale con <code>python -m app.server</code>, poi ricarica la pagina.</p></div>`;}
+  }
+  boot();
+})();
