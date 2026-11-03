@@ -45,6 +45,10 @@ I budget Global sono importi di gruppo: non vengono ripartiti o moltiplicati per
 
 ## Presentazione ed esportazioni
 
+Il pulsante **Scarica PowerPoint** in alto esporta una presentazione `.pptx` modificabile del progetto aperto. Include tutte le remediation corrispondenti ai filtri, anche quelle fuori dalla pagina attuale, e rispetta la selezione delle entità e del budget Global/Local. Le slide seguono il percorso riepilogo Global/Local → anni → country, con un’appendice delle remediation selezionate. Importi e testi provengono dal file: non vengono generate nuove remediation. I testi originali estesi sono conservati nelle note delle slide.
+
+L’esportazione PowerPoint funziona nell’app locale; la copia HTML autonoma mantiene le altre esportazioni. La presentazione usa grafici, forme e testi modificabili, senza servizi esterni. Lo stile riprende i tre template forniti: formato 16:9, titoli in KPMG Bold, corpo in Arial, palette e posizionamento dei titoli ricavati dai riferimenti. Il font KPMG è incorporato nel PowerPoint per mantenerne la resa anche senza installarlo sul computer. La risorsa grafica inclusa nel codice è una presentazione nuova e priva di slide: contiene solo il tema e i font incorporabili. Testi, slide, immagini, grafici e note dei template originali non vengono copiati nelle esportazioni.
+
 `Presentazione` nasconde i controlli per screenshot e presentazioni al cliente; Escape esce dalla modalità o chiude un dettaglio. `Esporta` offre CSV delle righe filtrate, Excel sorgente, copia HTML offline e stampa/PDF. La mappa si può salvare in PNG.
 
 La copia HTML è una modalità aggiuntiva di condivisione: contiene **tutti i dati del solo progetto aperto**, compresi quelli nascosti dai filtri, e conserva vista/filtri correnti. Si naviga senza server o connessione. Per importare Excel e gestire i progetti usare l'applicativo. La stampa delle schede remediation mostra la pagina corrente, come segnalato nel documento stampato; il CSV include tutte le righe filtrate. I campi CSV interpretabili come formule vengono neutralizzati senza modificare i dati importati.

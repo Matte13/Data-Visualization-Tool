@@ -21,6 +21,7 @@ from .workbook import parse_workbook
 
 ROOT = Path(__file__).resolve().parent.parent
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_PRESENTATION_BYTES = 2 * 1024 * 1024
 BASE_FILENAME = "Remediation_AllCountries.xlsx"
 
 
@@ -463,7 +464,7 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         parsed = urlsplit(self.path)
         activation = (parsed.path.startswith("/api/projects/") and parsed.path.endswith("/activate")
                       and parsed.path.count("/") == 4)
-        if parsed.path not in ("/api/workbook", "/api/reset", "/api/projects") and not activation:
+        if parsed.path not in ("/api/workbook", "/api/reset", "/api/projects", "/api/presentation") and not activation:
             return self._error(HTTPStatus.NOT_FOUND, "Risorsa non trovata.")
         if self.headers.get("Transfer-Encoding"):
             return self._error(HTTPStatus.BAD_REQUEST, "Trasferimento non supportato.")
@@ -471,13 +472,18 @@ class ExplorerHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             return self._error(HTTPStatus.BAD_REQUEST, "Dimensione del file non valida.")
-        if length < 0 or length > MAX_UPLOAD_BYTES:
-            return self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Il file deve essere inferiore a 10 MB.")
+        limit = MAX_PRESENTATION_BYTES if parsed.path == "/api/presentation" else MAX_UPLOAD_BYTES
+        if length < 0 or length > limit:
+            message = ("La richiesta PowerPoint deve essere inferiore a 2 MB."
+                       if parsed.path == "/api/presentation" else "Il file deve essere inferiore a 10 MB.")
+            return self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, message)
         if parsed.path in ("/api/workbook", "/api/projects") and length == 0:
             return self._error(HTTPStatus.BAD_REQUEST, "Selezionare un file Excel .xlsx.")
         content = self.rfile.read(length)
         if len(content) != length:
             return self._error(HTTPStatus.BAD_REQUEST, "Caricamento del file incompleto.")
+        if parsed.path == "/api/presentation":
+            return self._presentation(content)
         try:
             query = parse_qs(parsed.query, keep_blank_values=True)
             project_id = query.get("projectId", [None])[0]
@@ -502,6 +508,43 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         except Exception:
             return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "Impossibile caricare il file. Il file precedente rimane attivo.")
         self._json(HTTPStatus.OK, document)
+
+    def _presentation(self, content: bytes):
+        """Generate a presentation from one explicit project without changing its data."""
+        try:
+            def invalid_constant(value):
+                raise ValueError("JSON non valido")
+            request = json.loads(content.decode("utf-8"), parse_constant=invalid_constant)
+        except (ValueError, UnicodeDecodeError, RecursionError):
+            return self._error(HTTPStatus.BAD_REQUEST, "La richiesta PowerPoint deve contenere JSON valido.")
+        if not isinstance(request, dict):
+            return self._error(HTTPStatus.UNPROCESSABLE_ENTITY, "La richiesta PowerPoint deve essere un oggetto JSON.")
+        project_id = request.get("projectId")
+        if not isinstance(project_id, str) or not project_id:
+            return self._error(HTTPStatus.UNPROCESSABLE_ENTITY, "Specificare il progetto da esportare in PowerPoint.")
+        try:
+            document = self.server.store.snapshot(project_id)
+            from .presentation_data import build_presentation_data
+            from .presentation import create_presentation
+            output = create_presentation(build_presentation_data(document, request))
+        except NoProjectError as error:
+            return self._error(HTTPStatus.NOT_FOUND, str(error))
+        except ImportError:
+            return self._error(HTTPStatus.SERVICE_UNAVAILABLE,
+                               "Esportazione PowerPoint non disponibile. Installare le dipendenze di requirements.txt.")
+        except ValueError as error:
+            return self._error(HTTPStatus.UNPROCESSABLE_ENTITY, str(error))
+        except Exception:
+            return self._error(HTTPStatus.INTERNAL_SERVER_ERROR,
+                               "Impossibile creare il PowerPoint. I dati dei progetti rimangono invariati.")
+        if not isinstance(output, bytes):
+            return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "Il file PowerPoint non è stato generato correttamente.")
+        name = "".join(character for character in document["project"]["name"]
+                       if character.isprintable() and character not in '/\\:"<>|?*')[:80].strip(". ") or "progetto"
+        filename = f"Data-Visualization-Tool-{name}.pptx"
+        self._send(HTTPStatus.OK, output,
+                   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                   {"Content-Disposition": "attachment; filename*=UTF-8''" + quote(filename, safe="")})
 
 
 def main():

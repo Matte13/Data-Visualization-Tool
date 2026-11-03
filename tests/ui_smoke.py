@@ -2,6 +2,7 @@
 import copy
 import csv
 import json
+from io import BytesIO
 import os
 from pathlib import Path
 import shutil
@@ -14,8 +15,28 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'tests'))
 from app.server import ExplorerServer, WorkbookStore
 from app.export import standalone_html
-from fixtures import make_workbook
+from fixtures import make_workbook, with_cached_values
+from openpyxl import load_workbook
+from pptx import Presentation
 from playwright.sync_api import sync_playwright, expect
+
+
+def large_workbook():
+    """Fictional input with21 rows in one country/year, exceeding a15card page."""
+    book=load_workbook(BytesIO(make_workbook(name_prefix='Gamma',include_ot=False)))
+    sheet=book['Remediations'];sheet.delete_rows(9)
+    template=[sheet.cell(4,column).value for column in range(1,20)]
+    caches={'L4':1380,'L5':1000,'L6':810,'L7':0,'L8':0}
+    for offset,row in enumerate(range(9,29),start=1):
+        for column,value in enumerate(template,start=1):sheet.cell(row,column,value)
+        sheet[f'A{row}']=row-3;sheet[f'B{row}']=f'R.EXTRA.{offset}'
+        sheet[f'D{row}']=f'Gamma extra {offset:02}'
+        sheet[f'E{row}']=f'Original Gamma global description {offset:02}. '+('Source wording is retained. '*30)+f' End reference {offset:02}.'
+        sheet[f'L{row}']=f'=J{row}*13+K{row}*8';caches[f'L{row}']=1380
+    sheet['I29']='=SUM(I4:I28)';sheet['L29']='=SUM(L4:L28)'
+    caches.update(I29=26400,L29=30790)
+    output=BytesIO();book.save(output);book.close()
+    return with_cached_values(output.getvalue(),{'xl/worksheets/sheet2.xml':caches})
 
 
 def main():
@@ -274,9 +295,35 @@ def main():
                 page.set_viewport_size({'width':1440,'height':1100})
                 page.locator('.view-tabs [data-view="overview"]').click()
                 page.pdf(path='/tmp/data-visualization-tool-multiproject.pdf',format='A4',landscape=True,print_background=True)
+                # The PPT button exports all filtered rows, including those past the current card page.
+                import_file(large_workbook(),'gamma.xlsx','Gamma project')
+                for field,value in [('years','2027'),('entities','Gamma Entity 01')]:
+                    group=page.locator(f'details[data-group="{field}"]')
+                    group.evaluate('(el)=>{el.open=true}')
+                    group.locator('input[data-filter-all]').uncheck()
+                    group.locator(f'input[data-filter][value="{value}"]').check()
+                expect(page.locator('.kpi-value').nth(3)).to_have_text('21')
+                page.locator('.view-tabs [data-view="table"]').click()
+                expect(page.locator('.remediation-card')).to_have_count(15)
+                with page.expect_download(timeout=30000) as event:
+                    page.locator('[data-action="pptx"]').click()
+                presentation_path=tmp/'filtered.pptx';event.value.save_as(presentation_path)
+                assert presentation_path.stat().st_size>10000
+                deck=Presentation(str(presentation_path))
+                text='\n'.join(shape.text for slide in deck.slides for shape in slide.shapes if shape.has_text_frame)
+                notes='\n'.join(slide.notes_slide.notes_text_frame.text for slide in deck.slides)
+                contents=text+'\n'+notes
+                assert 'Gamma project' in contents and 'gamma.xlsx' in contents
+                assert 'Gamma governance' in contents
+                for index in range(1,21):
+                    assert f'Gamma extra {index:02}' in contents
+                    assert f'End reference {index:02}.' in contents
+                assert 'Gamma backup' not in contents and 'Beta Entity' not in contents
+                assert 'Gamma Entity 01' in contents
+                assert 'Gamma Entity 02' not in text
                 assert not errors,errors
                 browser.close()
-                print('UI PASS: empty boot, multiple projects, different LE groups, saved catalog recovery, delayed reset guard, switch/update/reset isolation, all/none filters, sidebar scroll/focus, visual country links, map/PNG, offline HTML, CSV, XSS, restart, mobile, PDF')
+                print('UI PASS: empty boot, multiple projects, different LE groups, saved catalog recovery, delayed reset guard, switch/update/reset isolation, all/none filters, sidebar scroll/focus, visual country links, map/PNG, offline HTML, CSV, XSS, restart, mobile, PDF, filtered PowerPoint beyond pagination')
         finally:
             server.shutdown();server.server_close();thread.join(timeout=3)
 
