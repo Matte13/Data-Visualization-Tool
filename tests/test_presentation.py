@@ -6,6 +6,7 @@ import unittest
 from zipfile import ZipFile
 
 from pptx import Presentation
+from pptx.oxml.ns import qn
 
 from app.presentation import create_presentation, _selected_value
 
@@ -62,6 +63,20 @@ def texts(slide):
     return '\n'.join(shape.text for shape in slide.shapes if shape.has_text_frame)
 
 
+def named_shape(slide, name):
+    return next(shape for shape in slide.shapes if shape.name == name)
+
+
+def contrast(first, second):
+    def luminance(value):
+        channels = [int(value[index:index + 2], 16) / 255 for index in (0, 2, 4)]
+        linear = [channel / 12.92 if channel <= .04045 else ((channel + .055) / 1.055) ** 2.4
+                  for channel in channels]
+        return sum(channel * weight for channel, weight in zip(linear, (.2126, .7152, .0722)))
+    light, dark = sorted((luminance(first), luminance(second)), reverse=True)
+    return (light + .05) / (dark + .05)
+
+
 class PresentationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -82,7 +97,7 @@ class PresentationTests(unittest.TestCase):
                 self.assertLessEqual(shape.top+shape.height,self.presentation.slide_height+3)
 
     def test_drilldown_order_is_group_then_year_then_country_then_appendix(self):
-        titles=[slide.shapes[1].text if len(slide.shapes)>1 and slide.shapes[1].has_text_frame else '' for slide in self.presentation.slides]
+        titles=[named_shape(slide, 'dvt-title').text for slide in self.presentation.slides]
         self.assertEqual(titles[0].replace('\n',' '),'Piano di remediation')
         self.assertLess(titles.index('Budget per anno'),titles.index('2027 · Budget e remediation'))
         self.assertLess(titles.index('2029 · Budget e remediation'),titles.index('Country · Budget Local per anno'))
@@ -157,15 +172,94 @@ class PresentationTests(unittest.TestCase):
         self.assertEqual(theme.find('.//a:clrScheme/a:accent3/a:srgbClr',ns).get('val'),'7213EA')
 
     def test_reference_typography_and_content_title_position(self):
-        title=self.presentation.slides[1].shapes[1]
-        self.assertAlmostEqual(title.left/914400,1.083,places=3)
-        self.assertAlmostEqual(title.top/914400,.472,places=3)
-        self.assertAlmostEqual(title.width/914400,11.167,places=3)
+        title=named_shape(self.presentation.slides[1], 'dvt-title')
+        self.assertAlmostEqual(title.left/914400,.8385,places=4)
+        self.assertAlmostEqual(title.top/914400,.4722,places=4)
+        self.assertAlmostEqual(title.width/914400,11.6163,places=4)
         self.assertEqual(title.text_frame.paragraphs[0].font.name,'KPMG Bold')
-        self.assertEqual(title.text_frame.paragraphs[0].font.size.pt,48)
-        cover=self.presentation.slides[0].shapes[1]
-        self.assertEqual(cover.text_frame.paragraphs[0].font.size.pt,96)
-        self.assertAlmostEqual(cover.top/914400,1.469,places=3)
+        self.assertEqual(title.text_frame.paragraphs[0].font.size.pt,40)
+        cover=named_shape(self.presentation.slides[0], 'dvt-title')
+        self.assertEqual(cover.text_frame.paragraphs[0].font.size.pt,88)
+        self.assertAlmostEqual(cover.top/914400,1.60,places=3)
+
+    def test_every_slide_has_an_editable_global_cyber_pitch_gradient_base(self):
+        for slide in self.presentation.slides:
+            with self.subTest(title=named_shape(slide, 'dvt-title').text):
+                base=named_shape(slide, 'dvt-brand-background')
+                self.assertEqual((base.left,base.top),(0,0))
+                self.assertEqual((base.width,base.height),
+                                 (self.presentation.slide_width,self.presentation.slide_height))
+                self.assertEqual(slide.shapes[0].name,'dvt-brand-background')
+                fill=base._element.find(qn('p:spPr')).find(qn('a:gradFill'))
+                self.assertIsNotNone(fill)
+                stops=fill.find(qn('a:gsLst'))
+                self.assertEqual([stop.get('pos') for stop in stops],['0','100000'])
+                self.assertEqual([stop.find(qn('a:srgbClr')).get('val') for stop in stops],
+                                 ['7213EA','1E49E2'])
+                self.assertEqual(fill.find(qn('a:lin')).get('ang'),'0')
+
+    def test_title_and_icon_gradients_are_native_and_use_valid_drawingml_order(self):
+        for slide in self.presentation.slides:
+            title=named_shape(slide,'dvt-title')
+            for paragraph in title.text_frame.paragraphs:
+                properties=paragraph._p.find(qn('a:pPr')).find(qn('a:defRPr'))
+                fill=properties.find(qn('a:gradFill'))
+                self.assertIsNotNone(fill)
+                # Office expects text fills before the font-family declarations.
+                self.assertLess(list(properties).index(fill),
+                                list(properties).index(properties.find(qn('a:latin'))))
+        icons=[shape for slide in self.presentation.slides for shape in slide.shapes
+               if shape.name.startswith('dvt-icon-')]
+        self.assertTrue(icons)
+        for icon in icons:
+            self.assertIsNotNone(icon._element.find('.//' + qn('a:custGeom')))
+            line=icon._element.find(qn('p:spPr')).find(qn('a:ln'))
+            fill=line.find(qn('a:gradFill'))
+            self.assertIsNotNone(fill)
+            self.assertEqual([stop.find(qn('a:srgbClr')).get('val')
+                              for stop in fill.find(qn('a:gsLst'))],['C8A9FF','ACEAFF'])
+
+    def test_every_slide_has_reference_footer_logo_copyright_and_page(self):
+        copyright=('©2026 Copyright owned by one or more of the KPMG International entities.\n'
+                   'KPMG International entities provide no services to clients. All rights reserved.')
+        for page,slide in enumerate(self.presentation.slides,1):
+            with self.subTest(page=page):
+                logo=named_shape(slide,'dvt-kpmg-logo')
+                self.assertEqual((logo.left,logo.top,logo.width,logo.height),
+                                 (766762,6266996,484832,194706))
+                self.assertIsNotNone(logo._element.find('.//' + qn('a:custGeom')))
+                self.assertIsNotNone(logo._element.find('.//' + qn('a:pathLst')))
+                footer=named_shape(slide,'dvt-copyright')
+                self.assertEqual(footer.text,copyright)
+                self.assertAlmostEqual(footer.left/914400,1.4928,places=4)
+                self.assertAlmostEqual(footer.top/914400,6.8537,places=4)
+                self.assertEqual(footer.text_frame.paragraphs[0].font.size.pt,6)
+                self.assertNotIn('©2024',texts(slide))
+                classification=named_shape(slide,'dvt-classification')
+                self.assertEqual(classification.text,'Document Classification: KPMG Confidential')
+                self.assertAlmostEqual(classification.left/914400,10.0655,places=4)
+                self.assertAlmostEqual(classification.top/914400,6.8849,places=4)
+                number=named_shape(slide,'dvt-page-number')
+                self.assertEqual(number.text,str(page))
+                self.assertAlmostEqual(number.left/914400,12.229605,places=5)
+                self.assertAlmostEqual(number.top/914400,6.853671,places=5)
+                self.assertEqual(number.text_frame.paragraphs[0].font.size.pt,10)
+
+    def test_annual_chart_stays_transparent_and_labels_contrast_with_brand_colors(self):
+        chart=next(shape.chart for slide in self.presentation.slides for shape in slide.shapes if shape.has_chart)
+        for parent in (chart._chartSpace,chart._chartSpace.find('.//' + qn('c:plotArea'))):
+            properties=parent.find(qn('c:spPr'))
+            self.assertIsNotNone(properties.find(qn('a:noFill')))
+            self.assertIsNone(properties.find(qn('a:solidFill')))
+        self.assertEqual([str(series.format.fill.fore_color.rgb) for series in chart.series],
+                         ['C8A9FF','ACEAFF'])
+        label_color=str(chart.plots[0].data_labels.font.color.rgb)
+        for series in chart.series:
+            self.assertGreaterEqual(contrast(label_color,str(series.format.fill.fore_color.rgb)),4.5)
+        for font in (chart.legend.font,chart.category_axis.tick_labels.font,
+                     chart.value_axis.tick_labels.font):
+            for background in ('7213EA','1E49E2'):
+                self.assertGreaterEqual(contrast(str(font.color.rgb),background),4.5)
 
     def test_partial_rows_preserve_available_selected_total(self):
         summary={'count':2,'global':100,'local':50,'selected':150,

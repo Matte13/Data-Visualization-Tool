@@ -12,6 +12,8 @@ import math
 import textwrap
 
 from .presentation_style import apply_presentation_style
+from .presentation_brand import (add_background, add_brand_details, add_footer,
+                                 add_icon, gradient_fill)
 
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
@@ -28,17 +30,17 @@ from lxml import etree
 
 THEME = {
     'font': 'Arial', 'title_font': 'KPMG Bold', 'navy': '00338D',
-    'blue': '1E49E2', 'local': '00B8F5', 'ink': '0C233C',
-    'muted': '647789', 'line': 'DCE5ED', 'light': 'F3F6FA',
-    'white': 'FFFFFF', 'amber': 'AD7A22',
-    'years': ['7213EA', '1E49E2', 'FD349C', '00B8F5', '00338D', '76D2FF'],
+    'blue': '1E49E2', 'purple': '7213EA', 'global': 'C8A9FF', 'local': 'ACEAFF',
+    'ink': 'FFFFFF', 'muted': 'E0DDFB', 'line': '8D80E8', 'light': '3824A3',
+    'white': 'FFFFFF', 'amber': 'FFDF96',
+    'years': ['D7BEFF', 'ACEAFF', 'AEBFFF', 'C8A9FF', '76D2FF', 'E3D7FF'],
 }
 W, H = 13.333333, 7.5
 MARGIN, BODY_TOP, BODY_BOTTOM = .58, 1.58, 6.76
-# Content reference slides: title x=1.083in, y=.472in, width=11.167in.
+# Global Cyber Pitch: title x=.8385in, y=.4722in, width=11.6163in.
 # Keep a logical grid for charts/cards and map it into that same content area.
-REFERENCE_MARGIN = 1.083
-CONTENT_SCALE = (W - 2 * REFERENCE_MARGIN) / (W - 2 * MARGIN)
+REFERENCE_MARGIN = .8385
+CONTENT_SCALE = 11.6163 / (W - 2 * MARGIN)
 
 
 def _x(value):
@@ -108,7 +110,7 @@ def _rgb(value):
     return RGBColor.from_string(value)
 
 
-def _shape(slide, x, y, width, height, fill, *, line=None, radius=False):
+def _shape(slide, x, y, width, height, fill, *, line=None, radius=False, gradient=None):
     shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE if radius else MSO_SHAPE.RECTANGLE,
                                    Inches(_x(x)), Inches(y), Inches(_width(width, x)), Inches(height))
     shape.fill.solid(); shape.fill.fore_color.rgb = _rgb(fill)
@@ -121,6 +123,8 @@ def _shape(slide, x, y, width, height, fill, *, line=None, radius=False):
     if effect_reference is not None:
         effect_reference.set('idx', '0')
     shape._element.spPr.append(OxmlElement('a:effectLst'))
+    if gradient:
+        gradient_fill(shape._element.spPr, gradient)
     if radius:
         try:
             shape.adjustments[0] = .025
@@ -152,26 +156,26 @@ def _notes(slide, text):
 
 def _slide(prs, report, title, subtitle='', *, section=''):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    slide.background.fill.solid(); slide.background.fill.fore_color.rgb = _rgb(THEME['white'])
-    _shape(slide, 0, 0, W, .01, THEME['white'])
-    _text(slide, title, MARGIN, .472, W - 2 * MARGIN, .583,
-          size=48 if len(title)<85 else 42, color=THEME['navy'], bold=False,
+    add_background(slide, W, H)
+    heading = _text(slide, title, MARGIN, .4722, W - 2 * MARGIN, .5833,
+          size=40 if len(title)<85 else 36, color=THEME['white'], bold=False,
           font=THEME['title_font'], line_spacing=.70)
+    heading.name = 'dvt-title'
+    heading.text_frame.margin_left = heading.text_frame.margin_right = 0
+    heading.text_frame.margin_top = heading.text_frame.margin_bottom = 0
+    for paragraph in heading.text_frame.paragraphs:
+        gradient_fill(paragraph._p.get_or_add_pPr().get_or_add_defRPr(), ('FFFFFF', 'ACEAFF'))
     if subtitle:
-        _text(slide, subtitle, MARGIN, 1.08, W - 2 * MARGIN, .38, size=12, color=THEME['muted'])
-    _shape(slide, MARGIN, 6.99, W - MARGIN * 2, .012, THEME['line'])
-    project = report.get('projectName') or 'Progetto'
-    _text(slide, project if len(project)<=60 else project[:57]+'…', MARGIN, 7.08, 4.0, .18, size=8, color=THEME['muted'])
-    _text(slide, section or 'Data Visualization Tool', 4.70, 7.08, 5.5, .18, size=8,
-          color=THEME['muted'], align=PP_ALIGN.CENTER)
-    _text(slide, str(len(prs.slides)), 11.45, 7.06, 1.27, .22, size=9,
-          color=THEME['muted'], align=PP_ALIGN.RIGHT)
+        subheading = _text(slide, subtitle, MARGIN, 1.08, W - 2 * MARGIN, .30, size=12, color=THEME['muted'])
+        subheading.name = 'dvt-subtitle'
+    add_brand_details(slide, cover=section == 'Riepilogo')
+    add_footer(slide, len(prs.slides))
     return slide
 
 
 def _legend(slide, x, y, *, scope='all'):
     labels = []
-    if scope != 'local': labels.append(('Global', THEME['navy']))
+    if scope != 'local': labels.append(('Global', THEME['global']))
     if scope != 'global': labels.append(('Local', THEME['local']))
     for label, color in labels:
         _shape(slide, x, y + .045, .11, .11, color)
@@ -179,15 +183,19 @@ def _legend(slide, x, y, *, scope='all'):
         x += 1.30
 
 
-def _stat(slide, x, y, width, label, value, note='', *, color=None):
-    _shape(slide, x, y, width, 1.23, THEME['light'], radius=True)
-    _shape(slide, x, y, .045, 1.23, color or THEME['blue'])
-    _text(slide, label, x + .17, y + .12, width - .34, .27, size=12, color=THEME['muted'])
+def _stat(slide, x, y, width, label, value, note=''):
+    _shape(slide, x, y, width, 1.23, THEME['light'], radius=True,
+           gradient=('4520AD', '17399A'))
+    _shape(slide, x, y, .045, 1.23, THEME['local'], gradient=('C8A9FF', 'ACEAFF'))
+    kind = 'global' if 'global' in label.lower() else 'local' if 'local' in label.lower() else 'budget'
+    accent = THEME.get(kind, THEME['white'])
+    add_icon(slide, kind, _x(x + width - .64), y + .15, .34)
+    _text(slide, label, x + .18, y + .13, width - .95, .27, size=12, color=accent)
     value_text = _money(value) if isinstance(value, (float, int)) or value is None else str(value)
-    _text(slide, value_text, x + .17, y + .43, width - .34, .42,
-          size=26 if len(value_text) < 17 else 20, color=color or THEME['navy'], bold=True)
+    _text(slide, value_text, x + .18, y + .43, width - .36, .48,
+          size=32 if len(value_text) < 17 else 25, color=THEME['white'], font=THEME['title_font'], line_spacing=.8)
     if note:
-        _text(slide, note, x + .17, y + .94, width - .34, .19, size=9, color=THEME['muted'])
+        _text(slide, note, x + .18, y + .98, width - .36, .18, size=9, color=THEME['muted'])
 
 
 def _source_notes(report, extra=''):
@@ -247,7 +255,9 @@ def _groups_from_rows(rows, field, scope='all'):
 def _bars(slide, groups, x, y, width, height, *, scope='all', row_height=None, title=None, scale_max=None):
     """Editable rectangles and exact labels, using one scale per comparison chart."""
     if title:
-        _text(slide, title, x, y, width, .32, size=17, color=THEME['navy'])
+        add_icon(slide, 'domain' if title == 'Domini' else 'owner', _x(x), y + .015, .25)
+        _text(slide, title, x + .37, y, width - .37, .32, size=19,
+              font=THEME['title_font'], color=THEME['local'])
         y += .47; height -= .47
     if not groups:
         _text(slide, 'Nessuna voce per i filtri selezionati.', x, y + .1, width, .6, size=14, color=THEME['muted'])
@@ -264,11 +274,11 @@ def _bars(slide, groups, x, y, width, height, *, scope='all', row_height=None, t
               size=12 if len(label) > 38 else 13, color=THEME['ink'], valign=MSO_ANCHOR.MIDDLE)
         bx = x + label_width
         by = yy + max(.09, (row_height - .15) / 2)
-        _shape(slide, bx, by, bar_width, .15, 'EAF0F6', radius=True)
+        _shape(slide, bx, by, bar_width, .15, '453CB1', radius=True)
         global_value = 0 if scope == 'local' else group.get('global') or 0
         local_value = 0 if scope == 'global' else group.get('local') or 0
         current = bx
-        for value, color in [(global_value, THEME['navy']), (local_value, THEME['local'])]:
+        for value, color in [(global_value, THEME['global']), (local_value, THEME['local'])]:
             if value > 0:
                 segment = bar_width * value / max_value
                 _shape(slide, current, by, segment, .15, color)
@@ -289,16 +299,32 @@ def _annual_chart(slide, groups, x, y, width, height, scope):
     chart.has_legend = True; chart.legend.position = XL_LEGEND_POSITION.BOTTOM
     chart.legend.include_in_layout = False
     chart.legend.font.name = THEME['font']; chart.legend.font.size = Pt(12)
+    chart.legend.font.color.rgb = _rgb(THEME['ink'])
     chart.chart_style = 10
+    # Office chart styles otherwise introduce a white canvas on the brand base.
+    for parent in (chart._chartSpace, chart._chartSpace.find(qn('c:chart')).find(qn('c:plotArea'))):
+        properties = parent.find(qn('c:spPr'))
+        if properties is None:
+            properties = OxmlElement('c:spPr')
+            # c:spPr precedes c:txPr/externalData in CT_ChartSpace.
+            next_node = next((node for node in parent if node.tag in
+                              {qn('c:txPr'), qn('c:externalData'), qn('c:printSettings'), qn('c:extLst')}), None)
+            if next_node is None: parent.append(properties)
+            else: parent.insert(list(parent).index(next_node), properties)
+        for child in list(properties): properties.remove(child)
+        properties.append(OxmlElement('a:noFill'))
+        line = OxmlElement('a:ln'); line.append(OxmlElement('a:noFill')); properties.append(line)
     chart.category_axis.tick_labels.font.name = THEME['font']; chart.category_axis.tick_labels.font.size = Pt(15)
     chart.category_axis.tick_labels.font.color.rgb = _rgb(THEME['ink'])
     chart.value_axis.tick_labels.font.name = THEME['font']; chart.value_axis.tick_labels.font.size = Pt(10)
+    chart.value_axis.tick_labels.font.color.rgb = _rgb(THEME['muted'])
     chart.value_axis.tick_labels.number_format = '#,##0" €"'
     chart.value_axis.has_major_gridlines = True
-    chart.value_axis.major_gridlines.format.line.color.rgb = _rgb('E3EAF2')
+    chart.value_axis.major_gridlines.format.line.color.rgb = _rgb('8F80E1')
+    chart.value_axis.major_gridlines.format.line.width = Pt(.45)
     chart.value_axis.format.line.fill.background(); chart.category_axis.format.line.color.rgb = _rgb(THEME['line'])
     plot = chart.plots[0]; plot.gap_width = 95
-    colors = [THEME['navy'], THEME['local']] if scope == 'all' else [THEME['navy'] if scope == 'global' else THEME['local']]
+    colors = [THEME['global'], THEME['local']] if scope == 'all' else [THEME['global'] if scope == 'global' else THEME['local']]
     for series, color in zip(chart.series, colors):
         series.format.fill.solid(); series.format.fill.fore_color.rgb = _rgb(color)
         series.format.line.fill.background()
@@ -306,17 +332,21 @@ def _annual_chart(slide, groups, x, y, width, height, scope):
     plot.data_labels.position = XL_LABEL_POSITION.CENTER
     plot.data_labels.number_format = '#,##0.##" €";-#,##0.##" €";'
     plot.data_labels.font.name = THEME['font']; plot.data_labels.font.size = Pt(11)
-    plot.data_labels.font.color.rgb = _rgb('FFFFFF')
+    plot.data_labels.font.color.rgb = _rgb(THEME['navy'])
     return chart
 
 
 def _country_card(slide, country, x, y, width, height, years, year_colors, domain_max):
     totals = country.get('totals', {})
-    _shape(slide, x, y, width, height, THEME['white'], line=THEME['line'], radius=True)
-    _text(slide, country.get('name', country.get('id', 'Country')), x + .20, y + .17, width - 2.05, .65,
-          size=19 if len(country.get('name', '')) < 38 else 15 if len(country.get('name', '')) < 65 else 12, color=THEME['navy'], bold=True)
+    _shape(slide, x, y, width, height, THEME['light'], line=THEME['line'], radius=True,
+           gradient=('4420A7', '2238A4'))
+    add_icon(slide, 'global', _x(x + .20), y + .20, .33)
+    _text(slide, country.get('name', country.get('id', 'Country')), x + .68, y + .17, width - 2.53, .65,
+          size=21 if len(country.get('name', '')) < 38 else 17 if len(country.get('name', '')) < 65 else 13,
+          color=THEME['white'], font=THEME['title_font'])
     _text(slide, 'Budget Local', x + width - 1.82, y + .15, 1.60, .20, size=10, color=THEME['muted'], align=PP_ALIGN.RIGHT)
-    _text(slide, _money(_known_value(totals, 'local')), x + width - 2.14, y + .41, 1.92, .35, size=18, color=THEME['blue'], bold=True, align=PP_ALIGN.RIGHT)
+    _text(slide, _money(_known_value(totals, 'local')), x + width - 2.14, y + .41, 1.92, .40,
+          size=24, color=THEME['local'], font=THEME['title_font'], align=PP_ALIGN.RIGHT)
     by_year = {str(group.get('label', '')): group for group in country.get('byYear', [])}
     blocks = max(1, len(years)); gap = .11
     block_width = (width - .4 - gap * (blocks - 1)) / blocks
@@ -324,7 +354,7 @@ def _country_card(slide, country, x, y, width, height, years, year_colors, domai
         bx = x + .2 + index * (block_width + gap); by = y + .98
         group = by_year.get(year)
         value = _known_value(group, 'local') if group else None
-        _shape(slide, bx, by, block_width, 1.04, THEME['light'], radius=True)
+        _shape(slide, bx, by, block_width, 1.04, '30288B', radius=True)
         _shape(slide, bx, by, block_width, .035, year_colors[year])
         _text(slide, year or 'Anno non specificato', bx + .10, by + .11, block_width - .20, .22, size=11, color=year_colors[year], bold=True)
         _text(slide, _money(value) if group else 'Nessuna voce', bx + .10, by + .43, block_width - .20, .32, size=16 if blocks <= 3 else 13, color=THEME['ink'], bold=True)
@@ -359,23 +389,32 @@ def create_presentation(report: dict) -> bytes:
     year_colors = {year: THEME['years'][index % len(THEME['years'])] for index, year in enumerate(years)}
 
     slide = _slide(prs, report, 'Piano di remediation', f'{report.get("projectName", "Progetto")} · {_scope_label(scope)}', section='Riepilogo')
-    cover_title=slide.shapes[1]
-    cover_title.top=Inches(1.469);cover_title.width=Inches(6.089);cover_title.height=Inches(2.75)
+    cover_title=next(shape for shape in slide.shapes if shape.name == 'dvt-title')
+    cover_title.left=Inches(1.08)
+    cover_title.top=Inches(1.60);cover_title.width=Inches(6.50);cover_title.height=Inches(2.75)
     cover_title.text_frame.text='Piano di\nremediation'
     cover_title.text_frame.margin_left=cover_title.text_frame.margin_top=0
     for paragraph in cover_title.text_frame.paragraphs:
-        paragraph.font.name=THEME['title_font'];paragraph.font.size=Pt(96)
-        paragraph.font.color.rgb=_rgb(THEME['navy']);paragraph.line_spacing=.70
+        paragraph.font.name=THEME['title_font'];paragraph.font.size=Pt(88)
+        paragraph.font.color.rgb=_rgb(THEME['white']);paragraph.line_spacing=.75
+        gradient_fill(paragraph._p.get_or_add_pPr().get_or_add_defRPr(), ('FFFFFF', 'ACEAFF'))
     # The cover's project label moves below the large headline, instead of competing with it.
-    cover_subtitle=slide.shapes[2]
-    cover_subtitle.top=Inches(4.53);cover_subtitle.height=Inches(.66)
+    cover_subtitle=next(shape for shape in slide.shapes if shape.name == 'dvt-subtitle')
+    cover_subtitle.top=Inches(4.50);cover_subtitle.width=Inches(6.60);cover_subtitle.height=Inches(.66)
     for paragraph in cover_subtitle.text_frame.paragraphs:
         paragraph.font.size=Pt(19)
-    _stat(slide, 8.46, 1.64, 4.30, 'Budget selezionato', _selected_value(totals, scope), color=THEME['blue'])
-    _stat(slide, 8.46, 3.08, 4.30, 'Budget Global', _known_value(totals, 'global'), 'Importo di gruppo', color=THEME['navy'])
-    _stat(slide, 8.46, 4.52, 4.30, 'Budget Local', _known_value(totals, 'local'), 'Totale disponibile', color=THEME['local'])
-    _text(slide, f'{len(rows)} righe di remediation · {len(report.get("countries", []))} entità · {len(years)} annualità', MARGIN, 5.55, 7.3, .4, size=14, color=THEME['ink'])
-    _text(slide, 'Fonte: ' + source.get('filename', ''), MARGIN, 6.10, W - MARGIN * 2, .45, size=10, color=THEME['muted'])
+    _stat(slide, 8.46, 1.64, 4.30, 'Budget selezionato', _selected_value(totals, scope))
+    _stat(slide, 8.46, 3.08, 4.30, 'Budget Global', _known_value(totals, 'global'), 'Importo di gruppo')
+    _stat(slide, 8.46, 4.52, 4.30, 'Budget Local', _known_value(totals, 'local'), 'Totale disponibile')
+    _text(slide, 'DATA VISUALIZATION TOOL', MARGIN, .63, 7.3, .28, size=13, color=THEME['local'])
+    _text(slide, f'{len(rows)} righe di remediation · {len(report.get("countries", []))} entità · {len(years)} annualità', MARGIN, 5.36, 7.3, .35, size=14, color=THEME['ink'])
+    for index, (label, kind) in enumerate([('Global / Local', 'budget'), ('Anni', 'year'), ('Country', 'global')]):
+        x = MARGIN + index * 2.45
+        add_icon(slide, kind, _x(x), 5.90, .30)
+        _text(slide, label, x + .42, 5.91, 1.70, .24, size=11, color=THEME['local'])
+        if index < 2:
+            _text(slide, '›', x + 2.06, 5.89, .23, .28, size=16, color=THEME['local'])
+    _text(slide, 'Fonte: ' + source.get('filename', ''), MARGIN, 6.31, 7.6, .23, size=10, color=THEME['muted'])
     if totals.get('missingGlobal') or totals.get('missingLocal'):
         _text(slide, 'Totali sulle stime disponibili; attribuzioni incerte separate.', MARGIN, 6.62, W - MARGIN * 2, .22, size=10, color=THEME['amber'])
     _notes(slide, _source_notes(report, '\n'.join(_filter_lines(report))))
@@ -405,9 +444,9 @@ def create_presentation(report: dict) -> bytes:
         for index in range(count):
             year = str(year_group.get('label', 'Anno non specificato'))
             slide = _slide(prs, report, f'{year} · Budget e remediation', f'{year_group.get("count", len(year_rows))} righe selezionate' + (f' · pagina {index + 1} di {count}' if count > 1 else ''), section='Dettaglio annuale')
-            _stat(slide, MARGIN, 1.64, 3.93, 'Budget selezionato', _selected_value(year_group, scope), color=THEME['blue'])
-            _stat(slide, 4.70, 1.64, 3.93, 'Global', _known_value(year_group, 'global'), color=THEME['navy'])
-            _stat(slide, 8.82, 1.64, 3.93, 'Local', _known_value(year_group, 'local'), color=THEME['local'])
+            _stat(slide, MARGIN, 1.64, 3.93, 'Budget selezionato', _selected_value(year_group, scope))
+            _stat(slide, 4.70, 1.64, 3.93, 'Global', _known_value(year_group, 'global'))
+            _stat(slide, 8.82, 1.64, 3.93, 'Local', _known_value(year_group, 'local'))
             _bars(slide, domain_pages[index] if index < len(domain_pages) else [], MARGIN, 3.22, 5.95, 3.45, scope=scope, title='Domini')
             _bars(slide, owner_pages[index] if index < len(owner_pages) else [], 6.95, 3.22, 5.79, 3.45, scope=scope, title='Owner')
             _notes(slide, _source_notes(report, json.dumps({'year': year, 'domains': domains, 'owners': owners}, ensure_ascii=False, default=str)))
@@ -432,14 +471,16 @@ def create_presentation(report: dict) -> bytes:
         slide = _slide(prs, report, 'Remediation selezionate', f'Appendice · {index * 3 + 1}–{index * 3 + len(page)} di {len(rows)} · testi completi nelle note', section='Appendice')
         for offset, row in enumerate(page):
             y = 1.65 + offset * 1.66
-            _shape(slide, MARGIN, y, 12.17, 1.50, THEME['light'], radius=True)
+            _shape(slide, MARGIN, y, 12.17, 1.50, THEME['light'], radius=True,
+                   gradient=('4620AC', '2137A3'))
+            _shape(slide, MARGIN, y, .045, 1.50, THEME['local'], gradient=('C8A9FF', 'ACEAFF'))
             key = str(row.get('key') or f'{row.get("sheet", "")}:{row.get("excelRow", "")}')
             _text(slide, key + (' · ' + str(row['id']) if row.get('id') else ' · ID assente'), .78, y + .10, 3.1, .22, size=10, color=THEME['muted'])
             name = str(row.get('name', ''))
-            _text(slide, name if len(name)<=180 else name[:177]+'…', .78, y + .37, 7.55, .60, size=16 if len(name) < 120 else 12, color=THEME['navy'], bold=True)
+            _text(slide, name if len(name)<=180 else name[:177]+'…', .78, y + .37, 7.55, .60, size=16 if len(name) < 120 else 12, color=THEME['white'], bold=True)
             _text(slide, f'{row.get("domain") or "Dominio non specificato"} · {row.get("owner") or "Owner non specificato"} · {row.get("year") or "Anno non specificato"}', .78, y + 1.06, 7.60, .28, size=10, color=THEME['muted'])
             _text(slide, 'Global', 8.80, y + .13, 1.68, .19, size=9, color=THEME['muted'])
-            _text(slide, _money(row.get('globalBudget')), 8.80, y + .40, 1.68, .30, size=15, color=THEME['navy'], bold=True)
+            _text(slide, _money(row.get('globalBudget')), 8.80, y + .40, 1.68, .30, size=15, color=THEME['global'], bold=True)
             _text(slide, 'Local selezionato', 10.69, y + .13, 1.84, .19, size=9, color=THEME['muted'])
             _text(slide, _money(row.get('displayLocal')), 10.69, y + .40, 1.84, .30, size=15, color=THEME['local'], bold=True)
             _text(slide, 'Complete ' + _money(row.get('localComplete')), 8.80, y + .91, 1.80, .24, size=8.5, color=THEME['muted'])
