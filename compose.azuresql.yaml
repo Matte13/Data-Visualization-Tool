@@ -1,0 +1,31 @@
+name: data-visualization-tool
+services:
+  app:
+    image: ${DVT_IMAGE:-ghcr.io/matte13/data-visualization-tool:1.1.0}
+    build:
+      context: .
+      args:
+        APP_VERSION: ${DVT_VERSION:-1.1.0}
+    ports:
+      - "127.0.0.1:${DVT_PORT:-8000}:8000"
+    environment:
+      STORAGE_BACKEND: azuresql
+      AZURE_SQL_SERVER: ${AZURE_SQL_SERVER:-dbservertil.database.windows.net}
+      AZURE_SQL_PORT: ${AZURE_SQL_PORT:-1433}
+      AZURE_SQL_DATABASE: ${AZURE_SQL_DATABASE:-data-visualization-tool-db}
+      AZURE_SQL_USER: ${AZURE_SQL_USER:-fuddos}
+      AZURE_SQL_PASSWORD_FILE: /run/secrets/azure_sql_password
+      AZURE_SQL_SCHEMA: ${AZURE_SQL_SCHEMA:-dbo}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    secrets:
+      - azure_sql_password
+    read_only: true
+    tmpfs:
+      - /tmp:size=67108864,mode=1777
+      - /app/runtime:uid=10001,gid=10001,mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+secrets:
+  azure_sql_password:
+    file: ${AZURE_SQL_PASSWORD_FILE:-./deploy/secrets/azure_sql_password}

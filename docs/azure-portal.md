@@ -1,63 +1,56 @@
-# Installazione dal portale Azure
+# Installazione dal portale Azure con Azure SQL
 
-L'immagine del tool è distribuita tramite GitHub Container Registry. Per ogni aggiornamento cambiare il tag della versione, mantenendo lo stesso database PostgreSQL. Il codice resta nel repository [Matte13/Data-Visualization-Tool](https://github.com/Matte13/Data-Visualization-Tool).
+Usare l'immagine **ghcr.io/matte13/data-visualization-tool:1.1.0**, collegata al database Azure SQL già disponibile. Non occorre creare un nuovo database. La versione `1.0.0` precede il supporto Azure SQL.
 
-## 1. Pubblicare una versione su GitHub
-
-Dal commit già caricato su GitHub creare un tag di versione:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-In **GitHub → Actions → Publish GitHub Container Registry image** attendere la conclusione dei test e della pubblicazione. Il tag Git `v1.0.0` produce `ghcr.io/matte13/data-visualization-tool:1.0.0` e, per una versione stabile, anche `:latest`. Per le successive versioni usare `v1.0.1`, `v1.1.0`, ecc. È disponibile anche **Run workflow** con il numero di versione.
-
-La disponibilità del codice su GitHub non implica che l'immagine sia già pubblicata: verificare che il relativo tag compaia in **Packages → data-visualization-tool**.
-
-Per scegliere **Public** nel portale Azure, il package GHCR deve essere pubblico. Dopo la prima pubblicazione, il proprietario può impostarlo da **Package settings → Change visibility → Public**. Il workflow non modifica la visibilità. L'immagine include il software e le risorse grafiche necessarie, senza Excel, progetti caricati o credenziali. Se il package resta privato, selezionare **Private** in Azure e fornire utente GitHub e token con permesso `read:packages` ed eventuale autorizzazione SSO.
-
-## 2. Compilare “Container details”
-
-Nella schermata mostrata dall'utente inserire:
+## 1. Container details
 
 | Campo | Valore |
 | --- | --- |
 | Name | `data-visualization-tool` |
 | Image source | **Docker Hub or other registries** (include GHCR) |
-| Image type | **Public** se il package GHCR è pubblico, altrimenti **Private** |
+| Image type | **Public** se il package GHCR è pubblico |
 | Registry login server | `ghcr.io` |
-| Image and tag | `ghcr.io/matte13/data-visualization-tool:1.0.0` |
-| Command override | Lasciare vuoto |
-| Arguments override | Lasciare vuoto |
+| Image and tag | `ghcr.io/matte13/data-visualization-tool:1.1.0` |
+| Command override | Vuoto |
+| Arguments override | Vuoto |
 
-Se il portale separa ulteriormente repository e tag, usare repository `matte13/data-visualization-tool` e tag `1.0.0`, mantenendo `ghcr.io` come registry.
+Se repository e tag sono separati, usare repository `matte13/data-visualization-tool` e tag `1.1.0`. L'immagine Linux AMD64 include il driver Microsoft ODBC 18. Come base assegnare **0,5 vCPU / 1 GiB** e una sola replica, in modalità revisioni **Single**.
 
-Impostare **Ingress HTTP**, porta di destinazione **8000** e HTTPS. Come base usare **0,5 vCPU / 1 GiB**, una replica minima e una massima, revisioni **Single**. L'immagine è Linux AMD64 e parte con il comando già incluso.
+Abilitare l'ingress HTTP con porta di destinazione **8000**, HTTPS e accesso dalla rete aziendale. Scegliere un ambiente Container Apps che possa raggiungere il server Azure SQL esistente: risoluzione DNS, routing e firewall devono consentire il collegamento. Il template Bicep usa una VNet/subnet già esistente; non cambia le regole del database.
 
-Per l'uso interno scegliere un ambiente Container Apps con rete privata accessibile dalla rete aziendale. Il template [main.bicep](../infra/azure/main.bicep) crea ambiente, database e DNS privati; le relative istruzioni sono in [deployment.md](deployment.md). Con la creazione manuale verificare il collegamento fra ambiente e rete del database.
+## 2. Dove inserire la password
 
-## 3. Collegare PostgreSQL
+La password richiesta è quella **già valida per l'utente SQL fuddos**. Le credenziali eventualmente generate per PostgreSQL non valgono per questo server.
 
-Creare o utilizzare **Azure Database for PostgreSQL Flexible Server 16** e un database dedicato chiamato `remediation`, raggiungibile dall'ambiente Container Apps. Il nome dell'immagine non crea il database: l'app inizializza le proprie tabelle nel database configurato. PostgreSQL conserva i progetti e gli Excel originali; il filesystem temporaneo del container non viene usato come archivio.
+1. Aprire nel portale Azure la **Container App** appena creata o da aggiornare.
+2. Nel menu della Container App aprire **Settings → Secrets** (in italiano **Impostazioni → Segreti**).
+3. Selezionare **Add / Aggiungi**. Nome: **azure-sql-password**. Tipo: **Manual**. Nel campo **Secret value / Valore segreto** incollare la password SQL esistente e salvare.
+4. Aprire **Containers → Edit and deploy / Modifica e distribuisci**, scegliere il container del tool e la sezione **Environment variables / Variabili di ambiente**.
+5. Aggiungere **AZURE_SQL_PASSWORD**, scegliere come origine del valore **Reference a secret / Riferimento a un segreto** e selezionare **azure-sql-password**. Non inserirla come variabile di testo normale.
+6. Compilare anche le variabili della tabella seguente e distribuire la nuova revisione.
 
-In **Container App → Secrets** creare il secret `postgres-password`. In **Containers → Environment variables** impostare:
+Se la procedura iniziale di creazione mostra già Secrets e variabili di ambiente, è possibile impostarle nello stesso passaggio. L'app deve avere la configurazione completa prima che la revisione possa risultare pronta. La password non va inserita nell'immagine, in Image and tag, nel repository o nella chat.
 
-| Variabile | Valore |
+## 3. Variabili di ambiente
+
+| Nome | Valore / origine |
 | --- | --- |
-| `REQUIRE_POSTGRES` | `true` |
-| `PGHOST` | Nome completo del server, es. `server-azienda.postgres.database.azure.com` |
-| `PGPORT` | `5432` |
-| `PGDATABASE` | `remediation` |
-| `PGUSER` | Login PostgreSQL autorizzato a inizializzare e usare le tabelle dell'app |
-| `PGPASSWORD` | Tipo **Secret reference**, selezionare `postgres-password` |
-| `PGSSLMODE` | `verify-full` |
-| `PGSSLROOTCERT` | `/etc/ssl/certs/ca-certificates.crt` |
-| `ALLOWED_HOSTS` | Hostname completo della Container App, senza `https://` o percorsi |
+| `STORAGE_BACKEND` | `azuresql` |
+| `AZURE_SQL_SERVER` | `dbservertil.database.windows.net` |
+| `AZURE_SQL_PORT` | `1433` |
+| `AZURE_SQL_DATABASE` | `data-visualization-tool-db` |
+| `AZURE_SQL_USER` | `fuddos` |
+| `AZURE_SQL_SCHEMA` | `dbo` (oppure schema dedicato già predisposto dal DBA) |
+| `AZURE_SQL_PASSWORD` | **Secret reference → azure-sql-password** |
+| `ALLOWED_HOSTS` | FQDN completo della Container App, senza `https://` o percorsi |
 
-Per più hostname (es. dominio personalizzato) separarli con virgole. Non configurare contemporaneamente `DATABASE_URL`: se presente ha precedenza sui parametri `PG*`. Il server e il database devono essere pronti prima di avviare la revisione.
+Per più hostname usare una virgola. Rimuovere eventuali variabili `PG*`, `DATABASE_URL`, `DATABASE_URL_FILE` e `REQUIRE_POSTGRES` dalle revisioni precedenti: non fanno parte di questa configurazione. Non impostare `AZURE_SQL_TRUST_SERVER_CERTIFICATE`: per Azure la verifica del certificato è attiva e la connessione è cifrata.
 
-Configurare probe HTTP sulla porta `8000` con header **Host: localhost**:
+Il login `fuddos` deve essere autorizzato al database. L'app inizializza soltanto `dbo.dvt_projects` e `dbo.dvt_library_state`; non crea database, login o altri schemi. Per predisporre le tabelle con un amministratore e poi usare permessi limitati, consultare [deployment.md](deployment.md).
+
+## 4. Verificare l'avvio
+
+Configurare probe HTTP, porta `8000`, header **Host: localhost**:
 
 | Tipo | Percorso | Impostazione iniziale |
 | --- | --- | --- |
@@ -65,13 +58,16 @@ Configurare probe HTTP sulla porta `8000` con header **Host: localhost**:
 | Readiness | `/api/ready` | Intervallo 10 s, timeout 6 s, 3 tentativi |
 | Liveness | `/api/health` | Intervallo 30 s, timeout 5 s, 3 tentativi |
 
-La readiness conferma anche l'accesso al database. Aprire l'URL dell'app dalla rete autorizzata e caricare il primo Excel.
+Attendere una revisione pronta, aprire l'URL dalla rete aziendale e caricare un Excel. `/api/health` indica `storage: azuresql`; `/api/ready` verifica l'accesso al database. Se il database non è disponibile, l'app non salva sul filesystem temporaneo.
 
-## 4. Installare una nuova versione
+Se l'avvio fallisce, verificare: password e mapping del secret, accesso di `fuddos` al database, permessi sulle due tabelle, DNS e firewall/rete. I messaggi applicativi non contengono password o stringhe di connessione.
 
-1. Pubblicare la nuova versione e attenderne la presenza in GHCR.
-2. Aprire **Container App → Containers → Edit and deploy** (oppure **Revisions and replicas → Create new revision**).
-3. Cambiare soltanto **Image and tag**, ad esempio da `ghcr.io/matte13/data-visualization-tool:1.0.0` a `ghcr.io/matte13/data-visualization-tool:1.0.1`.
-4. Conservare variabili, secret, rete e database. Distribuire la revisione e verificare che risulti pronta prima di utilizzarla.
+## 5. Aggiornare il tag
 
-Per installazioni ripetibili usare il numero di versione, evitando `latest`. Conservare i tag già installati; per un rollback selezionare l'immagine precedente dopo aver verificato la compatibilità dello schema del database. I normali aggiornamenti dell'immagine non cancellano i progetti.
+1. Verificare che la nuova versione sia pubblicata in GHCR e che il relativo workflow GitHub sia concluso.
+2. In **Containers → Edit and deploy** cambiare **Image and tag**, ad esempio da `:1.1.0` a `:1.1.1`.
+3. Conservare tutte le variabili, il secret e lo stesso database. Distribuire la revisione e attenderne la readiness.
+
+Gli aggiornamenti del container conservano i progetti nel database. Per installazioni ripetibili usare una versione specifica anziché `latest`. Per il rollback verificare la compatibilità dello schema prima di selezionare l'immagine precedente. Le versioni `1.0.x` non gestiscono questa persistenza Azure SQL.
+
+Per pubblicare una versione, dal commit già caricato eseguire `git tag v1.1.1` e `git push origin v1.1.1`, oppure usare **Actions → Publish GitHub Container Registry image → Run workflow**. Il workflow esegue prima tutti i controlli. Il package deve essere pubblico per l'opzione Public; se è privato scegliere Private e fornire credenziali GHCR con `read:packages`.

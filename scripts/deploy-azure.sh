@@ -11,7 +11,9 @@ done
 : "${AZURE_LOCATION:?Set AZURE_LOCATION, for example westeurope}"
 : "${DVT_PREFIX:?Set a unique lowercase prefix (3-20 characters)}"
 : "${DVT_IMAGE:?Set a GitHub Container Registry image with release tag or digest}"
-: "${AZURE_POSTGRES_PASSWORD_FILE:?Set the path to a private password file}"
+: "${AZURE_SQL_PASSWORD_FILE:?Set the path to the existing Azure SQL password file}"
+: "${AZURE_VNET_ID:?Set the existing VNet resource ID}"
+: "${AZURE_INFRASTRUCTURE_SUBNET_ID:?Set the existing Container Apps subnet resource ID}"
 command -v az >/dev/null || { echo 'Azure CLI is required.' >&2; exit 2; }
 command -v python >/dev/null || { echo 'Python 3.12+ is required.' >&2; exit 2; }
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -32,8 +34,13 @@ def secret(name):
 parameters={
     'prefix':{'value':prefix},'location':{'value':os.environ['AZURE_LOCATION']},
     'containerImage':{'value':image},
-    'postgresAdministratorLogin':{'value':os.environ.get('AZURE_POSTGRES_USER','explorer')},
-    'postgresPassword':{'value':secret('AZURE_POSTGRES_PASSWORD_FILE')},
+    'sqlServerFqdn':{'value':os.environ.get('AZURE_SQL_SERVER','dbservertil.database.windows.net')},
+    'sqlDatabase':{'value':os.environ.get('AZURE_SQL_DATABASE','data-visualization-tool-db')},
+    'sqlUser':{'value':os.environ.get('AZURE_SQL_USER','fuddos')},
+    'sqlSchema':{'value':os.environ.get('AZURE_SQL_SCHEMA','dbo')},
+    'sqlPassword':{'value':secret('AZURE_SQL_PASSWORD_FILE')},
+    'virtualNetworkId':{'value':os.environ['AZURE_VNET_ID']},
+    'infrastructureSubnetResourceId':{'value':os.environ['AZURE_INFRASTRUCTURE_SUBNET_ID']},
 }
 username=os.environ.get('GHCR_USERNAME','')
 if username:

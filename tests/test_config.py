@@ -37,3 +37,33 @@ class RuntimeConfigTests(unittest.TestCase):
             with self.subTest(patch=patch),self.assertRaises(ConfigurationError) as error:
                 RuntimeConfig.from_environ({**base,**patch})
             self.assertNotIn('TOP-SECRET',str(error.exception))
+
+    def test_azure_sql_credentials_are_escaped_and_tls_is_verified_by_default(self):
+        config=RuntimeConfig.from_environ({'STORAGE_BACKEND':'azuresql',
+            'AZURE_SQL_SERVER':'dbservertil.database.windows.net',
+            'AZURE_SQL_DATABASE':'data-visualization-tool-db','AZURE_SQL_USER':'fuddos',
+            'AZURE_SQL_PASSWORD':'p;ass} Encrypt=no; secret'})
+        self.assertIn('PWD={p;ass}} Encrypt=no; secret}',config.azure_sql_connection_string)
+        self.assertIn('Encrypt={yes};TrustServerCertificate={no};',config.azure_sql_connection_string)
+        self.assertIn('DATABASE={data-visualization-tool-db}',config.azure_sql_connection_string)
+        self.assertNotIn('secret',repr(config))
+        self.assertIsNone(config.database_url)
+
+    def test_azure_sql_secret_file_is_read_without_an_embedded_password(self):
+        with tempfile.TemporaryDirectory() as directory:
+            secret=Path(directory)/'password';secret.write_text('fictional-password\n')
+            config=RuntimeConfig.from_environ({'AZURE_SQL_SERVER':'sqlserver',
+                'AZURE_SQL_DATABASE':'test','AZURE_SQL_USER':'user',
+                'AZURE_SQL_PASSWORD_FILE':str(secret)})
+        self.assertIn('PWD={fictional-password}',config.azure_sql_connection_string)
+
+    def test_incomplete_or_mixed_azure_sql_never_falls_back(self):
+        base={'STORAGE_BACKEND':'azuresql','AZURE_SQL_SERVER':'sqlserver',
+              'AZURE_SQL_DATABASE':'test','AZURE_SQL_USER':'user','AZURE_SQL_PASSWORD':'PRIVATE'}
+        for values in ({'STORAGE_BACKEND':'azuresql'}, {'AZURE_SQL_SERVER':'server'},
+                       {**base,'DATABASE_URL':'postgresql://ignored'},
+                       {**base,'AZURE_SQL_PORT':'0'}, {**base,'AZURE_SQL_SCHEMA':'dbo]; DROP TABLE x;--'},
+                       {**base,'STORAGE_BACKEND':'local'}):
+            with self.subTest(values=list(values)),self.assertRaises(ConfigurationError) as error:
+                RuntimeConfig.from_environ(values)
+            self.assertNotIn('PRIVATE',str(error.exception))

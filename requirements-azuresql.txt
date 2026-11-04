@@ -1,0 +1,2 @@
+# Microsoft ODBC Driver 18 is installed by the Dockerfile.
+pyodbc==5.2.0

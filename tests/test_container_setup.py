@@ -18,19 +18,19 @@ class ContainerSetupTests(unittest.TestCase):
     def test_initialize_creates_private_secret_without_putting_it_in_env(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'.env.example').write_text('DVT_PORT=8000\n')
-            self.assertTrue(INIT.initialize(root))
-            secret=(root/'deploy/secrets/postgres_password').read_text()
-            self.assertGreaterEqual(len(secret.strip()),40)
-            self.assertNotIn(secret.strip(),(root/'.env').read_text())
+            self.assertTrue(INIT.initialize(root,'fictional-only-password'))
+            secret=(root/'deploy/secrets/azure_sql_password').read_text()
+            self.assertEqual(secret,'fictional-only-password')
+            self.assertNotIn(secret.strip(),(root/'.env.azuresql').read_text())
             self.assertFalse(INIT.initialize(root))
-            self.assertEqual((root/'deploy/secrets/postgres_password').read_text(),secret)
+            self.assertEqual((root/'deploy/secrets/azure_sql_password').read_text(),secret)
             if os.name!='nt':self.assertEqual((root/'deploy/secrets').stat().st_mode&0o777,0o700)
 
     def test_existing_operator_env_is_never_overwritten(self):
         with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory);(root/'.env').write_text('KEEP=original\n')
-            with self.assertRaises(ValueError):INIT.initialize(root)
-            self.assertEqual((root/'.env').read_text(),'KEEP=original\n')
+            root=Path(directory);(root/'.env.azuresql').write_text('KEEP=original\n')
+            with self.assertRaises(ValueError):INIT.initialize(root,'fictional-only-password')
+            self.assertEqual((root/'.env.azuresql').read_text(),'KEEP=original\n')
 
     def test_archive_contains_runtime_and_deployment_but_no_private_inputs(self):
         with tempfile.TemporaryDirectory() as directory:

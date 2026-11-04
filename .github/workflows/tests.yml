@@ -24,44 +24,65 @@ jobs:
       - name: JavaScript data logic and owner map
         run: node --test tests/*.test.cjs
 
-  postgres-and-container:
+  azure-sql-and-container:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres:16-alpine
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
         env:
-          POSTGRES_DB: dvt_test
-          POSTGRES_USER: explorer
-          POSTGRES_PASSWORD: ci-fictional-password
-        ports: ['5432:5432']
+          ACCEPT_EULA: Y
+          MSSQL_PID: Developer
+          MSSQL_SA_PASSWORD: ci-Fictional-Sql-2026!
+          MSSQL_MEMORY_LIMIT_MB: 2048
         options: >-
-          --health-cmd "pg_isready -U explorer -d dvt_test"
-          --health-interval 5s --health-timeout 3s --health-retries 12
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'ci-Fictional-Sql-2026!' -C -Q 'SELECT 1' -b"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      STORAGE_BACKEND: azuresql
+      AZURE_SQL_SERVER: sqlserver
+      AZURE_SQL_DATABASE: dvt_test
+      AZURE_SQL_USER: sa
+      AZURE_SQL_PASSWORD: ci-Fictional-Sql-2026!
+      AZURE_SQL_TRUST_SERVER_CERTIFICATE: 'true'
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python -m pip install -r requirements.txt -r requirements-postgres.txt
-      - name: PostgreSQL persistence and concurrent writers
-        env:
-          TEST_DATABASE_URL: postgresql://explorer:ci-fictional-password@localhost:5432/dvt_test
-        run: python -m unittest discover -s tests -p 'test_postgres_integration.py' -v
-      - name: Build runtime image without private workbooks
+      - name: Build Azure SQL runtime image without private data
         run: docker build -t data-visualization-tool:ci .
-      - name: Check container dependencies, assets and non-root user
+      - name: Check Microsoft driver, assets and non-root user
         run: >-
           docker run --rm --entrypoint python data-visualization-tool:ci
-          -c "import os,psycopg; from pathlib import Path; assert os.getuid()==10001;
+          -c "import os,pyodbc; from pathlib import Path; assert os.getuid()==10001;
+          assert 'ODBC Driver 18 for SQL Server' in pyodbc.drivers();
           assert Path('/app/web/owner-map.js').is_file(); assert not list(Path('/app').rglob('*.xlsx'))"
-
-      - name: Start the PostgreSQL deployment package
-        env:
-          DVT_IMAGE: data-visualization-tool:ci
+      - name: Initialize disposable SQL Server test database
         run: |
-          python scripts/init-env.py
-          docker compose -f compose.postgres.yaml up -d --no-build --wait --wait-timeout 120
-          curl --fail http://127.0.0.1:8000/api/ready
-      - name: Stop disposable CI stack
+          docker run --rm --network '${{ job.services.sqlserver.network }}' \
+            --env AZURE_SQL_SERVER --env AZURE_SQL_USER --env AZURE_SQL_PASSWORD \
+            --env AZURE_SQL_TRUST_SERVER_CERTIFICATE --env AZURE_SQL_DATABASE=master \
+            --entrypoint python data-visualization-tool:ci \
+            -c "from app.config import RuntimeConfig; import pyodbc; c=pyodbc.connect(RuntimeConfig.from_environ().azure_sql_connection_string,autocommit=True); c.execute('CREATE DATABASE dvt_test'); c.close()"
+      - name: Azure SQL compatible persistence, concurrent writers and rollback
+        run: |
+          docker run --rm --network '${{ job.services.sqlserver.network }}' \
+            --read-only --tmpfs /tmp:mode=1777 --env RUN_AZURE_SQL_TESTS=1 --env CI=true \
+            --env AZURE_SQL_SERVER --env AZURE_SQL_DATABASE --env AZURE_SQL_USER \
+            --env AZURE_SQL_PASSWORD --env AZURE_SQL_TRUST_SERVER_CERTIFICATE \
+            --mount type=bind,src="$GITHUB_WORKSPACE/tests",dst=/tests,readonly \
+            --entrypoint python data-visualization-tool:ci \
+            /tests/test_azuresql_integration.py
+      - name: Start application with existing SQL Server and verify readiness
+        run: |
+          docker run -d --name dvt-sql-ci --network '${{ job.services.sqlserver.network }}' \
+            -p 127.0.0.1:18080:8000 --read-only --tmpfs /tmp:mode=1777 \
+            --env STORAGE_BACKEND --env AZURE_SQL_SERVER --env AZURE_SQL_DATABASE \
+            --env AZURE_SQL_USER --env AZURE_SQL_PASSWORD --env AZURE_SQL_TRUST_SERVER_CERTIFICATE \
+            data-visualization-tool:ci
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18080/api/ready; then exit 0; fi
+            sleep 2
+          done
+          docker logs dvt-sql-ci
+          exit 1
+      - name: Stop disposable application
         if: always()
-        run: docker compose -f compose.postgres.yaml down -v
+        run: docker rm -f dvt-sql-ci || true

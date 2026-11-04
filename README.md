@@ -27,7 +27,7 @@ Al primo avvio il workspace è vuoto: creare un progetto, assegnargli un nome e 
 - **Nuovo progetto** importa un Excel in un progetto separato senza sovrascrivere gli altri. Il selettore nella barra laterale permette di passare fra i progetti salvati.
 - **Aggiorna Excel** nel progetto aperto aggiorna soltanto quel progetto. I dati vengono validati prima della sostituzione: un file errato lascia intatto quello precedente.
 - **Ripristina prima importazione** ripristina il primo Excel caricato in quel progetto, senza toccare gli altri.
-- I progetti persistono nella directory locale `runtime/`, ignorata da Git. La modalità PostgreSQL è opzionale. Il workbook originale dell'utente non viene modificato.
+- I progetti persistono nella directory locale `runtime/`, ignorata da Git. In Azure i progetti vengono conservati nel database Azure SQL configurato. Il workbook originale dell'utente non viene modificato.
 
 L'importazione supporta file `.xlsx` compatibili fino a 10 MB, anche tramite trascinamento nella pagina. Prima di caricare un file modificato ricalcolarlo e salvarlo in Excel o LibreOffice, affinché siano presenti i risultati salvati delle formule. Il tool non esegue formule arbitrarie. Errori di schema, cache assente e incoerenze nei budget vengono mostrati in italiano.
 
@@ -67,22 +67,26 @@ Per produrre un HTML anche da riga di comando:
 python -m app.export --input percorso/progetto.xlsx --output dist/progetto-offline.html
 ```
 
-## GitHub Container Registry, PostgreSQL e Azure Container Apps
+## Azure Container Apps con Azure SQL esistente
 
-È disponibile un pacchetto completo di installazione: immagine Docker non privilegiata, stack Compose con PostgreSQL 16 persistente, workflow di pubblicazione su GitHub Container Registry e template Bicep per Azure Container Apps con PostgreSQL gestito e rete privata.
+L'immagine `ghcr.io/matte13/data-visualization-tool:1.1.0` include Microsoft ODBC Driver 18 e il connettore Azure SQL. Configurazione richiesta: server **dbservertil.database.windows.net**, database **data-visualization-tool-db**, utente **fuddos**; la password va inserita come secret dall'operatore. Il pacchetto non crea server o database SQL.
+
+Per installare e cambiare versione dal portale Azure seguire **[docs/azure-portal.md](docs/azure-portal.md)**: contiene i campi della schermata Container details e i passaggi esatti per **Secrets → azure-sql-password → AZURE_SQL_PASSWORD**. La porta HTTP del container è **8000**. Per rete, template Bicep, Docker locale, aggiornamenti e backup consultare **[docs/deployment.md](docs/deployment.md)**.
+
+Per avviare lo stesso container in Docker, collegato al database esistente:
 
 ```bash
-python scripts/init-env.py
-docker compose -f compose.postgres.yaml up -d --build
+python scripts/init-env.py --user fuddos
+docker compose --env-file .env.azuresql -f compose.azuresql.yaml up -d --build
 ```
 
-Aprire **http://localhost:8000**. Le password sono lette da file separati e non vengono incluse nell'immagine o nel repository. Il database conserva i progetti anche dopo il riavvio dell'applicazione; in questa modalità non è consentito il ripiego su disco. La distribuzione Azure è privata e richiede un collegamento alla rete aziendale.
+Lo script chiede la password nel terminale senza visualizzarla. Salva solo in file locali ignorati da Git; non genera credenziali per il database esistente. Aprire **http://localhost:8000** da una rete che possa raggiungere Azure SQL. Il server usa TLS con verifica del certificato e non ripiega su file se SQL non è disponibile. Progetti e originali Excel persistono nel database anche dopo un cambio di immagine.
 
-Per procedure, parametri, credenziali GitHub Container Registry, aggiornamenti e backup consultare **[docs/deployment.md](docs/deployment.md)**. Per generare l'archivio installabile: `python scripts/package-release.py`. `compose.yaml` mantiene la precedente modalità locale su filesystem.
+Il template Azure crea app, ambiente interno, log e DNS su una VNet/subnet esistente collegata ad Azure SQL. Non modifica database, utenti SQL o firewall. Il collegamento al database aziendale deve essere configurato dall'operatore; non è stato effettuato durante la preparazione del pacchetto.
 
-Per installare l'immagine dalla schermata **Container details** del portale Azure e aggiornare solo il tag, seguire **[docs/azure-portal.md](docs/azure-portal.md)**. Le versioni hanno il formato `ghcr.io/matte13/data-visualization-tool:1.0.0`; il push del tag Git `v1.0.0` avvia test e pubblicazione.
+Il push di un tag Git come `v1.1.0` avvia i test e la pubblicazione GHCR con tag `1.1.0`. Le versioni stabili aggiornano anche `latest`; per installazioni e rollback usare il tag di versione. Il workflow include test su SQL Server compatibile con Azure SQL, senza accedere al database aziendale, e allega il pacchetto di installazione. È disponibile anche **Actions → Publish GitHub Container Registry image → Run workflow**.
 
-La preparazione del pacchetto non pubblica automaticamente immagini e non crea risorse Azure: il workflow GitHub Container Registry e lo script Azure si eseguono con gli account dell'operatore.
+`python scripts/package-release.py` genera l'archivio installabile e il checksum, escludendo Excel, password e dati delle demo. La modalità desktop `python -m app.server` e `compose.yaml` conservano l'uso locale su file senza database esterno. La versione `1.0.0` e i relativi file PostgreSQL restano disponibili per compatibilità; questa installazione usa Azure SQL.
 
 ## Test
 

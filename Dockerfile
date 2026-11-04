@@ -9,13 +9,22 @@ LABEL org.opencontainers.image.title="Data Visualization Tool" \
       org.opencontainers.image.revision="$VCS_REF"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
-COPY requirements.txt requirements-postgres.txt ./
+COPY requirements.txt requirements-postgres.txt requirements-azuresql.txt ./
 # The optional build-only CA supports managed proxies without baking them into
 # the image. Normal Docker Desktop / GitHub builds do not require this secret.
-RUN --mount=type=secret,id=proxy_ca \
+RUN --mount=type=secret,id=proxy_ca,mode=0444 \
     if [ -s /run/secrets/proxy_ca ]; then \
-      PIP_CERT=/run/secrets/proxy_ca pip install --no-cache-dir -r requirements.txt -r requirements-postgres.txt; \
-    else pip install --no-cache-dir -r requirements.txt -r requirements-postgres.txt; fi \
+      export PIP_CERT=/run/secrets/proxy_ca CURL_CA_BUNDLE=/run/secrets/proxy_ca; \
+      printf 'Acquire::https::CaInfo "/run/secrets/proxy_ca";\n' > /etc/apt/apt.conf.d/99-build-proxy; \
+    fi \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && curl --fail --silent --show-error --location https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb --output /tmp/packages-microsoft-prod.deb \
+    && dpkg -i /tmp/packages-microsoft-prod.deb \
+    && apt-get update \
+    && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 unixodbc \
+    && pip install --no-cache-dir -r requirements.txt -r requirements-postgres.txt -r requirements-azuresql.txt \
+    && rm -rf /var/lib/apt/lists/* /tmp/packages-microsoft-prod.deb /etc/apt/apt.conf.d/99-build-proxy \
     && useradd --uid 10001 --create-home explorer
 COPY --chown=explorer:explorer app ./app
 COPY --chown=explorer:explorer web ./web

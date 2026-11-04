@@ -3,6 +3,7 @@
 !Dockerfile
 !requirements.txt
 !requirements-postgres.txt
+!requirements-azuresql.txt
 !app/
 !app/**
 !web/

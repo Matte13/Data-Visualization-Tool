@@ -3,7 +3,11 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "prefix": {"value": "dvt-internal"},
-    "containerImage": {"value": "ghcr.io/matte13/data-visualization-tool:1.0.0"},
-    "postgresAdministratorLogin": {"value": "explorer"}
+    "containerImage": {"value": "ghcr.io/matte13/data-visualization-tool:1.1.0"},
+    "sqlServerFqdn": {"value": "dbservertil.database.windows.net"},
+    "sqlDatabase": {"value": "data-visualization-tool-db"},
+    "sqlUser": {"value": "fuddos"},
+    "virtualNetworkId": {"value": "/subscriptions/SUBSCRIPTION/resourceGroups/NETWORK_RG/providers/Microsoft.Network/virtualNetworks/EXISTING_VNET"},
+    "infrastructureSubnetResourceId": {"value": "/subscriptions/SUBSCRIPTION/resourceGroups/NETWORK_RG/providers/Microsoft.Network/virtualNetworks/EXISTING_VNET/subnets/CONTAINER_APPS_SUBNET"}
   }
 }

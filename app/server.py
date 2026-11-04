@@ -629,7 +629,11 @@ def main():
     args = parser.parse_args()
     try:
         config = RuntimeConfig.from_environ()
-        store = WorkbookStore(database_url=config.database_url, database_options=config.database_options)
+        if config.azure_sql_connection_string:
+            from .sqlserver_store import AzureSqlStore
+            store = AzureSqlStore(config.azure_sql_connection_string, schema=config.azure_sql_schema)
+        else:
+            store = WorkbookStore(database_url=config.database_url, database_options=config.database_options)
         hosts = [h.strip().lower() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
         server = ExplorerServer((args.host, args.port), store, hosts)
     except (StorageError, ValueError, OSError) as error:
