@@ -15,3 +15,9 @@ docs/validation.md
 *.xlsx
 *.m4a
 *.docx
+
+# Deployment credentials and generated parameter files
+.env.*
+!.env.example
+deploy/secrets/
+infra/azure/*.local.json

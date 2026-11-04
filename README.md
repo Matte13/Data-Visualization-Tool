@@ -67,24 +67,22 @@ Per produrre un HTML anche da riga di comando:
 python -m app.export --input percorso/progetto.xlsx --output dist/progetto-offline.html
 ```
 
-## Docker e PostgreSQL opzionale
+## GitHub Container Registry, PostgreSQL e Azure Container Apps
+
+È disponibile un pacchetto completo di installazione: immagine Docker non privilegiata, stack Compose con PostgreSQL 16 persistente, workflow di pubblicazione su GitHub Container Registry e template Bicep per Azure Container Apps con PostgreSQL gestito e rete privata.
 
 ```bash
-# Docker Compose >= 2.20; persistenza locale, database non obbligatorio
-docker compose up --build
+python scripts/init-env.py
+docker compose -f compose.postgres.yaml up -d --build
 ```
 
-La porta pubblicata da Compose è limitata al loopback locale. L'immagine usa un utente non privilegiato; il volume `workbook-state` conserva i progetti. La build richiede connessione, l'applicazione avviata in modalità locale no.
+Aprire **http://localhost:8000**. Le password sono lette da file separati e non vengono incluse nell'immagine o nel repository. Il database conserva i progetti anche dopo il riavvio dell'applicazione; in questa modalità non è consentito il ripiego su disco. La distribuzione Azure è privata e richiede un collegamento alla rete aziendale.
 
-Per PostgreSQL, configurare un `.env` locale (ignorato da Git) con `POSTGRES_PASSWORD` e una `DATABASE_URL` coerente, quindi:
+Per procedure, parametri, credenziali GitHub Container Registry, aggiornamenti e backup consultare **[docs/deployment.md](docs/deployment.md)**. Per generare l'archivio installabile: `python scripts/package-release.py`. `compose.yaml` mantiene la precedente modalità locale su filesystem.
 
-```bash
-docker compose --profile postgres up --build
-```
+Per installare l'immagine dalla schermata **Container details** del portale Azure e aggiornare solo il tag, seguire **[docs/azure-portal.md](docs/azure-portal.md)**. Le versioni hanno il formato `ghcr.io/matte13/data-visualization-tool:1.0.0`; il push del tag Git `v1.0.0` avvia test e pubblicazione.
 
-Il database Compose usa nome `remediation`, utente `explorer`, host interno `db`, porta 5432. La password deve essere scelta dall'utente; codificare nella URL eventuali caratteri speciali. La porta del DB non è esposta all'host. Per un database esistente, installare `requirements-postgres.txt` e configurare `DATABASE_URL` nell'ambiente. Se impostata, PostgreSQL è obbligatorio: una connessione fallita non provoca un ripiego silenzioso su disco.
-
-Il servizio mantiene dati e progetto attivo in memoria: usare una singola istanza applicativa. Per Azure Container Apps sono disponibili porta 8000, endpoint `/api/health` e configurazione `ALLOWED_HOSTS`/`DATABASE_URL`. Prima dell'accesso remoto servono autenticazione, controllo degli accessi e TLS/ingress tramite la piattaforma. **Docker, PostgreSQL e Azure sono predisposti ma non validati o distribuiti da questa versione.** Nessuna immagine è stata pubblicata su Docker Hub.
+La preparazione del pacchetto non pubblica automaticamente immagini e non crea risorse Azure: il workflow GitHub Container Registry e lo script Azure si eseguono con gli account dell'operatore.
 
 ## Test
 

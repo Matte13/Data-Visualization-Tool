@@ -1,0 +1,52 @@
+name: data-visualization-tool
+services:
+  app:
+    image: ${DVT_IMAGE:-data-visualization-tool:local}
+    build:
+      context: .
+      args:
+        APP_VERSION: ${DVT_VERSION:-dev}
+    ports:
+      - "127.0.0.1:${DVT_PORT:-8000}:8000"
+    environment:
+      REQUIRE_POSTGRES: "true"
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: remediation
+      PGUSER: explorer
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      PGSSLMODE: disable
+      ALLOWED_HOSTS: localhost,127.0.0.1
+    secrets:
+      - postgres_password
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=67108864,mode=1777
+      - /app/runtime:uid=10001,gid=10001,mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: remediation
+      POSTGRES_USER: explorer
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U explorer -d remediation"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_FILE:-./deploy/secrets/postgres_password}
+volumes:
+  postgres-data:

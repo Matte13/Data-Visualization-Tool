@@ -1,0 +1,76 @@
+name: Publish GitHub Container Registry image
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Release tag, for example 1.0.0'
+        required: true
+        type: string
+      publish_latest:
+        description: 'Also move the latest tag'
+        default: false
+        type: boolean
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: container-publish-${{ inputs.image_tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  checks:
+    uses: ./.github/workflows/tests.yml
+  publish:
+    needs: checks
+    runs-on: ubuntu-latest
+    env:
+      REQUESTED_TAG: ${{ inputs.image_tag }}
+      PUSH_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      MOVE_LATEST: ${{ inputs.publish_latest }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate version and prepare GitHub image tags
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${REQUESTED_TAG:-$PUSH_TAG}"
+          version="${version#v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ && ${#version} -le 128 ]] || { echo 'Use a version such as 1.0.0 or 1.1.0-rc.1'; exit 1; }
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          {
+            echo "version=$version"
+            echo 'tags<<TAGS'
+            echo "$image:$version"
+            echo "$image:sha-$GITHUB_SHA"
+            if [[ "$MOVE_LATEST" == true || ( -n "$PUSH_TAG" && "$version" != *-* ) ]]; then echo "$image:latest"; fi
+            echo 'TAGS'
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.image.outputs.tags }}
+          build-args: |
+            APP_VERSION=${{ steps.image.outputs.version }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=min
+      - name: Create deployment archive
+        run: python scripts/package-release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: data-visualization-tool-${{ steps.image.outputs.version }}
+          path: |
+            dist/data-visualization-tool-deploy.zip
+            dist/data-visualization-tool-deploy.zip.sha256
+          if-no-files-found: error

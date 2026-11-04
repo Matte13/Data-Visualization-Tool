@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+from contextlib import contextmanager
 import hashlib
 import json
 import os
+import signal
 from pathlib import Path
 import tempfile
 import threading
@@ -17,6 +19,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlsplit
 
+from .config import RuntimeConfig
 from .workbook import parse_workbook
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -53,22 +56,34 @@ class WorkbookStore:
     """Independent projects; parse and persist a complete candidate state before commit.
 
     Local catalog stores current and original XLSX bytes in one atomic JSON file.
-    The parsed documents are memory-only caches. One server process owns the library.
+    Parsed documents are memory-only caches. Local mode uses one server process;
+    PostgreSQL mode serializes and refreshes the library in database transactions.
     """
 
-    def __init__(self, root: Path = ROOT, database_url: str | None = None):
+    def __init__(self, root: Path = ROOT, database_url: str | None = None, database_options: dict | None = None):
         self.root = root
         self.lock = threading.RLock()
         self.database_url = database_url
-        self.persistence = "postgres" if database_url else "local"
+        self.database_options = dict(database_options or {})
+        self.postgres = bool(database_url or self.database_options)
+        self._pg_connection = None
+        self.persistence = "postgres" if self.postgres else "local"
         self.runtime = root / "runtime"
         self.base = root / "data" / "base.xlsx"
         self.runtime.mkdir(parents=True, exist_ok=True)
         self.projects = {}
         self.active_project_id = None
         legacy = None
-        if database_url:
-            state, legacy = self._load_postgres()
+        if self.postgres:
+            with self._operation():
+                state, legacy = self._load_postgres()
+                if state is not None:
+                    self._restore_state(state)
+                elif legacy is not None:
+                    self.create(legacy[0], legacy[1], Path(legacy[1]).stem)
+                else:
+                    self._persist_state({}, None)
+            return
         else:
             path = self.runtime / "projects.json"
             try:
@@ -127,7 +142,9 @@ class WorkbookStore:
                 if not content or not initial or max(len(content), len(initial)) > MAX_UPLOAD_BYTES:
                     raise ValueError("size")
                 filename = safe_filename(entry["filename"])
-                document = parse_workbook(content, filename)
+                cached = self.projects.get(project_id)
+                document = (cached['document'] if cached and cached['content'] == content
+                            and cached['filename'] == filename else parse_workbook(content, filename))
                 projects[project_id] = {
                     "id": project_id, "name": safe_project_name(entry["name"], filename),
                     "filename": filename, "initialFilename": safe_filename(entry["initialFilename"]),
@@ -151,13 +168,53 @@ class WorkbookStore:
                 "DATABASE_URL è configurata: installare requirements-postgres.txt per usare PostgreSQL."
             ) from None
         try:
-            return psycopg.connect(self.database_url, connect_timeout=5)
+            return psycopg.connect(self.database_url or '', **self.database_options, connect_timeout=5)
         except Exception:
             raise StorageError("Connessione PostgreSQL non disponibile. Verificare la configurazione del database.") from None
 
+    @contextmanager
+    def _connection(self):
+        if self._pg_connection is not None:
+            yield self._pg_connection
+        else:
+            with self._connect() as connection:
+                # Serialize initialization as well as rolling-revision requests.
+                connection.execute("SELECT pg_advisory_xact_lock(734527104)")
+                yield connection
+
+    @contextmanager
+    def _operation(self):
+        with self.lock:
+            if not self.postgres or self._pg_connection is not None:
+                yield
+                return
+            previous = self.projects, self.active_project_id
+            try:
+                with self._connect() as connection:
+                    connection.execute("SELECT pg_advisory_xact_lock(734527104)")
+                    self._pg_connection = connection
+                    state, _legacy = self._load_postgres()
+                    if state is not None:
+                        self._restore_state(state)
+                    yield
+            except (ValueError, NoProjectError, StorageError):
+                self.projects, self.active_project_id = previous
+                raise
+            except Exception:
+                self.projects, self.active_project_id = previous
+                raise StorageError("Operazione PostgreSQL non riuscita. Nessun dato è stato sostituito.") from None
+            finally:
+                self._pg_connection = None
+
+    def ready(self):
+        if self.postgres:
+            with self._connect() as connection:
+                connection.execute("SELECT 1").fetchone()
+        return True
+
     def _load_postgres(self):
         try:
-            with self._connect() as connection:
+            with self._connection() as connection:
                 connection.execute("""
                     CREATE TABLE IF NOT EXISTS remediation_projects (
                         id uuid PRIMARY KEY,
@@ -208,9 +265,9 @@ class WorkbookStore:
             raise StorageError("Impossibile leggere la libreria PostgreSQL. Nessun progetto è stato sostituito.") from None
 
     def _persist_state(self, projects, active):
-        if self.database_url:
+        if self.postgres:
             try:
-                with self._connect() as connection:
+                with self._connection() as connection:
                     for project in projects.values():
                         connection.execute("""
                             INSERT INTO remediation_projects
@@ -273,7 +330,7 @@ class WorkbookStore:
         return self.projects[project_id]
 
     def create(self, content: bytes, filename: str, name: str = ""):
-        with self.lock:
+        with self._operation():
             if not content or len(content) > MAX_UPLOAD_BYTES:
                 raise ValueError("Il file deve essere non vuoto e inferiore a 10 MB.")
             filename = safe_filename(filename)
@@ -287,7 +344,7 @@ class WorkbookStore:
             return self._response(project)
 
     def replace(self, content: bytes, filename: str, project_id=None):
-        with self.lock:
+        with self._operation():
             if project_id is None and self.active_project_id is None:
                 return self.create(content, filename)
             selected = self._selected(project_id)
@@ -301,18 +358,18 @@ class WorkbookStore:
             return self._response(project)
 
     def activate(self, project_id: str):
-        with self.lock:
+        with self._operation():
             self._selected(project_id)
             self._commit(self.projects, project_id)
             return self._response(self.projects[project_id])
 
     def reset(self, project_id=None):
-        with self.lock:
+        with self._operation():
             project = self._selected(project_id)
             return self.replace(project["initialContent"], project["initialFilename"], project["id"])
 
     def catalog(self):
-        with self.lock:
+        with self._operation():
             return {"projects": [
                 {"id": project["id"], "name": project["name"], "filename": project["filename"],
                  "rows": len(project["document"].get("rows", [])),
@@ -322,13 +379,13 @@ class WorkbookStore:
             ], "activeProjectId": self.active_project_id}
 
     def snapshot(self, project_id=None):
-        with self.lock:
+        with self._operation():
             if project_id is None and self.active_project_id is None:
                 return None
             return self._response(self._selected(project_id))
 
     def source(self, project_id=None):
-        with self.lock:
+        with self._operation():
             project = self._selected(project_id)
             return project["content"], project["filename"]
 
@@ -412,6 +469,12 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_GET(self):
+        try:
+            self._get()
+        except StorageError as error:
+            self._error(HTTPStatus.SERVICE_UNAVAILABLE, str(error))
+
+    def _get(self):
         if not self._host_allowed():
             return self._error(HTTPStatus.FORBIDDEN, "Host non autorizzato. Configurare ALLOWED_HOSTS per l'hosting remoto.")
         parsed = urlsplit(self.path)
@@ -427,8 +490,18 @@ class ExplorerHandler(BaseHTTPRequestHandler):
             if document is None:
                 return self._error(HTTPStatus.NOT_FOUND, "Nessun progetto attivo. Caricare un file Excel per iniziare.")
             return self._json(HTTPStatus.OK, document)
+        if path == "/api/ready":
+            try:
+                self.server.store.ready()
+            except StorageError:
+                return self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"status": "not-ready"})
+            except Exception:
+                return self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"status": "not-ready"})
+            return self._json(HTTPStatus.OK, {"status": "ready"})
         if path == "/api/health":
-            document = self.server.store.snapshot() or {}
+            # Liveness must not depend on PostgreSQL availability.
+            project = self.server.store.projects.get(self.server.store.active_project_id, {})
+            document = project.get('document', {})
             return self._json(HTTPStatus.OK, {
                 "status": "ok", "storage": self.server.store.persistence,
                 "sha256": document.get("source", {}).get("sha256"),
@@ -555,12 +628,15 @@ def main():
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
     try:
-        store = WorkbookStore(database_url=os.environ.get("DATABASE_URL"))
+        config = RuntimeConfig.from_environ()
+        store = WorkbookStore(database_url=config.database_url, database_options=config.database_options)
         hosts = [h.strip().lower() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
         server = ExplorerServer((args.host, args.port), store, hosts)
     except (StorageError, ValueError, OSError) as error:
         parser.exit(1, str(error) + "\n")
     print(f"Data Visualization Tool avviato sulla porta {server.server_port}. Archivio: {store.persistence}.", flush=True)
+    signal.signal(signal.SIGTERM, lambda _signum, _frame:
+                  threading.Thread(target=server.shutdown, daemon=True).start())
     try:
         server.serve_forever()
     except KeyboardInterrupt:
