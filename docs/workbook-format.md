@@ -24,7 +24,9 @@ Sono ammessi anche altri gruppi numerici o descrittivi, per esempio per backup o
 
 ### Formato numerico precedente
 
-Rimangono supportati interi positivi oppure etichette che terminano con quell'intero, ad esempio `3` o `Ambito operativo 3`. Il numero di X deve coincidere con il numero del gruppo. Le formule e le attribuzioni vengono lette come prima; senza le intestazioni semantiche la categoria organizzativa resta non specificata. Il tool non deduce Complete, Business o OT dal solo numero o dalla posizione della colonna.
+Rimangono supportati interi positivi oppure etichette che terminano con quell'intero, ad esempio `3` o `Ambito operativo 3`. Il numero di X deve coincidere con il numero del gruppo. Le formule e le attribuzioni vengono lette come prima. Dalla 1.2.1 è riconosciuto anche il profilo originale approvato: precisamente i gruppi C=6, D=8, E=13, F=5 e G=9 (oppure `Europa AI ACT 9`), con cardinalità X coerenti, 21 entità, OT comprese nelle Complete e Complete/Business disgiunte ed esaustive. Per questo profilo C identifica OT, D Business ed E Complete: risultano 6 Complete con OT, 7 senza OT e 8 Business. Il riconoscimento non usa i nomi delle country.
+
+Gli altri formati numerici validi restano senza classificazione; il tool non generalizza il significato di un moltiplicatore al di fuori del profilo originale. I progetti già salvati che corrispondono al profilo vengono classificati al riavvio, leggendo i file Excel conservati: non richiedono una nuova importazione o una riscrittura della sorgente.
 
 ### Regole comuni
 

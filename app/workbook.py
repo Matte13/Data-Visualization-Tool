@@ -164,6 +164,37 @@ def _entities(sheet):
     return result
 
 
+def _apply_legacy_classification(sheet, entities):
+    """Apply the confirmed original-template profile, without editing the XLSX.
+
+    Numeric cardinalities alone have no category meaning. This compatibility
+    profile is restricted to the original C:G layout and its validated,
+    exhaustive membership partition. Other numeric layouts stay unclassified.
+    """
+    if [_label(sheet.cell(1, col).value) for col in range(3, 7)] != ['6', '8', '13', '5']:
+        return None
+    if ' '.join(_label(sheet['G1'].value).casefold().split()) not in ('9', 'europa ai act 9'):
+        return None
+    for col in range(8, sheet.max_column + 1):
+        if _label(sheet.cell(1, col).value) or any(
+                _label(sheet.cell(row, col).value).casefold() == 'x'
+                for row in range(2, sheet.max_row + 1)):
+            return None
+    if len(entities) != 21:
+        return None
+    ot = {entity['id'] for entity in entities if 6 in entity['groups']}
+    business = {entity['id'] for entity in entities if 8 in entity['groups']}
+    complete = {entity['id'] for entity in entities if 13 in entity['groups']}
+    if not ot.issubset(complete) or business & complete or business | complete != {
+            entity['id'] for entity in entities}:
+        return None
+    for entity in entities:
+        entity['localCategory'] = ('complete-ot' if entity['id'] in ot else
+                                   'complete' if entity['id'] in complete else 'business')
+        entity['otEligible'] = entity['id'] in ot
+    return 'legacy-cde-6-8-13'
+
+
 def _formula_groups(sheet_name, row, formula, known_groups):
     if not isinstance(formula, str):
         return None
@@ -353,6 +384,7 @@ def parse_workbook(data: bytes, filename: str) -> dict:
         if any(sheet.max_row > 5000 or sheet.max_column > 200 for sheet in formulas):
             raise ValueError('Dimensioni del workbook non compatibili con il modello dedicato.')
         entities = _entities(values['LE_List'])
+        legacy_profile = _apply_legacy_classification(values['LE_List'], entities)
         issues = []
         rows = _main_rows(formulas, values, entities, issues)
         if 'OT' in formulas.sheetnames:
@@ -389,8 +421,9 @@ def parse_workbook(data: bytes, filename: str) -> dict:
                     if not matches:
                         raise ValueError('I totali delle remediation non coincidono con i totali salvati nel file. Ricalcolare e salvare il workbook.')
                 break
-        classification_available = any(_semantic_group(values['LE_List'].cell(1, col).value)
-                                       for col in range(3, values['LE_List'].max_column + 1))
+        classification_available = bool(legacy_profile) or any(
+            _semantic_group(values['LE_List'].cell(1, col).value)
+            for col in range(3, values['LE_List'].max_column + 1))
         return {
             'source': {'filename': filename, 'sha256': sha256(data).hexdigest()},
             'sheets': list(formulas.sheetnames), 'entities': entities,
@@ -400,6 +433,7 @@ def parse_workbook(data: bytes, filename: str) -> dict:
                 'counts': {category: sum(entity['localCategory'] == category for entity in entities)
                            for category in ('complete-ot', 'complete', 'business')}
                           | {'unclassified': sum(entity['localCategory'] is None for entity in entities)},
+                **({'profileId': legacy_profile} if legacy_profile else {}),
             },
             'rows': rows, 'issues': issues, 'totals': totals,
         }

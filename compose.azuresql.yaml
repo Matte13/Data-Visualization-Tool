@@ -1,11 +1,11 @@
 name: data-visualization-tool
 services:
   app:
-    image: ${DVT_IMAGE:-ghcr.io/matte13/data-visualization-tool:1.2.0}
+    image: ${DVT_IMAGE:-ghcr.io/matte13/data-visualization-tool:1.2.1}
     build:
       context: .
       args:
-        APP_VERSION: ${DVT_VERSION:-1.2.0}
+        APP_VERSION: ${DVT_VERSION:-1.2.1}
     ports:
       - "127.0.0.1:${DVT_PORT:-8000}:8000"
     environment:

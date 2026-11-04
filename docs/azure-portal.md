@@ -1,8 +1,10 @@
 # Installazione dal portale Azure con Azure SQL
 
-Usare l'immagine **ghcr.io/matte13/data-visualization-tool:1.2.0**, collegata al database Azure SQL già disponibile. Non occorre creare un nuovo database. La versione `1.0.0` precede il supporto Azure SQL.
+Usare l'immagine **ghcr.io/matte13/data-visualization-tool:1.2.1**, collegata al database Azure SQL già disponibile. Non occorre creare un nuovo database. La versione `1.0.0` precede il supporto Azure SQL.
 
-Prima di importare un Excel con le nuove intestazioni salvare uno snapshot completo compatibile con la 1.1.2, seguendo la [procedura di salvataggio e rollback](deployment.md#salvataggio-della-libreria-e-rollback-alla-112). Per tornare alla versione precedente occorre ripristinare quel salvataggio prima di cambiare immagine. Le [note 1.2.0](release-notes.md) spiegano le logiche di calcolo e la compatibilità dei file.
+**Progetti già salvati:** per l'Excel originale basta cambiare il tag dell'immagine e riavviare. Non occorre ricaricare il file: la 1.2.1 rilegge i workbook conservati, riconosce il profilo numerico originale validato e calcola le categorie senza modificare gli originali o lo stato dei progetti nel database.
+
+Se si decide in seguito di importare un file con nuove intestazioni, salvare prima uno snapshot completo compatibile con la 1.1.2 seguendo la [procedura di salvataggio e rollback](deployment.md#salvataggio-della-libreria-e-rollback-alla-112). Le [note 1.2.1](release-notes.md) spiegano il profilo riconosciuto, le logiche di calcolo e la compatibilità dei file.
 
 ## 1. Container details
 
@@ -12,11 +14,11 @@ Prima di importare un Excel con le nuove intestazioni salvare uno snapshot compl
 | Image source | **Docker Hub or other registries** (include GHCR) |
 | Image type | **Public** se il package GHCR è pubblico |
 | Registry login server | `ghcr.io` |
-| Image and tag | `ghcr.io/matte13/data-visualization-tool:1.2.0` |
+| Image and tag | `ghcr.io/matte13/data-visualization-tool:1.2.1` |
 | Command override | Vuoto |
 | Arguments override | Vuoto |
 
-Se repository e tag sono separati, usare repository `matte13/data-visualization-tool` e tag `1.2.0`. L'immagine Linux AMD64 include il driver Microsoft ODBC 18. Come base assegnare **0,5 vCPU / 1 GiB** e una sola replica, in modalità revisioni **Single**.
+Se repository e tag sono separati, usare repository `matte13/data-visualization-tool` e tag `1.2.1`. L'immagine Linux AMD64 include il driver Microsoft ODBC 18. Come base assegnare **0,5 vCPU / 1 GiB** e una sola replica, in modalità revisioni **Single**.
 
 Abilitare l'ingress HTTP con porta di destinazione **8000**, HTTPS e accesso dalla rete aziendale. Scegliere un ambiente Container Apps che possa raggiungere il server Azure SQL esistente: risoluzione DNS, routing e firewall devono consentire il collegamento. Il template Bicep usa una VNet/subnet già esistente; non cambia le regole del database.
 
@@ -60,16 +62,16 @@ Configurare probe HTTP, porta `8000`, header **Host: localhost**:
 | Readiness | `/api/ready` | Intervallo 10 s, timeout 6 s, 3 tentativi |
 | Liveness | `/api/health` | Intervallo 30 s, timeout 5 s, 3 tentativi |
 
-Attendere una revisione pronta, aprire l'URL dalla rete aziendale e caricare un Excel. `/api/health` indica `storage: azuresql`; `/api/ready` verifica l'accesso al database. Se il database non è disponibile, l'app non salva sul filesystem temporaneo.
+Attendere una revisione pronta, aprire l'URL dalla rete aziendale e selezionare il progetto già salvato. Alla prima installazione creare un progetto caricando il relativo Excel. `/api/health` indica `storage: azuresql`; `/api/ready` verifica l'accesso al database. Se il database non è disponibile, l'app non salva sul filesystem temporaneo.
 
 Se l'avvio fallisce, verificare: password e mapping del secret, accesso di `fuddos` al database, permessi sulle due tabelle, DNS e firewall/rete. I messaggi applicativi non contengono password o stringhe di connessione.
 
 ## 5. Aggiornare il tag
 
 1. Verificare che la nuova versione sia pubblicata in GHCR e che il relativo workflow GitHub sia concluso.
-2. In **Containers → Edit and deploy** cambiare **Image and tag**, ad esempio da `:1.2.0` a `:1.2.1`.
-3. Conservare tutte le variabili, il secret e lo stesso database. Distribuire la revisione e attenderne la readiness.
+2. In **Containers → Edit and deploy** impostare **Image and tag** su `ghcr.io/matte13/data-visualization-tool:1.2.1`.
+3. Conservare tutte le variabili, il secret e lo stesso database. Distribuire la revisione e attenderne la readiness. Aprire il progetto salvato e verificare la composizione del budget; il file originale non deve essere importato nuovamente.
 
 Gli aggiornamenti del container conservano i progetti nel database. Per installazioni ripetibili usare una versione specifica anziché `latest`. Per il rollback verificare la compatibilità dello schema prima di selezionare l'immagine precedente. Le versioni `1.0.x` non gestiscono questa persistenza Azure SQL.
 
-Per pubblicare una versione, dal commit già caricato eseguire `git tag v1.2.1` e `git push origin v1.2.1`, oppure usare **Actions → Publish GitHub Container Registry image → Run workflow**. Il workflow esegue prima tutti i controlli. Il package deve essere pubblico per l'opzione Public; se è privato scegliere Private e fornire credenziali GHCR con `read:packages`.
+Per pubblicare una versione, dal commit già caricato eseguire `git tag v1.2.2` e `git push origin v1.2.2`, oppure usare **Actions → Publish GitHub Container Registry image → Run workflow**. Il workflow esegue prima tutti i controlli. Il package deve essere pubblico per l'opzione Public; se è privato scegliere Private e fornire credenziali GHCR con `read:packages`.

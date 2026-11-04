@@ -1,6 +1,7 @@
 """Full-library rollback uses original workbook bytes and atomic persistence."""
 import base64
 from contextlib import contextmanager
+from hashlib import sha256
 from io import BytesIO
 import os
 from pathlib import Path
@@ -113,6 +114,38 @@ class LibraryBackupTests(unittest.TestCase):
         restored = self.store.snapshot(key)
         self.assertEqual(restored['source']['sha256'], hashlib.sha256(self.first).hexdigest())
         self.assertEqual(restored['rows'][0]['owner'], 'Supplier A')
+
+    def test_legacy_saved_project_is_classified_on_restart_without_rewriting_source_or_metadata(self):
+        initial = make_workbook(name_prefix='Legacy persisted')
+        current = make_workbook(name_prefix='Legacy persisted', seed=17)
+        with patch('app.server.timestamp', return_value='2026-11-01T01:02:03Z'):
+            key = self.store.create(initial, 'initial-legacy.xlsx', 'Saved legacy project')['project']['id']
+        with patch('app.server.timestamp', return_value='2026-11-02T03:04:05Z'):
+            self.store.replace(current, 'edited-current.xlsx', key)
+        other = self.store.create(self.other, 'other.xlsx', 'Separate project')['project']['id']
+        self.store.activate(key)
+        before = WorkbookStore._encoded_state(self.store.projects, self.store.active_project_id)
+        catalog_bytes = (self.root / 'runtime/projects.json').read_bytes()
+
+        restarted = WorkbookStore(self.root)
+        document = restarted.snapshot(key)
+        self.assertTrue(document['classification']['available'])
+        self.assertEqual(document['classification']['source'], 'LE_List')
+        self.assertEqual(document['classification']['profileId'], 'legacy-cde-6-8-13')
+        self.assertEqual(document['classification']['counts'], {
+            'complete-ot': 6, 'complete': 7, 'business': 8, 'unclassified': 0})
+        self.assertEqual(sum(entity['otEligible'] is True for entity in document['entities']), 6)
+        self.assertEqual(document['source']['sha256'], sha256(current).hexdigest())
+        self.assertEqual(restarted.source(key), (current, 'edited-current.xlsx'))
+        self.assertEqual(restarted.projects[key]['initialContent'], initial)
+        self.assertEqual(sha256(restarted.projects[key]['initialContent']).hexdigest(), sha256(initial).hexdigest())
+        self.assertEqual(restarted.projects[key]['initialFilename'], 'initial-legacy.xlsx')
+        self.assertEqual(restarted.projects[key]['name'], 'Saved legacy project')
+        self.assertEqual(restarted.projects[key]['updatedAt'], '2026-11-02T03:04:05Z')
+        self.assertEqual(restarted.active_project_id, key)
+        self.assertEqual({entry['id'] for entry in restarted.catalog()['projects']}, {key, other})
+        self.assertEqual(WorkbookStore._encoded_state(restarted.projects, restarted.active_project_id), before)
+        self.assertEqual((self.root / 'runtime/projects.json').read_bytes(), catalog_bytes)
 
     def test_legacy_check_rejects_semantic_headers_and_headerless_note_columns(self):
         self.assertTrue(_legacy_workbook_compatible(self.first))
@@ -238,6 +271,36 @@ class AzureSqlLibraryBackupTests(unittest.TestCase):
         self.assertEqual({entry['id'] for entry in restarted.catalog()['projects']}, {key, extra})
         self.assertEqual(restarted.active_project_id, extra)
         self.assertEqual(restarted.source(key), (self.later, 'later.xlsx'))
+
+    def test_sql_legacy_restart_classifies_edited_project_without_source_or_metadata_migration(self):
+        initial = make_workbook(name_prefix='SQL legacy persisted')
+        current = make_workbook(name_prefix='SQL legacy persisted', seed=29)
+        store = self.store()
+        with patch('app.server.timestamp', return_value='2026-11-01T01:02:03Z'):
+            key = store.create(initial, 'initial-sql-legacy.xlsx', 'Saved SQL legacy project')['project']['id']
+        with patch('app.server.timestamp', return_value='2026-11-02T03:04:05Z'):
+            store.replace(current, 'edited-sql-current.xlsx', key)
+        extra = store.create(self.later, 'separate.xlsx', 'Separate SQL project')['project']['id']
+        store.activate(key)
+        store.catalog()  # Capture the database's canonical timestamp representation.
+        before = WorkbookStore._encoded_state(store.projects, store.active_project_id)
+
+        restarted = self.store()
+        document = restarted.snapshot(key)
+        self.assertTrue(document['classification']['available'])
+        self.assertEqual(document['classification']['source'], 'LE_List')
+        self.assertEqual(document['classification']['profileId'], 'legacy-cde-6-8-13')
+        self.assertEqual(document['classification']['counts'], {
+            'complete-ot': 6, 'complete': 7, 'business': 8, 'unclassified': 0})
+        self.assertEqual(document['source']['sha256'], sha256(current).hexdigest())
+        self.assertEqual(restarted.source(key), (current, 'edited-sql-current.xlsx'))
+        self.assertEqual(restarted.projects[key]['initialContent'], initial)
+        self.assertEqual(sha256(restarted.projects[key]['initialContent']).hexdigest(), sha256(initial).hexdigest())
+        self.assertEqual(restarted.projects[key]['initialFilename'], 'initial-sql-legacy.xlsx')
+        self.assertEqual(restarted.projects[key]['name'], 'Saved SQL legacy project')
+        self.assertEqual(restarted.active_project_id, key)
+        self.assertEqual({entry['id'] for entry in restarted.catalog()['projects']}, {key, extra})
+        self.assertEqual(WorkbookStore._encoded_state(restarted.projects, restarted.active_project_id), before)
 
 
 if __name__ == '__main__':

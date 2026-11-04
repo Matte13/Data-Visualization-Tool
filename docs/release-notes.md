@@ -1,5 +1,49 @@
 # Note di versione
 
+## 1.2.1
+
+### Correzione per i progetti già salvati
+
+La classificazione delle legal entity è disponibile anche per l'Excel originale già conservato nella libreria. Per applicare la patch aggiornare l'immagine a **1.2.1** e riavviare il processo: **non occorre ricaricare l'Excel**.
+
+All'avvio il tool rilegge i workbook salvati e riconosce il profilo originale descritto sotto. Il riconoscimento calcola la classificazione in memoria: non riscrive i file Excel, non modifica le appartenenze X e non aggiorna ID, date o contenuti dei progetti nel database.
+
+La versione installata è visibile nell’interfaccia: nel footer in basso a sinistra della barra laterale e nel footer della pagina, disponibile anche in modalità presentazione.
+
+### Logiche di riconoscimento del formato originale
+
+Il profilo di compatibilità richiede precisamente i cinque gruppi nelle colonne C:G di `LE_List`:
+
+| Colonna | Intestazione accettata | Significato nel profilo originale |
+| --- | --- | --- |
+| C | `6` | Entità con OT |
+| D | `8` | Local Business |
+| E | `13` | Local Complete |
+| F | `5` | Gruppo specifico della formula |
+| G | `9` oppure `Europa AI ACT 9` | Gruppo specifico della formula |
+
+Il tool verifica le cardinalità delle X, la presenza di 21 entità, l'inclusione delle OT nelle Complete e la separazione completa fra Complete e Business. Il riconoscimento non usa i nomi delle country. Da questo profilo validato derivano **6 Complete con OT, 7 Complete senza OT e 8 Business**.
+
+Le formule specifiche dei gruppi da 5 e 9 entità continuano a essere applicate riga per riga; non determinano la categoria organizzativa dell'entità. Gli altri formati numerici validi rimangono importabili, ma restano senza classificazione quando non corrispondono a questo profilo approvato. Le intestazioni semantiche introdotte nella 1.2.0 restano supportate.
+
+### Cosa rimane uguale
+
+Il budget continua a provenire dalle righe originali e dalle formule salvate: la patch aggiunge il riconoscimento della classificazione al formato esistente. Base e delta OT sono conteggiati una volta; il Global rimane di gruppo. Restano il trattamento delle stime mancanti e dello zero, l'owner Advisor e le attribuzioni NIS2 sospese. Le [logiche di calcolo della 1.2.0](#logiche-di-calcolo) si applicano anche a questa patch.
+
+Per una libreria che conserva esclusivamente workbook compatibili con la 1.1.2, il riconoscimento non richiede una migrazione dei dati. Se invece sono stati importati file con nuove intestazioni, seguire la [procedura di snapshot e rollback](deployment.md#salvataggio-della-libreria-e-rollback-alla-112) prima di ripristinare l'immagine precedente.
+
+### Verifiche della patch
+
+Le verifiche locali della patch sono state completate:
+
+- 159 test Python eseguiti: 146 superati, 13 integrazioni SQL/PostgreSQL riservate agli ambienti di prova dedicati e quindi saltate localmente.
+- 47 test JavaScript superati.
+- Verifiche browser dei filtri e della riconciliazione semantica superate.
+- Confronto indipendente dell'Excel originale e di quello con nuove intestazioni: righe, formule, attribuzioni, segnalazioni e totali restano invariati; sul formato originale cambia soltanto la disponibilità della classificazione.
+- Riapertura della libreria locale persistita senza nuova importazione: byte dei file, SHA-256, ID e date dei progetti invariati.
+
+Il workflow di rilascio ripete i controlli e include la verifica di persistenza su SQL Server di prova. La pubblicazione dell'immagine richiede il suo superamento; i controlli non accedono al database aziendale.
+
 ## 1.2.0
 
 ### Cosa cambia

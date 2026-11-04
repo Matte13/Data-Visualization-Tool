@@ -1,6 +1,7 @@
 /* Data Visualization Tool — self-contained client. All views derive from the unchanged workbook rows. */
 (() => {
   'use strict';
+  const APP_VERSION = '1.2.1';
   const M = window.RemediationModel;
   const $ = (selector, root = document) => root.querySelector(selector);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -73,7 +74,7 @@
       <div class="sidebar-label">Viste</div><nav aria-label="Viste principali">${views.map(([id,i,label]) => `<button data-view="${id}" class="nav-item ${state.view === id ? 'active' : ''}" ${state.view === id ? 'aria-current="page"' : ''}>${icon(i)}<span>${label}</span></button>`).join('')}</nav>
       <div class="sidebar-divider"></div><div class="sidebar-label filter-label">Filtri <button title="Ripristina filtri" aria-label="Ripristina filtri" data-action="reset">${icon('reset',15)}</button></div>
       <div class="sidebar-filters"><label class="select-filter budget-sidebar-filter" for="sidebar-budget-scope">Budget da visualizzare<select id="sidebar-budget-scope" data-sidebar-select="scope">${[['all','Global + Local'],['global','Global'],['local','Local']].map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label>${filterFields.map(field=>checks(field,filterOptions(field))).join('')}</div>
-      <div class="sidebar-footer">${icon('shield',16)}<span>Elaborazione locale<small>Nessun servizio AI o cloud</small></span><span class="status-dot"></span></div></aside>`;
+      <footer class="sidebar-footer">${icon('shield',16)}<span>Elaborazione locale<small>Nessun servizio AI o cloud</small><small class="app-version">Versione ${APP_VERSION}</small></span><span class="status-dot"></span></footer></aside>`;
   }
   function chips() {
     const chips=filterFields.filter(field=>state.filters[field].length!==filterOptions(field).length).map(field=>{
@@ -278,7 +279,7 @@
       <div class="data-notice">${icon('info',16)}<p><strong>Importi dal file Excel.</strong> ${ambiguousCount?`${ambiguousCount} righe hanno un’attribuzione geografica da verificare; `:''}le stime mancanti restano distinte da zero.</p></div>
       <div class="view-tabs" role="navigation" aria-label="Seleziona vista">${views.map(([id,i,l])=>`<button data-view="${id}" class="${state.view===id?'active':''}">${icon(i,16)}${l}</button>`).join('')}<span>${rows.length} righe selezionate</span></div>
       <div id="view-content">${!rows.length?emptyView():state.view==='countries'?countriesView():state.view==='table'?tableView(rows):state.view==='map'?mapView(rows):state.view==='owner-map'?ownerMapView(rows):overview(rows)}</div>
-      <footer class="main-footer"><span><strong>Data Visualization Tool</strong> · KPMG · Uso interno · v1.2.0</span><span>Fonte Excel · importi in EUR · nessun dato generato</span><span>SHA-256 ${esc(data.source.sha256?.slice(0,12)||'—')}</span></footer></main></div>${detailPanel()}${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
+      <footer class="main-footer"><span><strong>Data Visualization Tool</strong> · KPMG · Uso interno · Versione ${APP_VERSION}</span><span>Fonte Excel · importi in EUR · nessun dato generato</span><span>SHA-256 ${esc(data.source.sha256?.slice(0,12)||'—')}</span></footer></main></div>${detailPanel()}${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
     const oldSidebar=$('.sidebar'),sourceKey=(data.project?.id||'')+':'+data.source.sha256;
     if(oldSidebar?.dataset.source===sourceKey){
       const template=document.createElement('template');template.innerHTML=markup;template.content.querySelector('.sidebar').remove();

@@ -61,13 +61,59 @@ class SemanticWorkbookTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'gruppo 14 contiene 13'):
             parse_workbook(wrong, 'wrong-count.xlsx')
 
-    def test_legacy_numeric_groups_are_valid_without_guessed_categories(self):
-        for compact, count in ((False, 21), (True, 3)):
-            result = parse_workbook(make_workbook(compact=compact), 'legacy.xlsx')
+    def test_original_numeric_template_matches_confirmed_categories_without_editing_source(self):
+        content = make_workbook()
+        original_hash = sha256(content).hexdigest()
+        legacy = parse_workbook(content, 'original.xlsx')
+        explicit = parse_workbook(make_semantic_workbook(advisor_owner=False), 'explicit.xlsx')
+        self.assertEqual(legacy['classification'], {
+            'available': True, 'source': 'LE_List', 'profileId': 'legacy-cde-6-8-13',
+            'counts': {'complete-ot': 6, 'complete': 7, 'business': 8, 'unclassified': 0}})
+        self.assertEqual(legacy['entities'], explicit['entities'])
+        self.assertEqual(legacy['rows'], explicit['rows'])
+        self.assertEqual(legacy['totals'], explicit['totals'])
+        self.assertEqual(legacy['issues'], explicit['issues'])
+        self.assertEqual(legacy['source']['sha256'], original_hash)
+        self.assertEqual(sha256(content).hexdigest(), original_hash)
+        labeled = parse_workbook(edited_cell(content, 1, 'G1', text='Europa AI ACT 9'), 'labeled.xlsx')
+        self.assertEqual(labeled['classification'], legacy['classification'])
+        self.assertEqual(labeled['rows'], legacy['rows'])
+        workbook = load_workbook(BytesIO(content), data_only=False)
+        try:
+            self.assertEqual([workbook['LE_List'].cell(1, c).value for c in range(3, 8)],
+                             [6, 8, 13, 5, 9])
+        finally:
+            workbook.close()
+
+    def test_unrelated_numeric_layouts_are_valid_and_remain_unclassified(self):
+        original = make_workbook()
+        extra_group = edited_cell(original, 1, 'H1', text='6')
+        for row in range(2, 8):
+            extra_group = edited_cell(extra_group, 1, f'H{row}', text='x')
+        moved = original
+        # Relocating a column preserves its arithmetic membership, but no
+        # longer matches the confirmed C:G category profile.
+        for row in range(1, 23):
+            moved = edited_cell(moved, 1, f'C{row}', text='5' if row == 1 else 'x' if row <= 6 else '')
+            moved = edited_cell(moved, 1, f'F{row}', text='6' if row == 1 else 'x' if row <= 7 else '')
+        for content, count in ((make_workbook(compact=True), 3), (extra_group, 21),
+                               (moved, 21), (edited_cell(original, 1, 'G1', text='Other group 9'), 21)):
+            with self.subTest(count=count, sha256=sha256(content).hexdigest()):
+                result = parse_workbook(content, 'other-numeric.xlsx')
+                self.assertFalse(result['classification']['available'])
+                self.assertNotIn('profileId', result['classification'])
+                self.assertEqual(result['classification']['counts']['unclassified'], count)
+                self.assertTrue(all(entity['localCategory'] is None and entity['otEligible'] is None
+                                    for entity in result['entities']))
+
+    def test_numeric_profile_requires_disjoint_exhaustive_categories_and_ot_subset(self):
+        original = make_workbook()
+        overlapping = edited_cell(edited_cell(original, 1, 'D15', text=''), 1, 'D2', text='x')
+        outside_complete = edited_cell(edited_cell(original, 1, 'C2', text=''), 1, 'C15', text='x')
+        for content in (overlapping, outside_complete):
+            result = parse_workbook(content, 'unconfirmed-partition.xlsx')
             self.assertFalse(result['classification']['available'])
-            self.assertEqual(result['classification']['counts']['unclassified'], count)
-            self.assertTrue(all(entity['localCategory'] is None and entity['otEligible'] is None
-                                for entity in result['entities']))
+            self.assertEqual(result['classification']['counts']['unclassified'], 21)
 
     def test_category_conflicts_are_rejected_without_numeric_guessing(self):
         overlapping = edited_cell(self.data, 1, 'D2', text='x')
