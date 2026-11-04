@@ -9,6 +9,7 @@ services:
     ports:
       - "127.0.0.1:${DVT_PORT:-8000}:8000"
     environment:
+      STORAGE_BACKEND: postgres
       REQUIRE_POSTGRES: "true"
       PGHOST: db
       PGPORT: "5432"

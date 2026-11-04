@@ -34,7 +34,7 @@ Il primo comando chiede la password nel terminale senza mostrarla. Scrive `.env.
 
 Aprire **http://localhost:8000**. L'immagine pubblicata può essere usata con `docker compose --env-file .env.azuresql -f compose.azuresql.yaml pull`, poi `up -d --no-build`. Per cambiare versione aggiornare `DVT_IMAGE` nel file `.env.azuresql`. Per fermare l'app usare `down`: i dati sono nel database SQL e non nel container.
 
-Per sviluppo desktop senza database usare `python -m app.server`: se non sono presenti parametri SQL, l'archivio rimane su file in `runtime/`. Quando viene configurato Azure SQL, eventuali errori impediscono la persistenza; non viene usato un archivio alternativo.
+Per sviluppo desktop senza database usare `python -m app.server`: se non sono presenti parametri SQL, l'archivio rimane su file in `runtime/`. L'immagine container richiede invece Azure SQL per default e si arresta se manca la configurazione. `compose.yaml` seleziona esplicitamente il backend locale. In modalità Azure SQL eventuali errori impediscono la persistenza; non viene usato un archivio alternativo.
 
 ## Template Azure Container Apps
 

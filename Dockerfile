@@ -7,7 +7,7 @@ LABEL org.opencontainers.image.title="Data Visualization Tool" \
       org.opencontainers.image.source="https://github.com/Matte13/Data-Visualization-Tool" \
       org.opencontainers.image.version="$APP_VERSION" \
       org.opencontainers.image.revision="$VCS_REF"
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 STORAGE_BACKEND=azuresql
 WORKDIR /app
 COPY requirements.txt requirements-postgres.txt requirements-azuresql.txt ./
 # The optional build-only CA supports managed proxies without baking them into
