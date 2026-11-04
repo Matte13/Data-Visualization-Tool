@@ -5,6 +5,7 @@ import unittest
 from app.presentation_data import build_presentation_data
 from app.workbook import parse_workbook
 from fixtures import make_workbook
+from fixtures import make_semantic_workbook
 
 
 class PresentationDataTests(unittest.TestCase):
@@ -33,6 +34,34 @@ class PresentationDataTests(unittest.TestCase):
         self.assertEqual(sum(group['local'] for group in report['byYear']), 3490)
         self.assertEqual(report['projectName'], 'Alpha')
         self.assertEqual(report['source'], self.document['source'])
+
+    def test_budget_breakdown_uses_source_rows_and_preserves_ambiguous_residual(self):
+        document = parse_workbook(make_semantic_workbook(), 'semantic.xlsx')
+        document['project'] = {'id': 'project-alpha', 'name': 'Alpha'}
+        request = self.request(totals={'local': 9999999}, budgetBreakdown={'localOt': 9999999})
+        report = build_presentation_data(document, request)
+        summary = report['budgetBreakdown']
+        self.assertTrue(summary['classificationAvailable'])
+        self.assertEqual((summary['globalBase'], summary['globalOt']), (6400, 1200))
+        self.assertEqual((summary['localBase'], summary['localOt'], summary['localTotal']), (3190, 300, 3490))
+        self.assertEqual(summary['unallocated'], 810)
+        categories = {item['id']: item for item in summary['categories']}
+        self.assertEqual((categories['complete-ot']['entityCount'], categories['complete']['entityCount'], categories['business']['entityCount']), (6, 7, 8))
+        self.assertEqual(sum(item['total'] for item in categories.values()) + summary['unallocated'], report['totals']['local'])
+        self.assertEqual(sum(item['budgetBreakdown']['localOt'] for item in report['byYear']), 300)
+        self.assertEqual(sum(item['budgetBreakdown']['globalBase'] for item in report['byYear']), 6400)
+        self.assertIn('Advisor', [group['label'] for group in report['byOwner']])
+
+    def test_budget_breakdown_selected_entities_do_not_receive_uncertain_group_amount(self):
+        document = parse_workbook(make_semantic_workbook(), 'semantic.xlsx')
+        document['project'] = {'id': 'project-alpha', 'name': 'Alpha'}
+        report = build_presentation_data(document, self.request(entities=['Demo Entity 01']))
+        summary = report['budgetBreakdown']
+        self.assertEqual(summary['global'], 7600)
+        self.assertEqual(summary['localTotal'], 350)
+        self.assertEqual(summary['unallocated'], 0)
+        self.assertEqual(summary['unresolvedSource'], 810)
+        self.assertEqual(summary['localTotal'], report['totals']['local'])
 
     def test_budget_scopes_change_selected_amount_not_source_components(self):
         global_report = self.report(scope='global')

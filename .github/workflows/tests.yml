@@ -29,6 +29,7 @@ jobs:
           export CHROMIUM_PATH="$(command -v google-chrome || command -v chromium)"
           test -n "$CHROMIUM_PATH"
           python tests/presentation_filters_smoke.py
+          python tests/semantic_budget_smoke.py
 
   azure-sql-and-container:
     runs-on: ubuntu-latest
@@ -76,6 +77,15 @@ jobs:
             --mount type=bind,src="$GITHUB_WORKSPACE/tests",dst=/tests,readonly \
             --entrypoint python data-visualization-tool:ci \
             /tests/test_azuresql_integration.py
+      - name: Atomic library snapshots and Azure SQL rollback
+        run: |
+          docker run --rm --network '${{ job.services.sqlserver.network }}' \
+            --read-only --tmpfs /tmp:mode=1777 --env RUN_AZURE_SQL_TESTS=1 --env CI=true --env PYTHONPATH=/app \
+            --env AZURE_SQL_SERVER --env AZURE_SQL_DATABASE --env AZURE_SQL_USER \
+            --env AZURE_SQL_PASSWORD --env AZURE_SQL_TRUST_SERVER_CERTIFICATE \
+            --mount type=bind,src="$GITHUB_WORKSPACE/tests",dst=/tests,readonly \
+            --entrypoint python data-visualization-tool:ci \
+            -m unittest discover -s /tests -p test_library_backup.py -v
       - name: Start application with existing SQL Server and verify readiness
         run: |
           docker run -d --name dvt-sql-ci --network '${{ job.services.sqlserver.network }}' \

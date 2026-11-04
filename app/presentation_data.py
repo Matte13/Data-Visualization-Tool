@@ -9,6 +9,8 @@ from __future__ import annotations
 from copy import deepcopy
 import math
 
+from .budget_breakdown import budget_breakdown
+
 MAX_ROWS = 5000
 MAX_COUNTRY_REFERENCES = 200000
 FILTER_FIELDS = ('sheets', 'years', 'domains', 'owners', 'entities', 'nis2', 'priority')
@@ -211,6 +213,10 @@ def build_presentation_data(document: dict, request: dict) -> dict:
         relevant = [key for key in keys if key in represented_keys]
         if not keys or relevant:
             notes.append({**deepcopy(issue), 'rowKeys': relevant})
+    annual = _aggregate(selected_rows, 'year', entities, scope)
+    for group in annual:
+        members = [row for row in selected_rows if str(row.get('year') if row.get('year') not in (None, '') else 'Non specificato') == group['label']]
+        group['budgetBreakdown'] = budget_breakdown(members, list(known_entities.values()), entities)
     return {
         'project': deepcopy(project),
         'projectName': project.get('name') or document.get('source', {}).get('filename') or 'Progetto',
@@ -221,7 +227,8 @@ def build_presentation_data(document: dict, request: dict) -> dict:
         'rowKeys': row_keys,
         'rows': _prepare_rows(selected_rows, entities),
         'totals': _totals(selected_rows, entities, scope),
-        'byYear': _aggregate(selected_rows, 'year', entities, scope),
+        'budgetBreakdown': budget_breakdown(selected_rows, list(known_entities.values()), entities),
+        'byYear': annual,
         'byDomain': _aggregate(selected_rows, 'domain', entities, scope),
         'byOwner': _aggregate(selected_rows, 'owner', entities, scope),
         'countries': countries,

@@ -21,6 +21,12 @@ Per la prima inizializzazione servono CREATE TABLE nel database e ALTER/REFERENC
 
 I progetti di installazioni locali/PostgreSQL precedenti non vengono trasferiti automaticamente: importarli dai rispettivi Excel originali. Nessun file locale viene caricato di nascosto nel database SQL esistente. La libreria è condivisa fra gli utenti autorizzati all'app; il database non introduce da solo autenticazione individuale nell'interfaccia.
 
+## Importazione e logiche della versione 1.2.0
+
+La versione 1.2.0 legge le intestazioni semantiche OT / local business / local complete e conserva il supporto al formato numerico precedente. La classificazione deriva dalle X; gli importi rimangono quelli salvati nelle righe di Remediations e OT. I calcoli di confronto annotati in LE_List non sono nuove remediation e non vengono sommati ai budget.
+
+Le regole su importi unitari, totali estesi, delta OT, gruppi specifici e residui non attribuiti sono spiegate nelle [note della versione](release-notes.md#logiche-di-calcolo). Lo schema Excel dettagliato è in [workbook-format.md](workbook-format.md). La nuova classificazione non richiede la creazione di un altro database.
+
 ## Docker locale, collegato allo stesso Azure SQL
 
 Prerequisiti: Docker Desktop/Engine con Compose V2, Python 3.12+ e rete abilitata al server SQL. Il database resta quello esistente; viene avviato un solo container applicativo.
@@ -49,7 +55,7 @@ export AZURE_SUBSCRIPTION_ID='ID-SUBSCRIPTION'
 export AZURE_RESOURCE_GROUP='rg-data-visualization-tool'
 export AZURE_LOCATION='westeurope'
 export DVT_PREFIX='dvt-azienda'
-export DVT_IMAGE='ghcr.io/matte13/data-visualization-tool:1.1.2'
+export DVT_IMAGE='ghcr.io/matte13/data-visualization-tool:1.2.0'
 export AZURE_SQL_SERVER='dbservertil.database.windows.net'
 export AZURE_SQL_DATABASE='data-visualization-tool-db'
 export AZURE_SQL_USER='fuddos'
@@ -64,13 +70,50 @@ Lo script verifica la subscription attiva, legge il secret da file, crea paramet
 
 ## Versioni, disponibilità e backup
 
-Il push di `v1.1.2` avvia **Publish GitHub Container Registry image**, che esegue prima i test Python, JavaScript e SQL Server/ODBC, poi pubblica `ghcr.io/matte13/data-visualization-tool:1.1.2`, `sha-<commit>` e per le versioni stabili `latest`. La pubblicazione manuale è disponibile nelle Actions. L'archivio e il checksum sono negli artifact della run. La normale push del codice esegue i test e non pubblica immagini.
+Il push di `v1.2.0` avvia **Publish GitHub Container Registry image**, che esegue prima i test Python, JavaScript e SQL Server/ODBC, poi pubblica `ghcr.io/matte13/data-visualization-tool:1.2.0`, `sha-<commit>` e per le versioni stabili `latest`. La pubblicazione manuale è disponibile nelle Actions. L'archivio e il checksum sono negli artifact della run. La normale push del codice esegue i test e non pubblica immagini.
 
-Non spostare un tag di versione già installato. Per aggiornare il portale cambiare soltanto il tag, mantenendo il collegamento allo stesso database. Un digest `@sha256:...` identifica esattamente l'immagine. Il rollback deve verificare la compatibilità dello schema; `1.0.x` non supporta Azure SQL.
+Non spostare un tag di versione già installato. Per aggiornare il portale cambiare il tag mantenendo la configurazione di connessione. Un digest `@sha256:...` identifica esattamente l'immagine. Le versioni `1.0.x` non supportano Azure SQL. Per tornare da 1.2.0 a 1.1.2 seguire la procedura seguente: il formato dei workbook salvati nella libreria fa parte della compatibilità del ripristino.
 
 `/api/health` verifica il processo e dichiara il backend `azuresql`; `/api/ready` verifica anche SQL. In caso di indisponibilità del database la readiness restituisce 503. Ogni operazione aggiorna la cache all'interno di una transazione con lock, per non sovrascrivere progetti durante il cambio di revisione. Il dimensionamento iniziale rimane una replica; questo meccanismo non sostituisce una valutazione di carico.
 
 I progetti e gli Excel originali restano nel database Azure SQL. Backup, conservazione e ripristino point-in-time seguono le impostazioni già adottate per quel database; verificarle con il DBA e provare il ripristino su un database separato. Il tool non modifica le politiche di backup esistenti.
+
+## Salvataggio della libreria e rollback alla 1.1.2
+
+Un tag conserva il software di quella versione. Gli Excel caricati e lo stato della libreria restano invece nel database. Dopo aver caricato un file con le nuove intestazioni, la 1.1.2 potrebbe non riuscire a leggerlo: cambiare soltanto l'immagine non riporta i dati al formato precedente.
+
+Lo strumento `app.library_backup`, incluso nella 1.2.0, esporta e ripristina la libreria completa: tutti i progetti, i file Excel attuali e della prima importazione, nomi, date e progetto attivo. Lo snapshot ha un digest di integrità e contiene dati riservati dei progetti, senza credenziali di connessione. Conservarlo fuori dal repository e dai pacchetti pubblici, in un percorso privato autorizzato. Il file viene creato con permessi 0600 ove supportati; su Windows applicare anche i permessi della cartella. Lo snapshot non può superare 256 MiB; per librerie più grandi concordare il backup del database con il DBA.
+
+Usare gli strumenti 1.2.0 su una postazione o un container amministrativo che abbia rete, driver e **le stesse variabili di connessione** dell'installazione. Per Azure SQL sono necessari Microsoft ODBC Driver 18, `requirements-azuresql.txt` e la configurazione `AZURE_SQL_*`; il secret può essere letto tramite `AZURE_SQL_PASSWORD_FILE`. Le credenziali non vanno inserite negli argomenti dei comandi. Per l'archivio locale eseguire i comandi dalla stessa installazione che contiene `runtime/`.
+
+### Prima di caricare il nuovo Excel
+
+1. Avviare il codice 1.2.0 lasciando ancora nella libreria i workbook precedenti.
+2. Esportare uno snapshot in un percorso privato già disponibile, diverso a ogni salvataggio:
+
+```bash
+python -m app.library_backup export --output /percorso/privato/prima-1.2.json --require-legacy-compatible
+python -m app.library_backup inspect --input /percorso/privato/prima-1.2.json
+```
+
+L'opzione `--require-legacy-compatible` richiede che **sia il file corrente sia quello della prima importazione di ogni progetto** usino il tracciato supportato dalla 1.1.2. Se il controllo non passa, non considerare quello snapshot un punto di ritorno alla 1.1.2. Recuperare uno stato precedente compatibile con l'operatore/DBA. Il comando di esportazione non sovrascrive un file esistente e richiede che la cartella di destinazione sia già presente. `inspect` legge lo snapshot senza collegarsi al database e riporta il numero di progetti e la compatibilità del contenuto.
+
+Solo dopo aver conservato e controllato lo snapshot importare l'Excel con le nuove intestazioni. Un export della libreria è distinto dal download del solo Excel del progetto aperto.
+
+### Ripristino dello stato precedente
+
+Fermare l'app e tutte le revisioni/processi che possono modificare la stessa libreria. Eseguire il ripristino da una postazione o un container amministrativo separato, usando ancora il codice 1.2.0. Salvare prima anche lo stato corrente se deve essere recuperabile in seguito:
+
+```bash
+python -m app.library_backup export --output /percorso/privato/prima-del-rollback.json
+python -m app.library_backup restore --input /percorso/privato/prima-1.2.json --require-legacy-compatible
+```
+
+Il ripristino **sostituisce l'intera libreria con lo snapshot**. Le modifiche successive vengono annullate e i progetti aggiunti dopo quel salvataggio vengono rimossi. Digest, contenuti Excel, prime importazioni e compatibilità vengono controllati prima delle scritture. Su Azure SQL l'operazione usa una transazione con il lock della libreria; per il ripristino il login deve avere anche DELETE sulle due tabelle applicative. Il normale utilizzo dell'app non richiede questo permesso aggiuntivo.
+
+Al termine selezionare in Azure l'immagine `ghcr.io/matte13/data-visualization-tool:1.1.2`, mantenere le variabili SQL e il secret, distribuire la revisione e verificarne readiness, progetti e budget. Per l'archivio locale il salvataggio viene sostituito in modo atomico; gli altri processi devono comunque rimanere fermi durante il ripristino.
+
+Questa utility non cambia i backup gestiti del database. Restano validi la conservazione e il ripristino point-in-time concordati con il DBA; verificarli anche per il caso in cui uno snapshot applicativo non sia disponibile. Il pacchetto non esegue automaticamente alcun ripristino sul database aziendale.
 
 ## Pacchetto e verifiche
 

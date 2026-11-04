@@ -21,3 +21,7 @@ docs/validation.md
 !.env.example
 deploy/secrets/
 infra/azure/*.local.json
+
+# Private complete-library rollback snapshots
+.library-backups/
+*.library-backup.json

@@ -9,6 +9,51 @@ from app.workbook import MAIN_HEADERS, OT_HEADERS
 NS = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 
 
+def make_semantic_workbook(seed: int = 0, name_prefix: str = 'Demo', *,
+                           include_ot: bool = True, advisor_owner: bool = True,
+                           notes: bool = True) -> bytes:
+    """Fictional semantic LE headers, preserving all cached budget results.
+
+    The category counts are OT6 within Complete13 and Business8, hence6/7/8
+    disjoint classes. Financial values remain exactly make_workbook's values.
+    Headerless notes deliberately coexist with entity rows and follow the list.
+    """
+    content = make_workbook(seed, name_prefix, include_ot=include_ot)
+    output = BytesIO()
+    with ZipFile(BytesIO(content)) as source, ZipFile(output, 'w', ZIP_DEFLATED) as target:
+        for item in source.infolist():
+            data = source.read(item.filename)
+            if item.filename in ('xl/worksheets/sheet1.xml', 'xl/worksheets/sheet2.xml'):
+                tree = ET.fromstring(data)
+                changes = ({'C1': ' OT ', 'D1': 'local business', 'E1': 'local complete'}
+                           if item.filename.endswith('sheet1.xml') else
+                           {'Q4': ' KpMg '} if advisor_owner else {})
+                if notes and item.filename.endswith('sheet1.xml'):
+                    changes.update({'I17': 'Global senza OT2027', 'K17': '1k',
+                                    'I18': 'Global senza OT2028', 'K18': '5k',
+                                    'C25': 'OT', 'D25': 'local business', 'E25': 'local complete',
+                                    'C26': '20 nel2027', 'D26': '10 nel2027', 'E26': '100 nel2027',
+                                    'C27': '30 nel2028', 'D27': '20 nel2028', 'E27': '250 nel2028'})
+                    tree.find('s:dimension', NS).set('ref', 'A1:K27')
+                sheet_data = tree.find('s:sheetData', NS)
+                for coordinate, text in changes.items():
+                    cell = tree.find(f'.//s:c[@r="{coordinate}"]', NS)
+                    if cell is None:
+                        number = ''.join(c for c in coordinate if c.isdigit())
+                        row = sheet_data.find(f's:row[@r="{number}"]', NS)
+                        if row is None:
+                            row = ET.SubElement(sheet_data, '{' + NS['s'] + '}row', {'r': number})
+                        cell = ET.SubElement(row, '{' + NS['s'] + '}c', {'r': coordinate})
+                    cell.clear()
+                    cell.set('r', coordinate)
+                    cell.set('t', 'inlineStr')
+                    ET.SubElement(ET.SubElement(cell, '{' + NS['s'] + '}is'),
+                                  '{' + NS['s'] + '}t').text = text
+                data = ET.tostring(tree, encoding='utf-8', xml_declaration=True)
+            target.writestr(item, data)
+    return output.getvalue()
+
+
 def with_cached_values(content: bytes, caches: dict[str, dict[str, float]]) -> bytes:
     """Write fixture-only Excel caches; never use this to alter user uploads."""
     target = BytesIO()

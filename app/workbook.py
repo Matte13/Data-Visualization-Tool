@@ -77,21 +77,54 @@ def _group_number(value):
     return int(match[1]) if match else None
 
 
+def _semantic_group(value):
+    """Recognize explicit category labels, never infer them from cardinality."""
+    text = ' '.join(_label(value).casefold().split())
+    match = re.fullmatch(r'(ot|local business|local complete)(?:\s+([1-9]\d*))?', text)
+    if not match:
+        return None
+    return {'ot': 'ot', 'local business': 'business', 'local complete': 'complete'}[match[1]]
+
+
 def _entities(sheet):
     if _label(sheet['A1'].value) != 'Country/Legal Entities' or _label(sheet['B1'].value) != 'Backup':
         raise ValueError('Il foglio LE_List non ha le intestazioni Country/Legal Entities e Backup attese.')
     columns = []
+    categories = {}
     for col in range(3, sheet.max_column + 1):
         header = sheet.cell(1, col).value
-        group = _group_number(header)
-        has_markers = any(_label(sheet.cell(row, col).value) for row in range(2, sheet.max_row + 1))
-        if not _label(header) and not has_markers:
+        # Headerless notes may share rows with named entities. Only X markers
+        # make such a column look like an incomplete membership definition.
+        has_x = any(_label(sheet.cell(row, col).value).casefold() == 'x'
+                    for row in range(2, sheet.max_row + 1))
+        if not _label(header) and not has_x:
             continue
-        if group is None:
+        semantic = _semantic_group(header)
+        group = _group_number(header)
+        if semantic:
+            if semantic in categories:
+                raise ValueError(f'LE_List: categoria «{_label(header)}» definita più volte.')
+            members = {
+                _label(sheet.cell(row, 1).value) for row in range(2, sheet.max_row + 1)
+                if _label(sheet.cell(row, 1).value)
+                and _label(sheet.cell(row, col).value).casefold() == 'x'
+            }
+            if group is not None and group != len(members):
+                raise ValueError(f'LE_List: il gruppo {group} contiene {len(members)} legal entity invece di {group}; attribuzione budget non affidabile.')
+            group = len(members)
+            categories[semantic] = members
+        elif group is None:
             raise ValueError(f'LE_List: il gruppo nella colonna {col} deve avere un’intestazione numerica positiva o terminare con il numero di legal entity.')
         columns.append((col, group))
     if not columns:
         raise ValueError('LE_List non contiene gruppi numerici per attribuire i budget locali.')
+    if categories and set(categories) != {'ot', 'business', 'complete'}:
+        raise ValueError('LE_List: la classificazione richiede le tre colonne OT, local business e local complete.')
+    if categories:
+        if categories['business'] & categories['complete']:
+            raise ValueError('LE_List: le categorie local business e local complete devono essere disgiunte.')
+        if not categories['ot'].issubset(categories['complete']):
+            raise ValueError('LE_List: le legal entity OT devono appartenere anche a local complete.')
     result = []
     seen = set()
     memberships = {col: set() for col, _ in columns}
@@ -111,17 +144,23 @@ def _entities(sheet):
                 raise ValueError(f'LE_List: usare x o una cella vuota per il gruppo {group} di «{name}».')
             if marker == 'x':
                 memberships[col].add(name)
-                if group not in groups:
+                if group > 0 and group not in groups:
                     groups.append(group)
-        result.append({'id': name, 'name': name, 'backup': _text(cells[1].value), 'groups': groups})
+        category = ('complete-ot' if name in categories.get('ot', ()) else
+                    'complete' if name in categories.get('complete', ()) else
+                    'business' if name in categories.get('business', ()) else None)
+        result.append({'id': name, 'name': name, 'backup': _text(cells[1].value), 'groups': groups,
+                       'localCategory': category,
+                       'otEligible': name in categories['ot'] if categories else None})
     by_group = {}
     for col, group in columns:
         members = memberships[col]
         if len(members) != group:
             raise ValueError(f'LE_List: il gruppo {group} contiene {len(members)} legal entity invece di {group}; attribuzione budget non affidabile.')
-        if group in by_group and by_group[group] != members:
+        if group > 0 and group in by_group and by_group[group] != members:
             raise ValueError(f'LE_List: due gruppi con moltiplicatore {group} hanno legal entity diverse; la formula non permette di distinguere il gruppo corretto.')
-        by_group[group] = members
+        if group > 0:
+            by_group[group] = members
     return result
 
 
@@ -133,9 +172,9 @@ def _formula_groups(sheet_name, row, formula, known_groups):
         if not match or int(match[1]) != row or int(match[3]) != row:
             return None
         groups = (int(match[2]), int(match[4]))
-        return groups if all(group in known_groups for group in groups) else None
+        return groups if all(group == 0 or group in known_groups for group in groups) else None
     match = re.fullmatch(r'=\$?F\$?(\d+)\*(\d+)', formula.replace(' ', ''), re.IGNORECASE)
-    if not match or int(match[1]) != row or int(match[2]) not in known_groups:
+    if not match or int(match[1]) != row or (int(match[2]) != 0 and int(match[2]) not in known_groups):
         return None
     return (int(match[2]),)
 
@@ -156,6 +195,14 @@ def _allocate(record, entities, issues):
     expected = sum((unit or 0) * group for unit, group in zip(unit_values, groups))
     if not math.isclose(expected, record['localTotal'], rel_tol=0, abs_tol=0.005):
         raise ValueError(f'{record["sheet"]}!{record["excelRow"]}: il budget locale salvato non coincide con la formula. Ricalcolare e salvare il file in Excel.')
+    if record['sheet'] == 'OT' and any(entity['otEligible'] is not None for entity in entities):
+        allocated = {entity['id'] for entity in entities if groups[0] in entity['groups']}
+        eligible = {entity['id'] for entity in entities if entity['otEligible']}
+        if not allocated.issubset(eligible):
+            record['allocationStatus'] = 'ambiguous'
+            record['allocationNote'] = 'Il gruppo della formula OT include legal entity non abilitate alla componente OT: totale di gruppo conservato, attribuzione per entità da confermare.'
+            _issue(issues, 'ot-membership-conflict', record['allocationNote'], [key])
+            return
     # Explicit country lists cannot be silently overridden by a numerical group.
     raw_countries = record['applicableCountries'].strip()
     if ';' in raw_countries:
@@ -209,7 +256,9 @@ def _main_rows(formulas, values, entities, issues):
             'year': _number(sheet, saved, f'M{row}'), 'nis2': _text(saved[f'N{row}'].value),
             'nis2CompleteCount': _number(sheet, saved, f'O{row}'),
             'nis2BusinessCount': _number(sheet, saved, f'P{row}'),
-            'owner': _label(saved[f'Q{row}'].value), 'priority': _text(saved[f'R{row}'].value),
+            'owner': ('Advisor' if _label(saved[f'Q{row}'].value).casefold() == 'kpmg'
+                      else _label(saved[f'Q{row}'].value)),
+            'sourceOwner': _text(saved[f'Q{row}'].value), 'priority': _text(saved[f'R{row}'].value),
             'category': _text(saved[f'S{row}'].value),
         }
         if not record['domain'] or not record['name'].strip():
@@ -241,7 +290,7 @@ def _ot_rows(formulas, values, entities, issues):
             'localTotal': _number(sheet, saved, f'G{row}'),
             'localFormula': sheet[f'G{row}'].value if sheet[f'G{row}'].data_type == 'f' else None,
             'year': _number(sheet, saved, f'H{row}'), 'nis2': _text(saved[f'I{row}'].value),
-            'owner': '', 'priority': '', 'category': '',
+            'owner': '', 'sourceOwner': '', 'priority': '', 'category': '',
         }
         if not record['domain'] or not record['name'].strip():
             raise ValueError(f'OT!{row}: dominio e nome remediation sono obbligatori.')
@@ -340,9 +389,18 @@ def parse_workbook(data: bytes, filename: str) -> dict:
                     if not matches:
                         raise ValueError('I totali delle remediation non coincidono con i totali salvati nel file. Ricalcolare e salvare il workbook.')
                 break
+        classification_available = any(_semantic_group(values['LE_List'].cell(1, col).value)
+                                       for col in range(3, values['LE_List'].max_column + 1))
         return {
             'source': {'filename': filename, 'sha256': sha256(data).hexdigest()},
             'sheets': list(formulas.sheetnames), 'entities': entities,
+            'classification': {
+                'available': classification_available,
+                'source': 'LE_List' if classification_available else None,
+                'counts': {category: sum(entity['localCategory'] == category for entity in entities)
+                           for category in ('complete-ot', 'complete', 'business')}
+                          | {'unclassified': sum(entity['localCategory'] is None for entity in entities)},
+            },
             'rows': rows, 'issues': issues, 'totals': totals,
         }
     finally:

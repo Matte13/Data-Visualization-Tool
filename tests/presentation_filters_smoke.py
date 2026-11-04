@@ -222,7 +222,10 @@ def main():
                     scroll_after = page.evaluate('window.scrollY')
                     if button.startswith('domain-'):
                         assert scroll_before > 0, scroll_before
-                        assert abs(scroll_before - scroll_after) < 1, (button, scroll_before, scroll_after)
+                        # Global-only hides the Local reconciliation cards; the
+                        # browser clamps a saved offset to the shorter document.
+                        maximum=page.evaluate('document.documentElement.scrollHeight-innerHeight')
+                        assert abs(min(scroll_before,maximum)-scroll_after)<1, (button,scroll_before,scroll_after,maximum)
                     if scope != 'all':
                         # Keyboard activation of the sole active series is a no-op.
                         active = page.locator(f'#budget-legend-year-{scope}')

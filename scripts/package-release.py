@@ -8,7 +8,7 @@ from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 ROOT_FILES={'.env.example','.dockerignore','.gitignore','Dockerfile','compose.yaml',
             'compose.postgres.yaml','README.md','requirements.txt','requirements-postgres.txt',
             'requirements-dev.txt','requirements-azuresql.txt','compose.azuresql.yaml'}
-DOCS={'docs/deployment.md','docs/azure-portal.md','docs/workbook-format.md',
+DOCS={'docs/deployment.md','docs/azure-portal.md','docs/workbook-format.md','docs/release-notes.md',
       'data/README.md','web/THIRD_PARTY_NOTICES.md'}
 ASSETS={'app/assets/presentation-style.pptx','app/assets/kpmg-footer-logo.xml'}
 

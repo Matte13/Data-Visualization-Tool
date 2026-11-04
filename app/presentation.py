@@ -225,6 +225,70 @@ def _stat(slide, x, y, width, label, value, note=''):
         _text(slide, note, x + .18, y + .98, width - .36, .18, size=9, color=_tone(slide, 'muted'))
 
 
+def _breakdown_value(breakdown, component, kind):
+    suffix = 'Ot' if kind == 'ot' else 'Base'
+    count = breakdown.get('otCount' if kind == 'ot' else 'baseCount', 0)
+    missing = breakdown.get('missing' + component.capitalize() + suffix, 0)
+    return None if count and missing == count else breakdown.get(component + suffix, 0)
+
+
+def _category_value(category, component=None):
+    missing = category.get(component + 'Missing', 0) if component else category.get('missing', 0)
+    known = category.get(component + 'Known', 0) if component else category.get('known', 0)
+    return None if missing and not known else category.get(component or 'total', 0)
+
+
+def _reconciliation_strip(slide, breakdown, scope):
+    """Four compact editable cards distinguish source base, OT and LE categories."""
+    cards = []
+    if scope != 'local':
+        base = _breakdown_value(breakdown, 'global', 'base')
+        delta = _breakdown_value(breakdown, 'global', 'ot')
+        total = None if breakdown.get('rowCount') and breakdown.get('missingGlobal') == breakdown['rowCount'] else breakdown.get('global', 0)
+        cards.append(('Global di gruppo', total, base, delta, THEME['global']))
+    if scope != 'global':
+        if breakdown.get('classificationAvailable'):
+            colors = {'complete-ot': THEME['blue'], 'complete': '007BA8',
+                      'business': THEME['purple'], 'unclassified': THEME['muted']}
+            for category in breakdown.get('categories', []):
+                if category['id'] == 'unclassified' and not category.get('entityCount'):
+                    continue
+                label = category['label'] + f' · {category.get("entityCount", 0)} LE'
+                cards.append((label, _category_value(category), _category_value(category, 'base'),
+                              _category_value(category, 'ot'), colors.get(category['id'], THEME['local'])))
+        else:
+            base = _breakdown_value(breakdown, 'local', 'base')
+            delta = _breakdown_value(breakdown, 'local', 'ot')
+            total = None if breakdown.get('rowCount') and breakdown.get('missingLocal') == breakdown['rowCount'] else breakdown.get('localTotal', 0)
+            cards.append(('Local complessivo', total, base, delta, THEME['local']))
+    if not cards:
+        return
+    _text(slide, 'Base e delta OT nel perimetro selezionato', MARGIN, 4.72, 12.17, .22,
+          size=11, color=THEME['navy'], bold=True)
+    gap = .15
+    width = (W - 2 * MARGIN - gap * (len(cards) - 1)) / len(cards)
+    for index, (label, total, base, delta, color) in enumerate(cards):
+        x = MARGIN + index * (width + gap)
+        _shape(slide, x, 5.03, width, 1.08, THEME['light'], radius=True)
+        _shape(slide, x, 5.03, .04, 1.08, color)
+        _text(slide, label, x + .12, 5.13, width - .24, .25,
+              size=10 if len(cards) < 5 else 9, color=color, bold=True)
+        _text(slide, _money(total), x + .12, 5.43, width - .24, .32,
+              size=22 if len(cards) < 5 else 18, color=THEME['ink'], font=THEME['title_font'])
+        _text(slide, f'Base {_money(base)} · Δ OT {_money(delta)}', x + .12, 5.84, width - .24, .19,
+              size=8 if len(cards) > 3 else 9, color=THEME['muted'])
+    if scope != 'global':
+        parts = ['Global non ripartito alle legal entity.'] if scope == 'all' else []
+        if breakdown.get('unallocated'):
+            parts.append('Local senza attribuzione certa: ' + _money(breakdown['unallocated']) + '.')
+        if breakdown.get('missingLocal') or breakdown.get('missingAllocationCount'):
+            parts.append('Le stime mancanti restano distinte da zero.')
+        if not breakdown.get('classificationAvailable'):
+            parts.append('Classificazione Complete/Business non dichiarata nel file.')
+        _text(slide, ' '.join(parts), MARGIN, 6.27, 12.17, .24,
+              size=9, color=THEME['muted'])
+
+
 def _source_notes(report, extra=''):
     source = report.get('source', {})
     return '\n'.join([
@@ -233,6 +297,7 @@ def _source_notes(report, extra=''):
         f'File sorgente: {source.get("filename", "")}',
         f'SHA-256: {source.get("sha256", "")}',
         'Filtri: ' + json.dumps(report.get('filters', {}), ensure_ascii=False, sort_keys=True),
+        'Base, delta OT e categorie Local: ' + json.dumps(report.get('budgetBreakdown', {}), ensure_ascii=False, sort_keys=True),
         f'Livello rappresentato: {report.get("scope", "all")}', extra,
     ])
 
@@ -529,7 +594,10 @@ def create_presentation(report: dict) -> bytes:
     _divider(prs, report, 'Budget')
     annual_overview = compact_years(annual, limit=8, scope=scope)
     slide = _slide(prs, report, 'Budget per anno', 'Importi disponibili nel perimetro selezionato')
-    _annual_chart(slide, annual_overview, .75, 1.80, 11.8, 4.60, scope)
+    reconciliation = report.get('budgetBreakdown')
+    _annual_chart(slide, annual_overview, .75, 1.80, 11.8, 2.75 if reconciliation else 4.60, scope)
+    if reconciliation:
+        _reconciliation_strip(slide, reconciliation, scope)
     _text(slide, 'Global: budget di gruppo. Local: importo complessivo o attribuito alle entità selezionate.',
           MARGIN, 6.55, 12.1, .23, size=10, color=THEME['muted'])
     _notes(slide, _source_notes(report, 'Budget annuali completi: ' + json.dumps(annual, ensure_ascii=False, default=str)))
@@ -563,7 +631,9 @@ def create_presentation(report: dict) -> bytes:
         _bars(slide, compact_groups(year_owners, limit=6, scope=scope, other_label='Altri owner'),
               6.95, 3.22, 5.79, 3.33, scope=scope, title='Owner')
         _notes(slide, _source_notes(report, json.dumps({'years': members, 'domains': year_domains,
-                  'owners': year_owners}, ensure_ascii=False, default=str)))
+                  'owners': year_owners,
+                  'budgetBreakdowns': [group.get('budgetBreakdown') for group in annual if group['label'] in members]},
+                  ensure_ascii=False, default=str)))
 
     _divider(prs, report, 'Country / legal entity')
     countries = report.get('countries', [])
