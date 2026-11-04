@@ -65,7 +65,7 @@
     }
     return Array.from(groups, ([label, records]) => ({ label, rows: records, ...totals(records, entities) }));
   }
-  function csv(rows, entities = null) {
+  function csv(rows, entities = null, scope = 'all') {
     const quote = value => {
       let text = String(value ?? '');
       // Spreadsheet formula injection can also hide after whitespace.
@@ -75,10 +75,16 @@
     const headers = ['Foglio','Riga Excel','ID originale','Dominio','Remediation','Anno','Owner','Budget Global EUR (non ripartito)',
       entities != null ? 'Budget Local EUR (entità selezionate)' : 'Budget Local complessivo EUR',
       'Local Complete unitario EUR','Local BO unitario EUR','Formula Local originale','Stato attribuzione','Nota attribuzione',
-      'Country / LE selezionate','NIS2','Priorità','Descrizione Global','Descrizione Local','Applicabilità originale (da verificare)'];
+      'Country / LE selezionate','NIS2','Priorità','Descrizione Global','Descrizione Local','Applicabilità originale (da verificare)',
+      'Budget visualizzato','Budget visualizzato EUR'];
+    const selectedAmount = row => {
+      const global=number(row.globalBudget),local=localAmount(row,entities);
+      return scope==='global'?global:scope==='local'?local:global==null&&local==null?null:(global??0)+(local??0);
+    };
     const values = rows.map(r => [r.sheet,r.excelRow,r.id,r.domain,r.name,r.year,r.owner,r.globalBudget,
       localAmount(r, entities),r.localComplete,r.localBusiness,r.localFormula,r.allocationStatus,r.allocationNote,
-      (entities || []).join(' | '),r.nis2,r.priority,r.globalDescription,r.localDescription,r.applicableCountries]);
+      (entities || []).join(' | '),r.nis2,r.priority,r.globalDescription,r.localDescription,r.applicableCountries,
+      {all:'Global + Local',global:'Global',local:'Local'}[scope],selectedAmount(r)]);
     return '\uFEFF' + [headers, ...values].map(row => row.map(quote).join(';')).join('\r\n');
   }
   const api = {number,sum,money,localAmount,filterRows,totals,aggregate,csv};

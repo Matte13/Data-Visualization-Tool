@@ -196,3 +196,17 @@ test('CSV scope labels and values distinguish whole group and selected entities'
   assert.ok(partial.includes('"3000";"";'));
   assert.ok(empty.includes('"1000";"0";'));
 });
+test('CSV records the chosen budget level with entity allocation and keeps original columns',()=>{
+  for(const [scope,label,value] of [['global','Global',1000],['local','Local',100],['all','Global + Local',1100]]){
+    const csv=M.csv([source(4)],[entity(1)],scope);
+    assert.ok(csv.includes('Budget Global EUR (non ripartito)'));
+    assert.ok(csv.includes('Budget Local EUR (entità selezionate)'));
+    assert.ok(csv.includes('"1000";"100";'));
+    assert.ok(csv.endsWith(`"${label}";"${value}"`));
+  }
+});
+test('CSV selected budgets retain missing estimates and real zeros',()=>{
+  assert.ok(M.csv([source(8)],null,'global').endsWith('"Global";""'));
+  assert.ok(M.csv([source(8)],null,'local').endsWith('"Local";"0"'));
+  assert.ok(M.csv([{...source(8),localTotal:null}],null,'all').endsWith('"Global + Local";""'));
+});
