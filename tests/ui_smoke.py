@@ -98,7 +98,7 @@ def main():
                 expect(page.locator('.kpi-value').nth(0)).to_have_text(euro(11090))
                 expect(page.locator('.kpi-value').nth(3)).to_have_text('07')
                 # All groups start checked; each master switches all options off/on.
-                assert page.locator('.sidebar nav [data-view]').evaluate_all('(nodes)=>nodes.map(n=>n.dataset.view)') == ['overview','map','table','countries']
+                assert page.locator('.sidebar nav [data-view]').evaluate_all('(nodes)=>nodes.map(n=>n.dataset.view)') == ['overview','map','owner-map','table','countries']
                 assert page.locator('[data-view="quality"]').count() == 0
                 expect(page).to_have_title('Data Visualization Tool · KPMG')
                 for field in ['sheets','years','domains','owners','entities','nis2','priority']:
@@ -220,6 +220,56 @@ def main():
                 assert page.locator('input[data-filter="entities"]:checked').count()==1
                 assert page.locator('input[data-filter="years"]:checked').count()==1
                 reset_filters()
+                # Owner-map focus adds no hidden sidebar filters or fabricated associations.
+                selected_filters=page.locator('input[data-filter]:checked').evaluate_all(
+                    '(nodes)=>nodes.map(n=>[n.dataset.filter,n.value])')
+                page.locator('.view-tabs [data-view="owner-map"]').click()
+                expect(page.locator('#owner-concept-map')).to_be_visible()
+                expect(page.locator('#owner-concept-map .leaf')).to_have_count(0)
+                expect(page.locator('[data-owner-map-owner]')).to_have_count(2)
+                page.locator('[data-owner-map-year="2028"]').click()
+                expect(page.locator('[data-owner-map-owner]')).to_have_count(3)
+                expect(page.locator('#owner-concept-map .leaf')).to_have_count(0)
+                page.locator('[data-owner-map-owner="Supplier B"]').focus()
+                page.keyboard.press('Enter')
+                expect(page.locator('[data-owner-map-owner="Supplier B"]')).to_be_focused()
+                assert page.locator('[data-owner-map-owner="Supplier B"]').evaluate(
+                    '(node)=>node.classList.contains("chosen")')
+                page.locator('[data-owner-map-domain="Security"]').focus()
+                page.keyboard.press('Enter')
+                expect(page.locator('[data-owner-map-domain="Security"]')).to_be_focused()
+                assert page.locator('[data-owner-map-domain="Security"]').evaluate(
+                    '(node)=>node.classList.contains("chosen")')
+                expect(page.locator('#owner-concept-map .leaf')).to_have_count(1)
+                expect(page.locator('#owner-concept-map')).to_contain_text('Alpha backup')
+                expect(page.locator('#owner-concept-map')).not_to_contain_text('Alpha alignment')
+                expect(page.locator('.kpi-value').nth(3)).to_have_text('07')
+                assert page.locator('input[data-filter]:checked').evaluate_all(
+                    '(nodes)=>nodes.map(n=>[n.dataset.filter,n.value])') == selected_filters
+                page.locator('#owner-concept-map .leaf').click()
+                expect(page.locator('.detail-drawer')).to_be_visible()
+                expect(page.locator('.detail-drawer h2')).to_contain_text('Alpha backup')
+                page.keyboard.press('Escape')
+                with page.expect_download() as event:
+                    page.locator('[data-action="png"]').click()
+                event.value.save_as(tmp/'owner-map.png')
+                assert (tmp/'owner-map.png').stat().st_size > 5000
+                page.locator('[data-action="export-menu"]').click()
+                with page.expect_download() as event:
+                    page.locator('[data-action="html"]').click()
+                owner_export=tmp/'owner-map-offline.html';event.value.save_as(owner_export)
+                assert 'Beta Entity' not in owner_export.read_text()
+                owner_offline=fresh_offline(owner_export.read_text())
+                expect(owner_offline.locator('#owner-concept-map')).to_be_visible()
+                expect(owner_offline.locator('#owner-concept-map .leaf')).to_have_count(1)
+                expect(owner_offline.locator('#owner-concept-map')).to_contain_text('Alpha backup')
+                owner_offline.locator('[data-action="owner-map-all"]').click()
+                expect(owner_offline.locator('#owner-concept-map .leaf')).to_have_count(0)
+                owner_offline.locator('[data-owner-map-owner="Supplier A"]').click()
+                owner_offline.locator('[data-owner-map-domain="Security"]').click()
+                expect(owner_offline.locator('#owner-concept-map')).to_contain_text('Alpha alignment')
+                expect(owner_offline.locator('#owner-concept-map')).not_to_contain_text('Alpha backup')
+                owner_offline.close()
                 # Mappa, PNG, and standalone export of only the active project.
                 page.locator('.view-tabs [data-view="map"]').click()
                 page.locator('[data-map-year="2028"]').click()
@@ -257,10 +307,20 @@ def main():
                 cli_html=standalone_html(alpha,'alpha.xlsx')
                 offline=fresh_offline(cli_html)
                 expect(offline.locator('.kpi-value').nth(0)).to_have_text(euro(11090))
+                offline.locator('.view-tabs [data-view="owner-map"]').click()
+                offline.locator('[data-owner-map-year="2028"]').click()
+                offline.locator('[data-owner-map-owner="Supplier B"]').click()
+                offline.locator('[data-owner-map-domain="Security"]').click()
+                expect(offline.locator('#owner-concept-map .leaf')).to_have_count(1)
+                expect(offline.locator('#owner-concept-map')).to_contain_text('Alpha backup')
                 offline.close()
                 # Spreadsheet source strings cannot inject HTML/script into the exported view.
+                # Module markers inside cell text must never be cached as application scripts.
                 hostile=copy.deepcopy(store.snapshot())
-                hostile['rows'][0]['name']='</script><img src=x onerror="window.INJECTED=true">'
+                hostile_name=('</script><img src=x onerror="window.INJECTED=true"> '
+                              'OwnerMap — CountryInvestments Pure, deterministic view calculations '
+                              'Data Visualization Tool — self-contained client')
+                hostile['rows'][0]['name']=hostile_name
                 start=cli_html.index('<script>window.DVT_DATA=');end=cli_html.index('</script>',start)
                 safe_json=json.dumps(hostile,ensure_ascii=False).replace('<','\\u003c')
                 hostile_html=cli_html[:start]+'<script>window.DVT_DATA='+safe_json+';'+cli_html[end:]
@@ -269,6 +329,29 @@ def main():
                 offline.locator('.view-tabs [data-view="table"]').click()
                 expect(offline.locator('.remediation-title').first).to_contain_text('</script><img')
                 assert offline.evaluate('window.INJECTED') is None
+                for generation in (2,3):
+                    offline.locator('.view-tabs [data-view="owner-map"]').click()
+                    offline.locator('[data-owner-map-year="2027"]').click()
+                    offline.locator('[data-owner-map-owner="Supplier A"]').click()
+                    offline.locator('[data-owner-map-domain="Governance"]').click()
+                    expect(offline.locator('#owner-concept-map .leaf')).to_have_count(1)
+                    offline.locator('[data-action="export-menu"]').click()
+                    with offline.expect_download() as event:
+                        offline.locator('[data-action="html"]').click()
+                    roundtrip=tmp/f'hostile-offline-generation-{generation}.html'
+                    event.value.save_as(roundtrip)
+                    offline.close()
+                    offline=fresh_offline(roundtrip.read_text())
+                    expect(offline.locator('#owner-concept-map')).to_be_visible()
+                    # Force the re-exported modules to calculate and render another drilldown.
+                    offline.locator('[data-owner-map-year="2027"]').click()
+                    offline.locator('[data-owner-map-owner="Supplier A"]').click()
+                    offline.locator('[data-owner-map-domain="Governance"]').click()
+                    expect(offline.locator('#owner-concept-map .leaf')).to_have_count(1)
+                    offline.locator('#owner-concept-map .leaf').click()
+                    expect(offline.locator('.detail-drawer h2')).to_have_text(hostile_name)
+                    assert offline.evaluate('window.INJECTED') is None
+                    offline.keyboard.press('Escape')
                 offline.close()
                 assert not requests,requests
                 # Invalid upload remains transactional.
@@ -321,9 +404,31 @@ def main():
                 assert 'Gamma backup' not in contents and 'Beta Entity' not in contents
                 assert 'Gamma Entity 01' in contents
                 assert 'Gamma Entity 02' not in text
+                # Owner focus resets between projects; its six-row pages keep all matching rows.
+                page.locator('.view-tabs [data-view="owner-map"]').click()
+                expect(page.locator('#owner-concept-map .leaf')).to_have_count(0)
+                page.locator('[data-owner-map-owner="Supplier A"]').click()
+                page.locator('[data-owner-map-domain="Governance"]').click()
+                expect(page.locator('#owner-concept-map .leaf')).to_have_count(6)
+                page.set_viewport_size({'width':390,'height':844})
+                map_scroll=page.locator('.owner-map-panel .map-scroll')
+                scroll_before=map_scroll.evaluate('(element)=>{element.scrollLeft=350;return element.scrollLeft}')
+                assert scroll_before > 0
+                page.locator('[data-action="owner-map-next"]').click()
+                scroll_after=map_scroll.evaluate('(element)=>element.scrollLeft')
+                assert abs(scroll_before-scroll_after)<1,(scroll_before,scroll_after)
+                page.set_viewport_size({'width':1440,'height':1100})
+                page.locator('[data-owner-map-domain="Governance"]').click()
+                expect(page.locator('#owner-concept-map .leaf')).to_have_count(6)
+                for _ in range(3):
+                    page.locator('[data-action="owner-map-next"]').click()
+                expect(page.locator('#owner-concept-map .leaf')).to_have_count(3)
+                expect(page.locator('[data-action="owner-map-next"]')).to_be_disabled()
+                page.locator('[data-action="owner-map-prev"]').click()
+                expect(page.locator('#owner-concept-map .leaf')).to_have_count(6)
                 assert not errors,errors
                 browser.close()
-                print('UI PASS: empty boot, multiple projects, different LE groups, saved catalog recovery, delayed reset guard, switch/update/reset isolation, all/none filters, sidebar scroll/focus, visual country links, map/PNG, offline HTML, CSV, XSS, restart, mobile, PDF, filtered PowerPoint beyond pagination')
+                print('UI PASS: empty boot, multiple projects, different LE groups, saved catalog recovery, delayed reset guard, switch/update/reset isolation, all/none filters, sidebar scroll/focus, visual country links, maps/PNG, owner drilldown/keyboard/pagination/offline, CSV, XSS, restart, mobile, PDF, filtered PowerPoint beyond pagination')
         finally:
             server.shutdown();server.server_close();thread.join(timeout=3)
 

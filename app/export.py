@@ -11,7 +11,7 @@ from .workbook import parse_workbook
 
 
 STYLESHEETS = ('styles.css', 'countries.css', 'brand.css')
-SCRIPTS = ('model.js', 'countries.js', 'app.js')
+SCRIPTS = ('model.js', 'countries.js', 'owner-map.js', 'app.js')
 
 
 def inline_assets(document: dict, root: Path = ROOT) -> str:

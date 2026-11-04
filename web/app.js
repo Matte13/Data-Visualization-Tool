@@ -6,7 +6,7 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const icon = (name, size = 18) => {
     const paths = {grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
-      table:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M3 15h18"/>',map:'<rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-5h14v5"/>',
+      owners:'<circle cx="9" cy="7" r="3"/><path d="M3 21v-4a6 6 0 0 1 12 0v4m1-17a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 4v3"/>',table:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M3 15h18"/>',map:'<rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-5h14v5"/>',
       globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',check:'<path d="m5 12 4 4L19 6"/>',shield:'<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/>',
       upload:'<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',download:'<path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/>',arrow:'<path d="M5 12h14m-5-5 5 5-5 5"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',
       present:'<rect x="3" y="3" width="18" height="13" rx="2"/><path d="M12 16v5m-4 0h8"/>',filter:'<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-11v1"/>',chevron:'<path d="m9 5 7 7-7 7"/>',file:'<path d="M14 2H5v20h14V7zM14 2v5h5M8 12h8m-8 4h8"/>',warning:'<path d="m12 3 10 18H2zM12 9v5m0 3v1"/>',reset:'<path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/>',print:'<path d="M6 8V2h12v6M6 17H3V8h18v9h-3M6 14h12v8H6z"/>',link:'<path d="m10 14 4-4m-6 6-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0m2 1 2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0"/>',menu:'<path d="M3 6h18M3 12h18M3 18h18"/>'};
@@ -17,9 +17,9 @@
   const filterFields=['sheets','years','domains','owners','entities','nis2','priority'];
   const defaultFilters = () => ({query:'',...Object.fromEntries(filterFields.map(field=>[field,data?filterOptions(field):null])),scope:'all',localBudget:'all',entityScope:'all'});
   let projects = [], activeProjectId = null, pendingFile = null;
-  let data, standalone = Boolean(window.DVT_DATA), state = {view:'overview',filters:defaultFilters(),page:1,pageSize:15,sort:'source',direction:1,detail:null,mapYear:null,mapDomain:null,mapPage:0,presentation:false,busy:false,menu:false,filterOpen:['sheets','years'],projectDialog:null,projectName:''};
+  let data, standalone = Boolean(window.DVT_DATA), state = {view:'overview',filters:defaultFilters(),page:1,pageSize:15,sort:'source',direction:1,detail:null,mapYear:null,mapDomain:null,mapPage:0,ownerMapYear:null,ownerMapOwner:null,ownerMapDomain:null,ownerMapPage:0,presentation:false,busy:false,menu:false,filterOpen:['sheets','years'],projectDialog:null,projectName:''};
   if (window.DVT_STATE) { Object.assign(state, window.DVT_STATE); state.filters = {...defaultFilters(), ...window.DVT_STATE.filters}; }
-  const views = [['overview','grid','Panoramica'],['map','map','Mappa Navigabile'],['table','table','Remediation'],['countries','globe','Country / legal entity']];
+  const views = [['overview','grid','Panoramica'],['map','map','Mappa Navigabile'],['owner-map','owners','Mappa Navigabile per Owner'],['table','table','Remediation'],['countries','globe','Country / legal entity']];
   const unique = field => [...new Set(data.rows.map(r => String(field==='owner'?(r.owner||'Non specificato'):(r[field]??''))))].sort((a,b) => a.localeCompare(b,'it',{numeric:true}));
   function filterOptions(field) {
     if(field==='entities')return data.entities.map(entity=>entity.id);
@@ -155,6 +155,14 @@
     const edges=domains.map((d,i)=>`<path class="map-edge ${d.label===state.mapDomain?'highlight':''}" d="M192 ${chosenY} C240 ${chosenY},240 ${102+i*76},282 ${102+i*76}"/>`).join('')+visible.map((r,i)=>`<path class="map-edge highlight" d="M540 ${chosenD} C590 ${chosenD},590 ${117+i*105},632 ${117+i*105}"/>`).join('');
     return `<section class="panel map-panel">${panelTitle('','Mappa delle remediation','<button class="button small" data-action="png">'+icon('download',15)+' Salva PNG</button>')}<div class="map-explanation">Seleziona un anno, poi un dominio. Le frecce raggruppano le remediation; non indicano dipendenze tra progetti.</div><div class="map-path"><span class="year-pill" style="--year-color:${colorForYear(state.mapYear)}">${state.mapYear}</span>${icon('chevron',14)}<strong>${esc(state.mapDomain)}</strong><span class="map-page-controls"><button data-action="map-prev" ${state.mapPage===0?'disabled':''}>←</button>${state.mapPage+1}/${pages}<button data-action="map-next" ${state.mapPage===pages-1?'disabled':''}>→</button></span></div><div class="map-scroll"><svg id="concept-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 995 ${height}" role="img" aria-label="Mappa anno, dominio e remediation"><defs><marker id="map-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="995" height="${height}" fill="#fbfcfd"/><text x="20" y="32" class="map-col-label">01 / ANNO</text><text x="290" y="32" class="map-col-label">02 / DOMINIO</text><text x="640" y="32" class="map-col-label">03 / REMEDIATION · ${focused.length} RIGHE</text>${edges}${yearNodes}${domainNodes}${detailNodes}</svg></div></section>`;
   }
+  function ownerMapView(rows) {
+    const result=window.OwnerMap.render({data,rows,year:state.ownerMapYear,owner:state.ownerMapOwner,
+      domain:state.ownerMapDomain,page:state.ownerMapPage,esc,icon,money,model:M,colorForYear,colorForDomain,
+      scope:state.filters.scope,entitySelection:entitySelection()});
+    state.ownerMapYear=result.year;state.ownerMapOwner=result.owner;
+    state.ownerMapDomain=result.domain;state.ownerMapPage=result.page;
+    return result.html;
+  }
   function countriesView() {
     return window.CountryInvestments.render({data,filters:state.filters,rows:currentRows(),esc,icon,money,model:M,colorForYear,colorForDomain});
   }
@@ -190,19 +198,23 @@
     normalizeFilters();
     if(!views.some(view=>view[0]===state.view))state.view='overview';
     const active=document.activeElement,focusId=active?.id,position=active?.selectionStart,focusFilter=active?.dataset.filter,focusValue=active?.value;
+    const focusedMapField=['ownerMapYear','ownerMapOwner','ownerMapDomain'].find(field=>active?.dataset[field]!==undefined);
+    const focusedMapValue=focusedMapField?active.dataset[focusedMapField]:null;
     const sidebarScroll=$('.sidebar')?.scrollTop||0;
+    const ownerMapScroll=$('.owner-map-panel .map-scroll');
+    const ownerMapPosition={left:ownerMapScroll?.scrollLeft||0,top:ownerMapScroll?.scrollTop||0};
     const groups=[...document.querySelectorAll('details[data-group]')];if(groups.length)state.filterOpen=groups.filter(g=>g.open).map(g=>g.dataset.group);
     const ambiguousCount=data.rows.filter(r=>r.allocationStatus==='ambiguous').length;
     const rows=currentRows(),view=views.find(v=>v[0]===state.view),sheetLabel=state.filters.sheets.length?state.filters.sheets.join(' + '):'Nessun perimetro selezionato';
     document.body.classList.toggle('presentation',state.presentation);
     document.body.classList.toggle('filters-open',state.menu);
     const markup=`${sidebar()}<div class="main-shell"><header class="topbar"><div class="breadcrumb"><button class="icon-button mobile-menu" data-action="menu" aria-label="Apri navigazione">${icon('menu')}</button><span>Workspace</span>${icon('chevron',12)}<strong>${view[2]}</strong></div><div class="topbar-right"><span class="local-status"><span class="status-dot"></span>${standalone?'Copia offline':'Dati locali'}</span><button class="button small" data-action="presentation">${icon('present',15)}${state.presentation?'Esci presentazione':'Presentazione'}</button></div></header>
-      <main id="main-content"><div class="page-heading"><div><h1>${esc(view[2])}</h1><p>${esc({overview:'Budget e remediation per anno, dominio e owner.',map:'Seleziona anno e dominio per aprire le remediation.',table:'Apri una scheda per consultare attività, budget e riferimenti al file.',countries:'Budget Local per country, legal entity e anno.'}[state.view])}</p></div><div class="heading-actions">${!standalone?`<button class="button primary pptx-button" data-action="pptx" ${state.busy||state.exportingPptx||!rows.length?'disabled':''} title="Sintesi di massimo 15 slide dei dati filtrati, con dettagli completi nelle note">${icon('present',16)} ${state.exportingPptx?'Creazione PowerPoint…':'Scarica PowerPoint'}</button>`:''}<button class="button" data-action="export-menu">${icon('download',16)} Esporta ${icon('chevron',12)}</button>${!standalone?`<button class="button" data-action="import" ${state.busy?'disabled':''}>${icon('upload',16)} ${state.busy?'Importazione…':'Aggiorna Excel'}</button>`:''}${state.exportMenu?`<div class="export-menu"><button data-action="csv">${icon('table',16)} CSV delle righe filtrate</button><button data-action="html">${icon('file',16)} Copia HTML offline</button><button data-action="print">${icon('print',16)} Stampa / salva PDF</button>${!standalone?`<button data-action="source">${icon('download',16)} Excel originale</button>`:''}</div>`:''}</div></div>
+      <main id="main-content"><div class="page-heading"><div><h1>${esc(view[2])}</h1><p>${esc({overview:'Budget e remediation per anno, dominio e owner.',map:'Seleziona anno e dominio per aprire le remediation.','owner-map':'Esplora le associazioni tra anno, owner, dominio e remediation.',table:'Apri una scheda per consultare attività, budget e riferimenti al file.',countries:'Budget Local per country, legal entity e anno.'}[state.view])}</p></div><div class="heading-actions">${!standalone?`<button class="button primary pptx-button" data-action="pptx" ${state.busy||state.exportingPptx||!rows.length?'disabled':''} title="Sintesi di massimo 15 slide dei dati filtrati, con dettagli completi nelle note">${icon('present',16)} ${state.exportingPptx?'Creazione PowerPoint…':'Scarica PowerPoint'}</button>`:''}<button class="button" data-action="export-menu">${icon('download',16)} Esporta ${icon('chevron',12)}</button>${!standalone?`<button class="button" data-action="import" ${state.busy?'disabled':''}>${icon('upload',16)} ${state.busy?'Importazione…':'Aggiorna Excel'}</button>`:''}${state.exportMenu?`<div class="export-menu"><button data-action="csv">${icon('table',16)} CSV delle righe filtrate</button><button data-action="html">${icon('file',16)} Copia HTML offline</button><button data-action="print">${icon('print',16)} Stampa / salva PDF</button>${!standalone?`<button data-action="source">${icon('download',16)} Excel originale</button>`:''}</div>`:''}</div></div>
       <div class="source-line">${icon('file',15)}<strong>${esc(data.source.filename)}</strong><span>•</span><span>${esc(sheetLabel)}</span><span>•</span><span>${data.rows.length} righe disponibili · ${data.entities.length} entità</span>${!standalone?`<button class="text-button" data-action="restore" ${state.busy?'disabled':''}>Ripristina prima importazione</button>`:''}</div>
       ${toolbar()}${chips()}${kpis(rows)}
       <div class="data-notice">${icon('info',16)}<p><strong>Importi dal file Excel.</strong> ${ambiguousCount?`${ambiguousCount} righe hanno un’attribuzione geografica da verificare; `:''}le stime mancanti restano distinte da zero.</p></div>
       <div class="view-tabs" role="navigation" aria-label="Seleziona vista">${views.map(([id,i,l])=>`<button data-view="${id}" class="${state.view===id?'active':''}">${icon(i,16)}${l}</button>`).join('')}<span>${rows.length} righe selezionate</span></div>
-      <div id="view-content">${!rows.length?emptyView():state.view==='countries'?countriesView():state.view==='table'?tableView(rows):state.view==='map'?mapView(rows):overview(rows)}</div>
+      <div id="view-content">${!rows.length?emptyView():state.view==='countries'?countriesView():state.view==='table'?tableView(rows):state.view==='map'?mapView(rows):state.view==='owner-map'?ownerMapView(rows):overview(rows)}</div>
       <footer class="main-footer"><span><strong>Data Visualization Tool</strong> · KPMG · Uso interno</span><span>Fonte Excel · importi in EUR · nessun dato generato</span><span>SHA-256 ${esc(data.source.sha256?.slice(0,12)||'—')}</span></footer></main></div>${detailPanel()}${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
     const oldSidebar=$('.sidebar'),sourceKey=(data.project?.id||'')+':'+data.source.sha256;
     if(oldSidebar?.dataset.source===sourceKey){
@@ -211,6 +223,9 @@
       $('#app').append(template.content);
     }else{$('#app').innerHTML=markup;if($('.sidebar'))$('.sidebar').scrollTop=sidebarScroll;}
     syncSidebar();
+    const restoredOwnerMapScroll=$('.owner-map-panel .map-scroll');
+    if(restoredOwnerMapScroll){restoredOwnerMapScroll.scrollLeft=ownerMapPosition.left;restoredOwnerMapScroll.scrollTop=ownerMapPosition.top;}
+    if(focusedMapField){const node=[...document.querySelectorAll('#owner-concept-map .map-node')].find(item=>item.dataset[focusedMapField]===focusedMapValue);node?.focus({preventScroll:true});}
     if(focusFilter){const input=[...document.querySelectorAll('input[data-filter]')].find(i=>i.dataset.filter===focusFilter&&i.value===focusValue);input?.focus({preventScroll:true});}
     if(focusId&&$('#'+focusId)){const input=$('#'+focusId);input.focus({preventScroll:true});if(typeof position==='number'&&input.setSelectionRange) input.setSelectionRange(position,position);}
     if(state.projectDialog){$('#project-name')?.focus();document.body.style.overflow='hidden';}
@@ -218,18 +233,18 @@
   }
   let toastTimer;
   function toast(message,error=false){clearTimeout(toastTimer);const el=$('#toast');el.textContent=message;el.className='toast visible'+(error?' error':'');toastTimer=setTimeout(()=>el.classList.remove('visible'),6500);}
-  function setFilters(patch){Object.assign(state.filters,patch);state.page=1;state.mapPage=0;render();}
+  function setFilters(patch){Object.assign(state.filters,patch);state.page=1;state.mapPage=0;state.ownerMapPage=0;render();}
   function download(content,type,filename){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   function exportHtml(){
-    if(!window.DVT_CSS||!window.DVT_MODEL||!window.DVT_COUNTRIES||!window.DVT_APP) { toast('Preparazione esportazione in corso. Riprova tra un istante.',true); return; }
+    if(!window.DVT_CSS||!window.DVT_MODEL||!window.DVT_COUNTRIES||!window.DVT_OWNER_MAP||!window.DVT_APP) { toast('Preparazione esportazione in corso. Riprova tra un istante.',true); return; }
     const doc=document.documentElement.cloneNode(true);doc.querySelector('#app').innerHTML='<div class="initial-loading">Apertura della copia offline…</div>';
     doc.querySelectorAll('script').forEach(el=>el.remove());doc.querySelectorAll('link[rel="stylesheet"]').forEach(el=>el.remove());
     const style=document.createElement('style');style.textContent=window.DVT_CSS;doc.querySelector('head').appendChild(style);
-    for(const contents of ['window.DVT_DATA='+JSON.stringify(data).replace(/</g,'\\u003c')+';window.DVT_STATE='+JSON.stringify({view:state.view,filters:state.filters,mapYear:state.mapYear,mapDomain:state.mapDomain,mapPage:state.mapPage,pageSize:state.pageSize,sort:state.sort,direction:state.direction}).replace(/</g,'\\u003c')+';', window.DVT_MODEL, window.DVT_COUNTRIES, window.DVT_APP]) {const script=document.createElement('script');script.textContent=contents;doc.querySelector('body').appendChild(script);}
+    for(const contents of ['window.DVT_DATA='+JSON.stringify(data).replace(/</g,'\\u003c')+';window.DVT_STATE='+JSON.stringify({view:state.view,filters:state.filters,mapYear:state.mapYear,mapDomain:state.mapDomain,mapPage:state.mapPage,ownerMapYear:state.ownerMapYear,ownerMapOwner:state.ownerMapOwner,ownerMapDomain:state.ownerMapDomain,ownerMapPage:state.ownerMapPage,pageSize:state.pageSize,sort:state.sort,direction:state.direction}).replace(/</g,'\\u003c')+';', window.DVT_MODEL, window.DVT_COUNTRIES, window.DVT_OWNER_MAP, window.DVT_APP]) {const script=document.createElement('script');script.textContent=contents;doc.querySelector('body').appendChild(script);}
     // Scripts are static application code; source cell text is JSON-escaped above.
     download('<!doctype html>\n'+doc.outerHTML,'text/html;charset=utf-8','Data-Visualization-Tool-remediation-offline.html');toast('Copia offline salvata: include tutti i dati e i filtri.');
   }
-  async function exportPng(){const svg=$('#concept-map');if(!svg)return;const clone=svg.cloneNode(true),style=document.createElementNS('http://www.w3.org/2000/svg','style');style.textContent=window.DVT_CSS||'';clone.insertBefore(style,clone.firstChild);const view=svg.viewBox.baseVal;clone.setAttribute('width',view.width*2);clone.setAttribute('height',view.height*2);const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=view.width*2;canvas.height=view.height*2;canvas.getContext('2d').drawImage(img,0,0);URL.revokeObjectURL(url);canvas.toBlob(b=>{if(b)download(b,'image/png',`Data-Visualization-Tool-mappa-${state.mapYear}.png`);},'image/png');};img.onerror=()=>{URL.revokeObjectURL(url);toast('Impossibile esportare la mappa.',true);};img.src=url;}
+  async function exportPng(){const ownerMode=state.view==='owner-map',svg=$(ownerMode?'#owner-concept-map':'#concept-map'),year=ownerMode?state.ownerMapYear:state.mapYear;if(!svg)return;const clone=svg.cloneNode(true),style=document.createElementNS('http://www.w3.org/2000/svg','style');style.textContent=window.DVT_CSS||'';clone.insertBefore(style,clone.firstChild);const view=svg.viewBox.baseVal;clone.setAttribute('width',view.width*2);clone.setAttribute('height',view.height*2);const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=view.width*2;canvas.height=view.height*2;canvas.getContext('2d').drawImage(img,0,0);URL.revokeObjectURL(url);canvas.toBlob(b=>{if(b)download(b,'image/png',`Data-Visualization-Tool-mappa-${ownerMode?'owner-':''}${year||'non-specificato'}.png`);},'image/png');};img.onerror=()=>{URL.revokeObjectURL(url);toast('Impossibile esportare la mappa.',true);};img.src=url;}
   function presentationRequest() {
     const filters=JSON.parse(JSON.stringify(state.filters));
     const entities=entitySelection();
@@ -272,7 +287,7 @@
     catch {return ' Il progetto è salvato; l’elenco non è stato aggiornato. Ricarica la pagina per riprovare.';}
   }
   function resetProjectView() {
-    clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.menu=false;state.exportMenu=false;state.projectDialog=null;state.projectName='';pendingFile=null;
+    clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.projectDialog=null;state.projectName='';pendingFile=null;
   }
   function openProjectDialog(mode, file=null) {
     if(state.busy)return;
@@ -310,7 +325,7 @@
     switch(name){
       case 'home':state.view='overview';render();break;
       case 'menu':state.menu=!state.menu;render();break;
-      case 'reset':state.filters=defaultFilters();state.page=1;state.mapPage=0;render();break;
+      case 'reset':state.filters=defaultFilters();state.page=1;state.mapPage=0;state.ownerMapPage=0;render();break;
       case 'presentation':state.presentation=!state.presentation;render();break;
       case 'export-menu':state.exportMenu=!state.exportMenu;render();break;
       case 'close-detail':state.detail=null;render();break;
@@ -319,6 +334,9 @@
       case 'next-page':state.page++;render();break;
       case 'map-prev':state.mapPage--;render();break;
       case 'map-next':state.mapPage++;render();break;
+      case 'owner-map-prev':state.ownerMapPage--;render();break;
+      case 'owner-map-next':state.ownerMapPage++;render();break;
+      case 'owner-map-all':state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;render();break;
       case 'new-project':openProjectDialog('create');break;
       case 'import':openProjectDialog('update');break;
       case 'submit-project':await importWorkbook(pendingFile);break;
@@ -333,8 +351,8 @@
     }
   }
   document.addEventListener('click',event=>{
-    const el=event.target.closest('[data-action],[data-view],[data-detail],[data-scope],[data-year],[data-domain],[data-owner],[data-entity],[data-sort],[data-remove-field],[data-clear],[data-map-year],[data-map-domain],[data-country-year],[data-reset-group]');if(!el){if(state.exportMenu&&!event.target.closest('.export-menu,.heading-actions')){state.exportMenu=false;render();}return;}
-    if(el.hasAttribute('disabled'))return;
+    const el=event.target.closest('[data-action],[data-view],[data-detail],[data-scope],[data-year],[data-domain],[data-owner],[data-entity],[data-sort],[data-remove-field],[data-clear],[data-map-year],[data-map-domain],[data-country-year],[data-reset-group],[data-owner-map-year],[data-owner-map-owner],[data-owner-map-domain]');if(!el){if(state.exportMenu&&!event.target.closest('.export-menu,.heading-actions')){state.exportMenu=false;render();}return;}
+    if(el.hasAttribute('disabled')||el.getAttribute('aria-disabled')==='true')return;
     event.preventDefault();
     if(el.dataset.action){action(el.dataset.action);return;}
     if(el.dataset.view){state.view=el.dataset.view;state.exportMenu=false;state.menu=false;render();return;}
@@ -349,6 +367,9 @@
     if(el.dataset.sort){state.direction=state.sort===el.dataset.sort?-state.direction:1;state.sort=el.dataset.sort;render();return;}
     if(el.dataset.removeField){setFilters({[el.dataset.removeField]:state.filters[el.dataset.removeField].filter(v=>v!==el.dataset.value)});return;}
     if(el.dataset.clear){setFilters({[el.dataset.clear]:'all'});return;}
+    if(el.dataset.ownerMapYear!==undefined){state.ownerMapYear=el.dataset.ownerMapYear;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;render();return;}
+    if(el.dataset.ownerMapOwner!==undefined){state.ownerMapOwner=el.dataset.ownerMapOwner;state.ownerMapDomain=null;state.ownerMapPage=0;render();return;}
+    if(el.dataset.ownerMapDomain!==undefined){state.ownerMapDomain=el.dataset.ownerMapDomain;state.ownerMapPage=0;render();return;}
     if(el.dataset.mapYear){state.mapYear=Number(el.dataset.mapYear);state.mapPage=0;render();return;}
     if(el.dataset.mapDomain){state.mapDomain=el.dataset.mapDomain;state.mapPage=0;render();return;}
   });
@@ -374,8 +395,8 @@
       if(standalone){data=window.DVT_DATA;window.DVT_CSS=[...document.querySelectorAll('style')].map(e=>e.textContent).join('\n');}
       else{await refreshProjects();const response=await fetch('/api/workbook'+(activeProjectId?'?projectId='+encodeURIComponent(activeProjectId):''));if(response.status===404){data=null;}else if(!response.ok){const error=await response.json();throw new Error(error.error||'Caricamento dati non riuscito');}else{acceptProject(await response.json());}}
       render();
-      if(!standalone){const assets=await Promise.all(['styles.css','countries.css','brand.css','model.js','countries.js','app.js'].map(async url=>{const response=await fetch(url);if(!response.ok)throw new Error('Risorsa non disponibile');return response.text();}));window.DVT_CSS=assets.slice(0,3).join("\n");[window.DVT_MODEL,window.DVT_COUNTRIES,window.DVT_APP]=assets.slice(3);}
-      else{const scripts=[...document.querySelectorAll('script')];window.DVT_MODEL=scripts.find(s=>s.textContent.includes('Pure, deterministic view calculations'))?.textContent||'';window.DVT_COUNTRIES=scripts.find(script=>script.textContent.includes('CountryInvestments'))?.textContent||'';window.DVT_APP=scripts.find(s=>s.textContent.includes('Data Visualization Tool — self-contained client'))?.textContent||'';}
+      if(!standalone){const assets=await Promise.all(['styles.css','countries.css','brand.css','model.js','countries.js','owner-map.js','app.js'].map(async url=>{const response=await fetch(url);if(!response.ok)throw new Error('Risorsa non disponibile');return response.text();}));window.DVT_CSS=assets.slice(0,3).join("\n");[window.DVT_MODEL,window.DVT_COUNTRIES,window.DVT_OWNER_MAP,window.DVT_APP]=assets.slice(3);}
+      else{const scripts=[...document.querySelectorAll('script')];window.DVT_MODEL=scripts.find(s=>s.textContent.trimStart().startsWith('/* Pure, deterministic view calculations.'))?.textContent||'';window.DVT_COUNTRIES=scripts.find(script=>script.textContent.trimStart().startsWith('/* CountryInvestments —'))?.textContent||'';window.DVT_OWNER_MAP=scripts.find(s=>s.textContent.trimStart().startsWith('/* OwnerMap —'))?.textContent||'';window.DVT_APP=scripts.find(s=>s.textContent.trimStart().startsWith('/* Data Visualization Tool — self-contained client.'))?.textContent||'';}
     }catch(error){$('#app').innerHTML=`<div class="initial-loading"><span class="brand-mark kpmg-brand" aria-hidden="true">${kpmgLogo()}</span><h1>Impossibile aprire i dati</h1><p>${esc(error.message)}</p><p>Avvia il server locale con <code>python -m app.server</code>, poi ricarica la pagina.</p></div>`;}
   }
   boot();

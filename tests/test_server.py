@@ -78,6 +78,16 @@ class ServerTests(unittest.TestCase):
             self.request("/assets/../runtime/projects.json")
         self.assertEqual(failure.exception.code, 404)
 
+    def test_owner_map_script_uses_an_explicit_static_route(self):
+        script = "window.OwnerMap = {render() { return 'fictional owner map'; }};"
+        (self.root / "web" / "owner-map.js").write_text(script)
+        with self.request("/owner-map.js") as response:
+            self.assertEqual(response.read().decode(), script)
+            self.assertEqual(response.headers["Content-Type"], "application/javascript; charset=utf-8")
+        with self.assertRaises(HTTPError) as failure:
+            self.request("/../owner-map.js")
+        self.assertEqual(failure.exception.code, 404)
+
     def test_create_activate_restart_and_project_isolation(self):
         first = self.create()
         second = self.create(self.second, "Second project", "second.xlsx")

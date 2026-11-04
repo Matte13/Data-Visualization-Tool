@@ -447,7 +447,8 @@ class ExplorerHandler(BaseHTTPRequestHandler):
             "/": "index.html", "/index.html": "index.html",
             "/styles.css": "styles.css", "/countries.css": "countries.css",
             "/brand.css": "brand.css",
-            "/model.js": "model.js", "/countries.js": "countries.js", "/app.js": "app.js",
+            "/model.js": "model.js", "/countries.js": "countries.js",
+            "/owner-map.js": "owner-map.js", "/app.js": "app.js",
         }
         if path not in static:
             return self._error(HTTPStatus.NOT_FOUND, "Risorsa non trovata.")

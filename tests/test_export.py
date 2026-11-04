@@ -18,13 +18,14 @@ class ExportTests(unittest.TestCase):
   <link rel="stylesheet" href="brand.css">
   <script defer src="model.js"></script>
   <script defer src="countries.js"></script>
+  <script defer src="owner-map.js"></script>
   <script defer src="app.js"></script>
 </head><body><div id="app"></div></body></html>''')
             web.joinpath('styles.css').write_text(':root{--base-color:navy}')
             web.joinpath('countries.css').write_text('.country-flag{width:24px}')
             font_css = '@font-face{font-family:KPMG;src:url(data:font/woff2;base64,d09GMg==) format("woff2")}'
             web.joinpath('brand.css').write_text(font_css)
-            for name in ('model.js', 'countries.js', 'app.js'):
+            for name in ('model.js', 'countries.js', 'owner-map.js', 'app.js'):
                 web.joinpath(name).write_text('/* local ' + name + ' */')
             html = inline_assets({'source': {'filename': 'fictional.xlsx'}}, root)
         self.assertIn(font_css, html)
@@ -33,6 +34,8 @@ class ExportTests(unittest.TestCase):
         self.assertNotIn('rel="stylesheet"', html)
         self.assertNotIn('defer src=', html)
         self.assertIn('window.DVT_DATA=', html)
+        self.assertLess(html.index('/* local countries.js */'), html.index('/* local owner-map.js */'))
+        self.assertLess(html.index('/* local owner-map.js */'), html.index('/* local app.js */'))
         self.assertIn('/* local app.js */', html)
 
 

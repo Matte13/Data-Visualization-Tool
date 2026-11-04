@@ -301,3 +301,52 @@ h1 { font-size: 42px; line-height: 1.12; letter-spacing: -.4px; color: #00338d; 
   .remediation-budget-pair strong { font-size: 17px; }
   .main-footer { font-size: 9px; }
 }
+
+/* The Owner map adds one navigation item and a fourth diagram column. */
+.nav-item > svg { flex-shrink: 0; }
+.nav-item > span { min-width: 0; white-space: normal; overflow-wrap: break-word; line-height: 1.35; }
+.view-tabs { min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.view-tabs > button { flex: 0 0 auto; }
+.breadcrumb { min-width: 0; }
+.breadcrumb > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.owner-map-panel .map-scroll > svg { min-width: 1180px; }
+.owner-map-path { flex-wrap: wrap; }
+.owner-map-path > strong { overflow-wrap: anywhere; }
+.owner-map-controls { flex-shrink: 0; }
+#owner-concept-map .map-edge { marker-end: url(#owner-map-arrow); }
+#owner-concept-map .map-edge.muted { opacity: .30; }
+#owner-concept-map .owner-node rect {
+  stroke: color-mix(in srgb, var(--owner-color, #58738c) 55%, white);
+  fill: color-mix(in srgb, var(--owner-color, #58738c) 4%, white);
+}
+#owner-concept-map .owner-node.chosen rect {
+  stroke: var(--owner-color, #58738c);
+  stroke-width: 2;
+  fill: color-mix(in srgb, var(--owner-color, #58738c) 12%, white);
+}
+#owner-concept-map .owner-node:hover rect { stroke: var(--owner-color, #58738c); }
+#owner-concept-map .map-node.dimmed { opacity: .5; }
+#owner-concept-map .map-node[aria-disabled="true"] { opacity: .35; cursor: default; }
+#owner-concept-map .map-node[aria-disabled="true"]:hover rect {
+  stroke: color-mix(in srgb, var(--domain-color, #8a9da7) 50%, white);
+}
+#owner-concept-map .map-node:focus-visible rect { stroke-width: 3; }
+#owner-concept-map .node-title { font-size: 13px; }
+#owner-concept-map .node-sub { font-size: 12px; }
+#owner-concept-map .node-code { font-size: 10px; }
+#owner-concept-map .map-col-label { font-size: 12px; letter-spacing: 1.2px; }
+#owner-concept-map .owner-map-placeholder rect { fill: #f3f6f7; stroke: #dce6e8; stroke-dasharray: 5 4; }
+.owner-map-hint { color: #647089; font-size: 12px; line-height: 1.7; }
+@media (min-width: 1251px) {
+  .owner-map-panel .map-scroll > svg { min-width: 0; width: 100%; }
+}
+@media (max-width: 760px) {
+  .breadcrumb { flex: 1; gap: 8px; }
+  .breadcrumb > span { display: none; }
+  .breadcrumb > strong { max-width: 160px; }
+  .owner-map-path { gap: 9px; }
+  .owner-map-controls { width: 100%; margin-left: 0; justify-content: flex-end; }
+}
+@media print {
+  .owner-map-panel .map-scroll > svg { min-width: 0; }
+}
