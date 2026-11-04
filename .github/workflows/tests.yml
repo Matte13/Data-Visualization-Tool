@@ -23,6 +23,12 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: JavaScript data logic and owner map
         run: node --test tests/*.test.cjs
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Synchronized filters in presentation, offline, mobile and print
+        run: |
+          export CHROMIUM_PATH="$(command -v google-chrome || command -v chromium)"
+          test -n "$CHROMIUM_PATH"
+          python tests/presentation_filters_smoke.py
 
   azure-sql-and-container:
     runs-on: ubuntu-latest

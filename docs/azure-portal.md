@@ -1,6 +1,6 @@
 # Installazione dal portale Azure con Azure SQL
 
-Usare l'immagine **ghcr.io/matte13/data-visualization-tool:1.1.0**, collegata al database Azure SQL già disponibile. Non occorre creare un nuovo database. La versione `1.0.0` precede il supporto Azure SQL.
+Usare l'immagine **ghcr.io/matte13/data-visualization-tool:1.1.1**, collegata al database Azure SQL già disponibile. Non occorre creare un nuovo database. La versione `1.0.0` precede il supporto Azure SQL.
 
 ## 1. Container details
 
@@ -10,11 +10,11 @@ Usare l'immagine **ghcr.io/matte13/data-visualization-tool:1.1.0**, collegata al
 | Image source | **Docker Hub or other registries** (include GHCR) |
 | Image type | **Public** se il package GHCR è pubblico |
 | Registry login server | `ghcr.io` |
-| Image and tag | `ghcr.io/matte13/data-visualization-tool:1.1.0` |
+| Image and tag | `ghcr.io/matte13/data-visualization-tool:1.1.1` |
 | Command override | Vuoto |
 | Arguments override | Vuoto |
 
-Se repository e tag sono separati, usare repository `matte13/data-visualization-tool` e tag `1.1.0`. L'immagine Linux AMD64 include il driver Microsoft ODBC 18. Come base assegnare **0,5 vCPU / 1 GiB** e una sola replica, in modalità revisioni **Single**.
+Se repository e tag sono separati, usare repository `matte13/data-visualization-tool` e tag `1.1.1`. L'immagine Linux AMD64 include il driver Microsoft ODBC 18. Come base assegnare **0,5 vCPU / 1 GiB** e una sola replica, in modalità revisioni **Single**.
 
 Abilitare l'ingress HTTP con porta di destinazione **8000**, HTTPS e accesso dalla rete aziendale. Scegliere un ambiente Container Apps che possa raggiungere il server Azure SQL esistente: risoluzione DNS, routing e firewall devono consentire il collegamento. Il template Bicep usa una VNet/subnet già esistente; non cambia le regole del database.
 
@@ -65,9 +65,9 @@ Se l'avvio fallisce, verificare: password e mapping del secret, accesso di `fudd
 ## 5. Aggiornare il tag
 
 1. Verificare che la nuova versione sia pubblicata in GHCR e che il relativo workflow GitHub sia concluso.
-2. In **Containers → Edit and deploy** cambiare **Image and tag**, ad esempio da `:1.1.0` a `:1.1.1`.
+2. In **Containers → Edit and deploy** cambiare **Image and tag**, ad esempio da `:1.1.1` a `:1.1.2`.
 3. Conservare tutte le variabili, il secret e lo stesso database. Distribuire la revisione e attenderne la readiness.
 
 Gli aggiornamenti del container conservano i progetti nel database. Per installazioni ripetibili usare una versione specifica anziché `latest`. Per il rollback verificare la compatibilità dello schema prima di selezionare l'immagine precedente. Le versioni `1.0.x` non gestiscono questa persistenza Azure SQL.
 
-Per pubblicare una versione, dal commit già caricato eseguire `git tag v1.1.1` e `git push origin v1.1.1`, oppure usare **Actions → Publish GitHub Container Registry image → Run workflow**. Il workflow esegue prima tutti i controlli. Il package deve essere pubblico per l'opzione Public; se è privato scegliere Private e fornire credenziali GHCR con `read:packages`.
+Per pubblicare una versione, dal commit già caricato eseguire `git tag v1.1.2` e `git push origin v1.1.2`, oppure usare **Actions → Publish GitHub Container Registry image → Run workflow**. Il workflow esegue prima tutti i controlli. Il package deve essere pubblico per l'opzione Public; se è privato scegliere Private e fornire credenziali GHCR con `read:packages`.

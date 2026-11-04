@@ -49,7 +49,7 @@ export AZURE_SUBSCRIPTION_ID='ID-SUBSCRIPTION'
 export AZURE_RESOURCE_GROUP='rg-data-visualization-tool'
 export AZURE_LOCATION='westeurope'
 export DVT_PREFIX='dvt-azienda'
-export DVT_IMAGE='ghcr.io/matte13/data-visualization-tool:1.1.0'
+export DVT_IMAGE='ghcr.io/matte13/data-visualization-tool:1.1.1'
 export AZURE_SQL_SERVER='dbservertil.database.windows.net'
 export AZURE_SQL_DATABASE='data-visualization-tool-db'
 export AZURE_SQL_USER='fuddos'
@@ -64,7 +64,7 @@ Lo script verifica la subscription attiva, legge il secret da file, crea paramet
 
 ## Versioni, disponibilità e backup
 
-Il push di `v1.1.0` avvia **Publish GitHub Container Registry image**, che esegue prima i test Python, JavaScript e SQL Server/ODBC, poi pubblica `ghcr.io/matte13/data-visualization-tool:1.1.0`, `sha-<commit>` e per le versioni stabili `latest`. La pubblicazione manuale è disponibile nelle Actions. L'archivio e il checksum sono negli artifact della run. La normale push del codice esegue i test e non pubblica immagini.
+Il push di `v1.1.1` avvia **Publish GitHub Container Registry image**, che esegue prima i test Python, JavaScript e SQL Server/ODBC, poi pubblica `ghcr.io/matte13/data-visualization-tool:1.1.1`, `sha-<commit>` e per le versioni stabili `latest`. La pubblicazione manuale è disponibile nelle Actions. L'archivio e il checksum sono negli artifact della run. La normale push del codice esegue i test e non pubblica immagini.
 
 Non spostare un tag di versione già installato. Per aggiornare il portale cambiare soltanto il tag, mantenendo il collegamento allo stesso database. Un digest `@sha256:...` identifica esattamente l'immagine. Il rollback deve verificare la compatibilità dello schema; `1.0.x` non supporta Azure SQL.
 

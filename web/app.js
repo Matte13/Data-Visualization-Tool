@@ -17,7 +17,7 @@
   const filterFields=['sheets','years','domains','owners','entities','nis2','priority'];
   const defaultFilters = () => ({query:'',...Object.fromEntries(filterFields.map(field=>[field,data?filterOptions(field):null])),scope:'all',localBudget:'all',entityScope:'all'});
   let projects = [], activeProjectId = null, pendingFile = null;
-  let data, standalone = Boolean(window.DVT_DATA), state = {view:'overview',filters:defaultFilters(),page:1,pageSize:15,sort:'source',direction:1,detail:null,mapYear:null,mapDomain:null,mapPage:0,ownerMapYear:null,ownerMapOwner:null,ownerMapDomain:null,ownerMapPage:0,presentation:false,busy:false,menu:false,filterOpen:['sheets','years'],projectDialog:null,projectName:''};
+  let data, standalone = Boolean(window.DVT_DATA), state = {view:'overview',filters:defaultFilters(),page:1,pageSize:15,sort:'source',direction:1,detail:null,mapYear:null,mapDomain:null,mapPage:0,ownerMapYear:null,ownerMapOwner:null,ownerMapDomain:null,ownerMapPage:0,presentation:false,busy:false,menu:false,filterOpen:['sheets','years'],topFilterOpen:null,projectDialog:null,projectName:''};
   if (window.DVT_STATE) { Object.assign(state, window.DVT_STATE); state.filters = {...defaultFilters(), ...window.DVT_STATE.filters}; }
   const views = [['overview','grid','Panoramica'],['map','map','Mappa Navigabile'],['owner-map','owners','Mappa Navigabile per Owner'],['table','table','Remediation'],['countries','globe','Country / legal entity']];
   const unique = field => [...new Set(data.rows.map(r => String(field==='owner'?(r.owner||'Non specificato'):(r[field]??''))))].sort((a,b) => a.localeCompare(b,'it',{numeric:true}));
@@ -86,6 +86,40 @@
     return `<div class="toolbar"><label class="search-box">${icon('search')}<input id="search" placeholder="Cerca remediation, dominio o owner…" value="${esc(state.filters.query)}" aria-label="Cerca remediation"></label>
     <div class="scope-switch" role="group" aria-label="Livello budget da rappresentare" title="Scegli i budget da rappresentare nei grafici. Per selezionare le righe usa il filtro budget Local.">${[['all','Global + Local'],['global','Global'],['local','Local']].map(([v,l]) => `<button data-scope="${v}" class="${state.filters.scope===v?'selected':''}" aria-pressed="${state.filters.scope===v}">${l}</button>`).join('')}</div>
     <select class="budget-select" data-select="localBudget" aria-label="Filtra per budget locale">${[['all','Tutti i budget local'],['positive','Con budget local > 0'],['zero','Budget local = 0'],['missing','Budget local non determinato']].map(([v,l])=>`<option value="${v}" ${state.filters.localBudget===v?'selected':''}>${l}</option>`).join('')}</select></div>`;
+  }
+  function viewFilters() {
+    const labels={sheets:'Perimetro',years:'Anno',domains:'Dominio',owners:'Owner',entities:'Country / LE',nis2:'NIS2',priority:'Priorità'};
+    return `<section class="view-filters" data-source="${esc((data.project?.id||'')+':'+data.source.sha256)}" aria-label="Filtri delle viste">
+      <div class="view-filters-heading"><span>${icon('filter',15)} Filtri</span><button class="text-button" data-action="reset">${icon('reset',13)} Ripristina filtri</button></div>
+      <div class="view-filter-groups">${filterFields.map(field=>`<details class="view-filter" data-top-group="${field}" name="view-filters" ${state.topFilterOpen===field?'open':''}>
+        <summary title="${esc(fieldName(field))}"><span class="view-filter-label">${esc(labels[field])}</span><span class="view-filter-count"></span>${icon('chevron',12)}</summary>
+        <div class="view-filter-panel"><label class="view-filter-option view-filter-master"><input type="checkbox" data-top-filter-all="${field}" aria-label="Seleziona tutti: ${esc(fieldName(field))}"><span>Seleziona tutti</span></label>
+          <div class="view-filter-options">${filterOptions(field).map(value=>`<label class="view-filter-option"><input type="checkbox" data-top-filter="${field}" value="${esc(value)}"><span>${esc(filterLabel(field,value))}</span></label>`).join('')}</div></div>
+      </details>`).join('')}</div>
+      <div class="view-filters-presentation-tools"><label class="search-box">${icon('search',16)}<input id="presentation-search" placeholder="Cerca remediation, dominio o owner…" aria-label="Cerca remediation in presentazione"></label>
+        <select class="budget-select" data-top-select="scope" aria-label="Livello budget in presentazione">${[['all','Global + Local'],['global','Global'],['local','Local']].map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>
+        <select class="budget-select" data-top-select="localBudget" aria-label="Budget locale in presentazione">${[['all','Tutti i budget local'],['positive','Con budget local > 0'],['zero','Budget local = 0'],['missing','Budget local non determinato']].map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>
+      </div></section>`;
+  }
+  function syncViewFilters() {
+    const bar=$('.view-filters');if(!bar)return;
+    for(const group of bar.querySelectorAll('[data-top-group]')){
+      const field=group.dataset.topGroup,options=filterOptions(field),selected=state.filters[field];
+      const all=selected.length===options.length;
+      group.querySelector('.view-filter-count').textContent=all?'Tutti':`${selected.length}/${options.length}`;
+      group.classList.toggle('is-filtered',!all);
+      for(const input of group.querySelectorAll('[data-top-filter]'))input.checked=selected.includes(input.value);
+      const master=group.querySelector('[data-top-filter-all]');
+      master.checked=options.length>0&&all;master.indeterminate=selected.length>0&&!all;master.disabled=!options.length;
+    }
+    $('#presentation-search',bar).value=state.filters.query;
+    for(const select of bar.querySelectorAll('[data-top-select]'))select.value=state.filters[select.dataset.topSelect];
+  }
+  function closeViewFilters({focus=false}={}) {
+    const group=$('.view-filters details[open]');
+    state.topFilterOpen=null;
+    if(group){group.open=false;if(focus)group.querySelector('summary').focus({preventScroll:true});}
+    return Boolean(group);
   }
   const summaryMoney = (t, field, compact=false) => t.count && t[field === 'global' ? 'missingGlobal' : 'missingLocal'] === t.count ? 'Non stimato' : money(t[field],compact);
   const selectedMoney = (t, compact=false) => {
@@ -198,6 +232,8 @@
     normalizeFilters();
     if(!views.some(view=>view[0]===state.view))state.view='overview';
     const active=document.activeElement,focusId=active?.id,position=active?.selectionStart,focusFilter=active?.dataset.filter,focusValue=active?.value;
+    const topFilterFocus=active?.closest('.view-filters')?active:null;
+    const topFilterScroll=[...document.querySelectorAll('.view-filter-options')].map(element=>({element,top:element.scrollTop}));
     const focusedMapField=['ownerMapYear','ownerMapOwner','ownerMapDomain'].find(field=>active?.dataset[field]!==undefined);
     const focusedMapValue=focusedMapField?active.dataset[focusedMapField]:null;
     const sidebarScroll=$('.sidebar')?.scrollTop||0;
@@ -213,20 +249,27 @@
       <div class="source-line">${icon('file',15)}<strong>${esc(data.source.filename)}</strong><span>•</span><span>${esc(sheetLabel)}</span><span>•</span><span>${data.rows.length} righe disponibili · ${data.entities.length} entità</span>${!standalone?`<button class="text-button" data-action="restore" ${state.busy?'disabled':''}>Ripristina prima importazione</button>`:''}</div>
       ${toolbar()}${chips()}${kpis(rows)}
       <div class="data-notice">${icon('info',16)}<p><strong>Importi dal file Excel.</strong> ${ambiguousCount?`${ambiguousCount} righe hanno un’attribuzione geografica da verificare; `:''}le stime mancanti restano distinte da zero.</p></div>
+      ${viewFilters()}
       <div class="view-tabs" role="navigation" aria-label="Seleziona vista">${views.map(([id,i,l])=>`<button data-view="${id}" class="${state.view===id?'active':''}">${icon(i,16)}${l}</button>`).join('')}<span>${rows.length} righe selezionate</span></div>
       <div id="view-content">${!rows.length?emptyView():state.view==='countries'?countriesView():state.view==='table'?tableView(rows):state.view==='map'?mapView(rows):state.view==='owner-map'?ownerMapView(rows):overview(rows)}</div>
       <footer class="main-footer"><span><strong>Data Visualization Tool</strong> · KPMG · Uso interno</span><span>Fonte Excel · importi in EUR · nessun dato generato</span><span>SHA-256 ${esc(data.source.sha256?.slice(0,12)||'—')}</span></footer></main></div>${detailPanel()}${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
     const oldSidebar=$('.sidebar'),sourceKey=(data.project?.id||'')+':'+data.source.sha256;
     if(oldSidebar?.dataset.source===sourceKey){
       const template=document.createElement('template');template.innerHTML=markup;template.content.querySelector('.sidebar').remove();
+      // Retain the live controls so multi-selection keeps dropdown scroll and focus.
+      const oldFilters=$('.view-filters');
+      if(oldFilters?.dataset.source===sourceKey)template.content.querySelector('.view-filters').replaceWith(oldFilters);
       for(const child of [...$('#app').childNodes])if(child!==oldSidebar)child.remove();
       $('#app').append(template.content);
     }else{$('#app').innerHTML=markup;if($('.sidebar'))$('.sidebar').scrollTop=sidebarScroll;}
     syncSidebar();
+    syncViewFilters();
+    for(const {element,top} of topFilterScroll)if(element.isConnected)element.scrollTop=top;
     const restoredOwnerMapScroll=$('.owner-map-panel .map-scroll');
     if(restoredOwnerMapScroll){restoredOwnerMapScroll.scrollLeft=ownerMapPosition.left;restoredOwnerMapScroll.scrollTop=ownerMapPosition.top;}
     if(focusedMapField){const node=[...document.querySelectorAll('#owner-concept-map .map-node')].find(item=>item.dataset[focusedMapField]===focusedMapValue);node?.focus({preventScroll:true});}
     if(focusFilter){const input=[...document.querySelectorAll('input[data-filter]')].find(i=>i.dataset.filter===focusFilter&&i.value===focusValue);input?.focus({preventScroll:true});}
+    if(topFilterFocus?.isConnected)topFilterFocus.focus({preventScroll:true});
     if(focusId&&$('#'+focusId)){const input=$('#'+focusId);input.focus({preventScroll:true});if(typeof position==='number'&&input.setSelectionRange) input.setSelectionRange(position,position);}
     if(state.projectDialog){$('#project-name')?.focus();document.body.style.overflow='hidden';}
     else if(state.detail) {$('#close-detail')?.focus(); document.body.style.overflow='hidden';} else document.body.style.overflow='';
@@ -287,7 +330,7 @@
     catch {return ' Il progetto è salvato; l’elenco non è stato aggiornato. Ricarica la pagina per riprovare.';}
   }
   function resetProjectView() {
-    clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.projectDialog=null;state.projectName='';pendingFile=null;
+    clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.topFilterOpen=null;state.projectDialog=null;state.projectName='';pendingFile=null;
   }
   function openProjectDialog(mode, file=null) {
     if(state.busy)return;
@@ -351,6 +394,8 @@
     }
   }
   document.addEventListener('click',event=>{
+    const openFilter=$('.view-filters details[open]');
+    if(openFilter&&!openFilter.contains(event.target))closeViewFilters();
     const el=event.target.closest('[data-action],[data-view],[data-detail],[data-scope],[data-year],[data-domain],[data-owner],[data-entity],[data-sort],[data-remove-field],[data-clear],[data-map-year],[data-map-domain],[data-country-year],[data-reset-group],[data-owner-map-year],[data-owner-map-owner],[data-owner-map-domain]');if(!el){if(state.exportMenu&&!event.target.closest('.export-menu,.heading-actions')){state.exportMenu=false;render();}return;}
     if(el.hasAttribute('disabled')||el.getAttribute('aria-disabled')==='true')return;
     event.preventDefault();
@@ -373,18 +418,27 @@
     if(el.dataset.mapYear){state.mapYear=Number(el.dataset.mapYear);state.mapPage=0;render();return;}
     if(el.dataset.mapDomain){state.mapDomain=el.dataset.mapDomain;state.mapPage=0;render();return;}
   });
+  document.addEventListener('toggle',event=>{
+    const group=event.target;
+    if(!group.matches?.('details[data-top-group]'))return;
+    if(group.open){
+      for(const other of document.querySelectorAll('.view-filters details[open]'))if(other!==group)other.open=false;
+      state.topFilterOpen=group.dataset.topGroup;
+    }else if(state.topFilterOpen===group.dataset.topGroup)state.topFilterOpen=null;
+  },true);
   document.addEventListener('change',event=>{const el=event.target;
-    if(el.dataset.filterAll){const field=el.dataset.filterAll;setFilters({[field]:el.checked?filterOptions(field):[]});}
-    if(el.dataset.filter){const field=el.dataset.filter;setFilters({[field]:el.checked?[...state.filters[field],el.value]:state.filters[field].filter(v=>v!==el.value)});}
-    if(el.dataset.select)setFilters({[el.dataset.select]:el.value});
+    const master=el.dataset.filterAll||el.dataset.topFilterAll,field=el.dataset.filter||el.dataset.topFilter;
+    if(master)setFilters({[master]:el.checked?filterOptions(master):[]});
+    if(field)setFilters({[field]:el.checked?[...state.filters[field],el.value]:state.filters[field].filter(v=>v!==el.value)});
+    const select=el.dataset.select||el.dataset.topSelect;if(select)setFilters({[select]:el.value});
     if(el.id==='remediation-sort'){state.sort=el.value;state.page=1;render();}
     if(el.id==='page-size'){state.pageSize=Number(el.value);state.page=1;render();}
     if(el.id==='project-select')activateProject(el.value);
     if(el.id==='project-file'){pendingFile=el.files[0]||null;if(pendingFile&&!state.projectName.trim())state.projectName=pendingFile.name.replace(/\.xlsx$/i,'');render();}
   });
-  let searchTimer;document.addEventListener('input',e=>{if(e.target.id==='project-name'){state.projectName=e.target.value;}if(e.target.id==='search'){const value=e.target.value;clearTimeout(searchTimer);searchTimer=setTimeout(()=>setFilters({query:value}),150);}});
+  let searchTimer;document.addEventListener('input',e=>{if(e.target.id==='project-name'){state.projectName=e.target.value;}if(e.target.id==='search'||e.target.id==='presentation-search'){const value=e.target.value;clearTimeout(searchTimer);searchTimer=setTimeout(()=>setFilters({query:value}),150);}});
   document.addEventListener('keydown',event=>{
-    if(event.key==='Escape'){if(state.projectDialog){if(!state.busy){state.projectDialog=null;pendingFile=null;render();}}else if(state.exportMenu){state.exportMenu=false;render();}else if(state.detail){state.detail=null;render();}else if(state.presentation){state.presentation=false;render();}return;}
+    if(event.key==='Escape'){if(state.projectDialog){if(!state.busy){state.projectDialog=null;pendingFile=null;render();}}else if(state.exportMenu){state.exportMenu=false;render();}else if(state.detail){state.detail=null;render();}else if(closeViewFilters({focus:true})){event.preventDefault();}else if(state.presentation){state.presentation=false;render();}return;}
     if((event.key==='Enter'||event.key===' ')&&event.target.matches('[role="button"]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}
     if(event.key==='Tab'&&(state.detail||state.projectDialog)){const drawer=state.projectDialog?$('.project-dialog'):$('.detail-drawer'),items=[...drawer.querySelectorAll('button,a,input,select,[tabindex="0"]')].filter(el=>!el.disabled);if(!items.length)return;if(event.shiftKey&&document.activeElement===items[0]){event.preventDefault();items.at(-1).focus();}else if(!event.shiftKey&&document.activeElement===items.at(-1)){event.preventDefault();items[0].focus();}}
   });

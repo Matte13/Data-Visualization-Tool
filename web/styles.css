@@ -350,3 +350,50 @@ h1 { font-size: 42px; line-height: 1.12; letter-spacing: -.4px; color: #00338d; 
 @media print {
   .owner-map-panel .map-scroll > svg { min-width: 0; }
 }
+
+/* The same filter state stays available above the views during presentations. */
+.view-filters { margin-top: 20px; padding: 14px; background: #fff; border: 1px solid #dfe4f2; border-radius: 8px; }
+.view-filters-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 11px; }
+.view-filters-heading > span { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: #00338d; }
+.view-filters-heading > span > svg { color: #7213ea; }
+.view-filters-heading .text-button { font-size: 11px; color: #647089; }
+.view-filter-groups { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.view-filter { position: relative; min-width: 0; }
+.view-filter > summary { display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; padding: 10px; min-height: 40px; border: 1px solid #dfe4f2; border-radius: 6px; color: #415471; font-size: 11px; background: #fafbff; }
+.view-filter > summary::-webkit-details-marker { display: none; }
+.view-filter > summary > svg { flex-shrink: 0; color: #7c86a1; transform: rotate(90deg); }
+.view-filter-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.view-filter-count { flex-shrink: 0; margin-left: auto; padding: 2px 5px; border-radius: 4px; background: #edf0f7; color: #647089; font-size: 10px; }
+.view-filter[open] > summary, .view-filter.is-filtered > summary { border-color: #b6a1e8; background: #f7f2ff; color: #510dbc; }
+.view-filter[open] > summary > svg { transform: rotate(-90deg); color: #7213ea; }
+.view-filter.is-filtered .view-filter-count { background: #eae0fc; color: #510dbc; }
+.view-filter-panel { position: absolute; top: calc(100% + 7px); left: 0; z-index: 24; width: 275px; max-width: calc(100vw - 36px); padding: 10px 13px; background: #fff; border: 1px solid #dfe4f2; border-radius: 8px; box-shadow: 0 10px 30px #00338d1a; }
+.view-filter:nth-last-child(-n+2) .view-filter-panel { left: auto; right: 0; }
+.view-filter-option { display: flex; gap: 9px; align-items: flex-start; padding: 8px 2px; color: #415471; cursor: pointer; font-size: 12px; line-height: 1.5; }
+.view-filter-option input { width: 15px; height: 15px; margin: 2px 0 0; flex-shrink: 0; accent-color: #7213ea; cursor: pointer; }
+.view-filter-option span { overflow-wrap: anywhere; }
+.view-filter-master { padding-bottom: 10px; margin-bottom: 3px; border-bottom: 1px solid #e5e9f2; color: #00338d; font-weight: 600; }
+.view-filter-options { max-height: min(240px, 38vh); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.view-filters-presentation-tools { display: none; }
+.view-filters + .view-tabs { margin-top: 16px; }
+.presentation .view-filters-presentation-tools { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e9f2; }
+.view-filters-presentation-tools .search-box { border: 1px solid #dfe4f2; border-radius: 5px; padding: 0 10px; }
+.view-filters-presentation-tools .search-box input { font-size: 12px; padding: 9px 0; }
+.view-filters-presentation-tools .budget-select { padding-top: 9px; padding-bottom: 9px; font-size: 11px; max-width: 230px; }
+@media (max-width: 1250px) {
+  .view-filter-groups { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .view-filter:nth-child(4n) .view-filter-panel { left: auto; right: 0; }
+}
+@media (max-width: 760px) {
+  .view-filters { padding: 12px; }
+  .view-filter-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .view-filter > summary { font-size: 12px; }
+  .view-filter:nth-child(n) .view-filter-panel { left: 0; right: auto; }
+  .view-filter:nth-child(2n) .view-filter-panel { left: auto; right: 0; }
+  .presentation .view-filters-presentation-tools { flex-wrap: wrap; }
+  .view-filters-presentation-tools .search-box { flex-basis: 100%; }
+  .view-filters-presentation-tools .budget-select { flex: 1; min-width: 125px; max-width: none; }
+}
+@media print {
+  .view-filters { display: none !important; }
+}
