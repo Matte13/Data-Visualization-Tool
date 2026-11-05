@@ -466,3 +466,10 @@ h1 { font-size: 42px; line-height: 1.12; letter-spacing: -.4px; color: #00338d; 
   .budget-category-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .budget-method { display: none; }
 }
+
+/* Reuse the shared map typography and node styles. */
+.investment-map .impact-node rect{stroke:var(--impact-color)}
+.investment-map .impact-node .node-title{fill:var(--impact-color)}
+.allocation-country{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.allocation-country .country-flags{display:inline-flex;gap:3px;flex-shrink:0}
+.allocation-country .country-flag{width:18px;height:13.5px;object-fit:cover}

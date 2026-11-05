@@ -47,6 +47,11 @@
       return true;
     });
   }
+  // Only declared metadata may enter the investment map; never fill gaps.
+  function investmentRows(rows) {
+    return rows.filter(row => ['capex','opex'].includes(String(row.capexOpex||'').trim().toLowerCase())
+      && String(row.risk||'').trim() && String(row.risk).trim().toLowerCase()!=='non specificato');
+  }
   function totals(rows, entities = null) {
     return {
       global: sum(rows, 'globalBudget'),
@@ -126,7 +131,7 @@
       r.capexOpex||'',r.risk||'',r.impact||'',r.sourceOwner??r.owner,{all:'Global + Local',global:'Global',local:'Local'}[scope],selectedAmount(r)]);
     return '\uFEFF' + [headers, ...values].map(row => row.map(quote).join(';')).join('\r\n');
   }
-  const api = {number,sum,money,localAmount,filterRows,totals,aggregate,budgetBreakdown,csv};
+  const api = {number,sum,money,localAmount,filterRows,investmentRows,totals,aggregate,budgetBreakdown,csv};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RemediationModel = api;
 })(typeof globalThis !== 'undefined' ? globalThis : window);

@@ -5,6 +5,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from app.server import WorkbookStore,ExplorerServer
 from test_investment_fields import investment_workbook
+from test_workbook import edited_cell
 from playwright.sync_api import sync_playwright,expect
 from pptx import Presentation
 
@@ -14,7 +15,9 @@ def main():
         root=Path(directory)
         shutil.copytree(Path(__file__).resolve().parents[1]/'web',root/'web')
         store=WorkbookStore(root)
-        store.create(investment_workbook(),'synthetic.xlsx','Investments')
+        content=edited_cell(investment_workbook(),1,'A2',text='Italia - ITF')
+        content=edited_cell(content,1,'A3',text='Paesi Bassi & Belgio')
+        store.create(content,'synthetic.xlsx','Investments')
         server=ExplorerServer(('127.0.0.1',0),store)
         threading.Thread(target=server.serve_forever,daemon=True).start()
         try:
@@ -25,17 +28,32 @@ def main():
                 page.on('pageerror',lambda error:errors.append(str(error)))
                 page.goto(f'http://127.0.0.1:{server.server_port}')
                 page.locator('.view-tabs [data-view="risk-map"]').click()
-                for step,value in enumerate(['2027','Capex','Cyber','Alto','Governance']):
+                expect(page.locator('.investment-map [role="status"]')).to_contain_text('5 righe escluse')
+                expect(page.locator('[data-risk-value="Non specificato"]')).to_have_count(0)
+                for step,value in enumerate(['2027','Capex','Governance']):
                     node=page.locator(f'[data-risk-step="{step}"][data-risk-value="{value}"]')
                     node.scroll_into_view_if_needed()
                     node.focus();page.keyboard.press('Enter')
-                leaf=page.locator('#view-content [data-detail="Remediations:4"]')
+                leaf=page.locator('#view-content [data-risk-detail="Remediations:4"]')
                 expect(leaf).to_have_count(1)
-                expect(page.locator('#view-content svg path[marker-end]')).to_have_count(6)
+                expect(leaf).to_have_class('map-node leaf')
+                expect(leaf.locator('rect')).to_have_attribute('width','440')
                 leaf.click()
                 expect(page.locator('.detail-drawer')).to_contain_text('Cyber')
                 expect(page.locator('.detail-drawer')).to_contain_text('Alto')
+                for code in ('it','nl','be'):
+                    expect(page.locator(f'.allocation-list [data-country-code="{code}"]')).to_have_count(1)
                 page.locator('#close-detail').click()
+                page.locator('[data-risk-step="4"][data-risk-value="Cyber"]').click()
+                expect(page.locator('[data-risk-step="5"][data-risk-value="Alto"]')).to_have_count(1)
+                for view in ('map','owner-map'):
+                    page.locator(f'.view-tabs [data-view="{view}"]').click()
+                    attribute='data-map-domain' if view=='map' else 'data-owner-map-domain'
+                    page.locator(f'[{attribute}="Governance"]').click()
+                    page.locator('#view-content [data-detail="Remediations:4"]').click()
+                    expect(page.locator('.allocation-list [data-country-code="it"]')).to_have_count(1)
+                    page.locator('#close-detail').click()
+                page.locator('.view-tabs [data-view="risk-map"]').click()
                 group=page.locator('.view-filters [data-top-group="capexOpex"]')
                 group.locator('summary').click()
                 group.locator('[data-top-filter-all]').uncheck()
@@ -43,6 +61,10 @@ def main():
                 expect(page.locator('.kpi-value').nth(0)).to_have_text('2380 €')
                 expect(page.locator('.sidebar [data-filter="capexOpex"][value="Capex"]')).to_be_checked()
                 page.screenshot(path='/tmp/dvt-investment-map.png',full_page=True)
+                page.set_viewport_size({'width':390,'height':844})
+                expect(page.locator('.investment-map')).to_be_visible()
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+                page.set_viewport_size({'width':1600,'height':1000})
                 group.locator('summary').click()
                 with page.expect_download() as transfer:
                     page.locator('[data-action="pptx"]').click()
@@ -63,7 +85,7 @@ def main():
                 offline_page.route('http://**/*',lambda route:route.abort())
                 offline_page.route('https://**/*',lambda route:route.abort())
                 offline_page.set_content(offline.read_text(),wait_until='load')
-                expect(offline_page.locator('#view-content [data-detail="Remediations:4"]')).to_have_count(1)
+                expect(offline_page.locator('#view-content [data-risk-detail="Remediations:4"]')).to_have_count(1)
                 expect(offline_page.locator('.kpi-value').nth(0)).to_have_text('2380 €')
                 offline_page.close()
                 assert not errors,errors

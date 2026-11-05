@@ -1,7 +1,7 @@
 /* Data Visualization Tool — self-contained client. All views derive from the unchanged workbook rows. */
 (() => {
   'use strict';
-  const APP_VERSION = '1.3.0';
+  const APP_VERSION = '1.3.1';
   const M = window.RemediationModel;
   const $ = (selector, root = document) => root.querySelector(selector);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -221,8 +221,15 @@
 
   let riskPath=Array.isArray(window.DVT_STATE?.riskPath)?window.DVT_STATE.riskPath:[];
   function riskMapView(rows) {
-    const fields=['year','capexOpex','risk','impact','domain'];
-    const labels=['Anno','Capex/Opex','Rischio','Impatto','Dominio','Remediation'];
+    const originalCount=rows.length;
+    rows=M.investmentRows(rows);
+    const excluded=originalCount-rows.length;
+    const notice=excluded?`<div class="map-explanation" role="status">${excluded} righe escluse da questa mappa: servono Capex oppure Opex e un rischio compilato. Comprendono eventuali righe OT senza questi attributi. Le righe restano disponibili nelle altre viste e nei totali.</div>`:'';
+    if(!rows.length){riskPath=[];return `<section class="panel map-panel investment-map"><div class="panel-title"><h2>Rischi e investimenti</h2></div>${notice}<div class="empty-state"><h2>Nessuna remediation con gli attributi richiesti</h2><p>Compila Capex/Opex e Rischi nel foglio Remediations, poi aggiorna l’Excel del progetto.</p></div></section>`;}
+    const fields=['year','capexOpex','domain','key','risk','impact'];
+    const labels=['Anno','Capex/Opex','Dominio','Remediation','Rischio associato','Impatto'];
+    const xs=[20,220,510,860,1380,1660], widths=[150,210,260,440,210,210];
+    const heights=[108,74,68,108,74,74];
     const amount=(records,compact=false)=>{
       const total=M.totals(records,entitySelection());
       const unknownGlobal=total.missingGlobal===total.count,unknownLocal=total.missingLocal===total.count;
@@ -238,23 +245,27 @@
       if(!chosen)break;
       focused=chosen.rows;
     }
-    if(columns.length===5&&riskPath.length===5)columns.push(focused.map(row=>({label:row.name,rows:[row],key:row.key})));
-    const height=Math.max(260,...columns.map(groups=>70+groups.length*94));
-    const colors={Alto:'#c64545',Medio:'#b8840a',Basso:'#32835c',Capex:'#647ac0',Opex:'#449b91'};
+    const text=(label,x,y,width,className='node-title')=>{
+      const words=String(label).split(/\s+/),lines=[''];
+      for(const word of words){if((lines.at(-1)+' '+word).trim().length>width&&lines.at(-1))lines.push(word);else lines[lines.length-1]=(lines.at(-1)+' '+word).trim();}
+      return `<text x="${x}" y="${y}" class="${className}">${lines.slice(0,2).map((line,i)=>`<tspan x="${x}" dy="${i?17:0}">${esc(line.length>width?line.slice(0,width-1)+'…':line)}${i===1&&lines.length>2?'…':''}</tspan>`).join('')}</text>`;
+    };
+    const height=Math.max(610,...columns.map(groups=>85+groups.length*128));
     let edges='',nodes='';
     columns.forEach((groups,step)=>{
-      nodes+=`<text x="${step*260+20}" y="26" fill="#00338d" font-size="15">${labels[step]}</text>`;
+      nodes+=`<text x="${xs[step]}" y="32" class="map-col-label">${String(step+1).padStart(2,'0')} / ${labels[step].toLocaleUpperCase('it')}</text>`;
       groups.forEach((group,index)=>{
-        const x=step*260+20,y=52+index*94,selected=riskPath[step]===group.label;
-        const color=colors[group.label]||'#657b98';
-        if(step>0){const parent=columns[step-1].findIndex(g=>g.label===riskPath[step-1]);if(parent>=0)edges+=`<path d="M${x-40},${86+parent*94} C${x-20},${86+parent*94} ${x-20},${y+34} ${x},${y+34}" fill="none" stroke="#9aacc3" marker-end="url(#risk-arrow)"/>`;}
-        const attrs=group.key?`data-detail="${esc(group.key)}"`:`data-risk-step="${step}" data-risk-value="${esc(group.label)}"`;
-        const budget=amount(group.rows,true);
-        nodes+=`<g role="button" tabindex="0" ${attrs} aria-label="${esc(group.label)}"><title>${esc(group.label)} · ${group.rows.length} ${group.rows.length===1?'voce':'voci'}</title><rect x="${x}" y="${y}" width="220" height="72" rx="8" fill="${selected?'#eef2ff':'white'}" stroke="${color}" stroke-width="${selected?3:1}"/><rect x="${x}" y="${y}" width="5" height="72" rx="2" fill="${color}"/><text x="${x+13}" y="${y+24}" fill="${color}" font-size="13">${esc(group.label.length>27?group.label.slice(0,26)+'…':group.label)}</text><text x="${x+13}" y="${y+49}" fill="#425974" font-size="12">${esc(budget)} · ${group.rows.length} ${group.rows.length===1?'voce':'voci'}</text></g>`;
+        const x=xs[step],y=85+index*128,h=heights[step],selected=riskPath[step]===group.label;
+        const row=group.rows[0],label=step===3?row.name:group.label;
+        const color=step===0?colorForYear(group.label):step===2||step===3?colorForDomain(row.domain):step===1?(group.label==='Capex'?'#4b72bf':'#1b9b89'):'#58738c';
+        const impactColor={Alto:'#c64545',Medio:'#b8840a',Basso:'#32835c'}[group.label]||'#8a9da7';
+        if(step>0){const parent=columns[step-1].findIndex(g=>g.label===riskPath[step-1]);if(parent>=0){const start=xs[step-1]+widths[step-1],py=85+parent*128+heights[step-1]/2;edges+=`<path class="map-edge highlight" d="M${start} ${py} C${start+30} ${py},${x-30} ${y+h/2},${x-8} ${y+h/2}" style="marker-end:url(#risk-arrow)"/>`;}}
+        const classes=['year-node','owner-node','domain-node','leaf','owner-node','impact-node'][step];
+        nodes+=`<g class="map-node ${classes}${selected?' chosen':''}" role="button" tabindex="0" data-risk-step="${step}" data-risk-value="${esc(group.label)}" ${step===3?`data-risk-detail="${esc(row.key)}"`:''} aria-label="${esc(label)}" aria-pressed="${selected}" style="--year-color:${color};--domain-color:${color};--owner-color:${color};--impact-color:${impactColor}"><title>${esc(label)} · ${esc(amount(group.rows))}</title><rect x="${x}" y="${y}" width="${widths[step]}" height="${h}" rx="${step===0?10:8}"/>${step===0?`<text x="${x+14}" y="${y+31}" class="map-year">${esc(label)}</text><text x="${x+14}" y="${y+69}" class="node-budget">${esc(amount(group.rows,true))}</text><text x="${x+14}" y="${y+92}" class="node-sub">${group.rows.length} righe</text>`:step===3?`${text(row.id||'ID assente',x+16,y+17,68,'node-code')}${text(label,x+16,y+41,60)}<text x="${x+16}" y="${y+83}" class="node-sub">${esc(amount(group.rows,true))} · ${esc(row.owner||'Owner non specificato')}</text>${text(sourceRef(row),x+16,y+100,68,'node-code')}`:`${text(label,x+14,y+23,step===2?34:26)}<text x="${x+14}" y="${y+h-12}" class="node-sub">${esc(amount(group.rows,true))} · ${group.rows.length} righe</text>`}</g>`;
       });
     });
-    const summary=M.aggregate(rows,'capexOpex',entitySelection()).map(group=>`<span class="filter-chip">${esc(group.label)}: ${amount(group.rows)}</span>`).join(' ');
-    return `<section class="panel map-panel investment-map"><div class="panel-title"><h2>Rischi e investimenti</h2></div><p class="panel-description">Seleziona un box per proseguire da anno a Capex/Opex, rischio, impatto, dominio e remediation. Gli importi seguono i filtri Global/Local. Alto: rosso; Medio: giallo; Basso: verde. I valori non compilati restano non specificati.</p><div class="chip-row">${summary}</div><div class="map-scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Math.max(780,columns.length*260)} ${height}" style="min-width:${Math.max(780,columns.length*260)}px" role="group" aria-label="Mappa rischi e investimenti"><defs><marker id="risk-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#9aacc3"/></marker></defs>${edges}${nodes}</svg></div></section>`;
+    const width=Math.max(780,xs[columns.length-1]+widths[columns.length-1]+20);
+    return `<section class="panel map-panel investment-map"><div class="panel-title"><h2>Rischi e investimenti</h2></div><div class="map-explanation">Seleziona anno, Capex/Opex e dominio, poi una remediation per vedere il rischio associato e il suo impatto. Il dettaglio si apre selezionando la remediation. Impatto: Alto rosso, Medio giallo, Basso verde.</div>${notice}<div class="map-scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" style="min-width:${width}px;width:${width}px" role="group" aria-label="Mappa rischi e investimenti"><defs><marker id="risk-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="${width}" height="${height}" fill="#fbfcfd"/>${edges}${nodes}</svg></div></section>`;
   }
 
   function ownerMapView(rows) {
@@ -277,7 +288,7 @@
     ${text('Capex/Opex',r.capexOpex)}${text('Rischio',r.risk)}${text('Impatto',r.impact)}${text('Attività Global · testo originale',r.globalDescription)}${text('Attività Local · testo originale',r.localDescription)}${text('Applicable Countries · da verificare',r.applicableCountries)}${r.existingCoverage?text('Who has this? · testo originale',r.existingCoverage):''}
     <section class="detail-section formula-section"><h3>Tracciabilità del budget Local</h3><code>${esc(r.localFormula||'Formula non presente nel file')}</code><p>${esc(r.allocationNote||'Attribuzione da formule e LE_List.')}</p><small>Local complessivo originale: ${money(r.localTotal)}</small></section>
     ${issues.length?`<section class="detail-section detail-alert"><h3>${icon('info',16)} Note su questa riga</h3>${issues.map(i=>`<p>${esc(i.message)}</p>`).join('')}</section>`:''}
-    ${r.allocations?.length?`<section class="detail-section"><h3>Attribuzione del budget locale</h3><p class="small-note">Derivata da formula e LE_List; non è una conferma dell’applicabilità.</p><div class="allocation-list">${r.allocations.map(a=>`<div><span>${esc(a.entityId)}</span><strong>${money(a.amount)}</strong></div>`).join('')}</div></section>`:''}</aside>`;
+    ${r.allocations?.length?`<section class="detail-section"><h3>Attribuzione del budget locale</h3><p class="small-note">Derivata da formula e LE_List; non è una conferma dell’applicabilità.</p><div class="allocation-list">${r.allocations.map(a=>`<div><span class="allocation-country">${window.CountryInvestments.countryFlags(a.entityId,esc,icon)}<span>${esc(a.entityId)}</span></span><strong>${money(a.amount)}</strong></div>`).join('')}</div></section>`:''}</aside>`;
   }
   function emptyView() {return `<section class="panel empty-state">${icon('search',34)}<h2>Nessuna remediation corrisponde ai filtri</h2><p>Prova a rimuovere un filtro o a cambiare la ricerca.</p><button class="button primary" data-action="reset">Ripristina filtri</button></section>`;}
   function projectPicker() {
@@ -476,6 +487,7 @@
     event.preventDefault();
     if(el.dataset.action){action(el.dataset.action);return;}
     if(el.dataset.view){state.view=el.dataset.view;state.exportMenu=false;state.menu=false;render();return;}
+    if(el.dataset.riskDetail){const step=Number(el.dataset.riskStep);riskPath=riskPath.slice(0,step);riskPath[step]=el.dataset.riskValue;state.detail=el.dataset.riskDetail;render();return;}
     if(el.dataset.detail){state.detail=el.dataset.detail;render();return;}
     if(el.dataset.scope){setFilters({scope:el.dataset.scope});return;}
     if(el.dataset.budgetComponent){

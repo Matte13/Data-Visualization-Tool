@@ -1,5 +1,12 @@
 # Note di versione
 
+## 1.3.1
+
+- Grafica della mappa rischi e investimenti allineata alle altre mappe mediante le stesse classi, tipografia, dimensioni e palette di anni e domini.
+- Percorso **Anno → Capex/Opex → Dominio → Remediation → Rischio associato → Impatto**. Le remediation sono selezionate per chiave di riga: nessun accorpamento di nomi duplicati. La selezione apre il dettaglio e mostra il collegamento al rischio; l’impatto rimane l’ultimo livello.
+- Capex/Opex e rischio devono essere compilati per comparire in questa mappa. I casi incompleti sono esclusi solo da questa vista con conteggio esplicito; restano nei dati, nelle altre viste e nei totali. Nessuna categoria o attribuzione viene inventata e l’importazione dei vecchi file resta possibile.
+- Bandiere incorporate prima del nome nell’elenco paesi del dettaglio, condiviso da tutte le viste. Un’entità composta può avere più bandiere; i nomi non riconosciuti mantengono il simbolo neutro. Nessun caricamento da Internet.
+
 ## 1.3.0
 
 Aggiunta la vista **Mappa rischi e investimenti**: Anno → Capex/Opex → Rischio → Impatto → Dominio → Remediation. Selezionare un box per aprire il livello successivo; frecce e importi rappresentano esclusivamente le righe del percorso e i filtri Global/Local e country correnti. I dettagli conservano anche owner e descrizioni originali.

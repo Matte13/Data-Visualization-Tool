@@ -24,3 +24,10 @@ test('CSV carries source attributes and still escapes spreadsheet formulas',()=>
  assert.match(csv,/Capex\/Opex/);assert.match(csv,/Impatto/);
  assert.match(csv,/'=UNTRUSTED/);
 });
+
+test('investment map excludes missing or invalid classifications without altering source totals',()=>{
+ const before=M.totals(rows);
+ const found=M.investmentRows([...rows,{...rows[0],key:'missing-risk',risk:''},{...rows[0],key:'invalid-class',capexOpex:'Other'}]);
+ assert.equal(found.length,2);assert.equal(found[0].key,'a');assert.equal(found[1].key,'b');
+ assert.equal(M.totals(rows).global,before.global);assert.equal(rows.length,3);
+});

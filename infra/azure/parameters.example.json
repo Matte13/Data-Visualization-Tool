@@ -3,7 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "prefix": {"value": "dvt-internal"},
-    "containerImage": {"value": "ghcr.io/matte13/data-visualization-tool:1.3.0"},
+    "containerImage": {"value": "ghcr.io/matte13/data-visualization-tool:1.3.1"},
     "sqlServerFqdn": {"value": "dbservertil.database.windows.net"},
     "sqlDatabase": {"value": "data-visualization-tool-db"},
     "sqlUser": {"value": "fuddos"},

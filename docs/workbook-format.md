@@ -111,3 +111,5 @@ Nel solo foglio **Remediations**, aggiungere alla riga 3 le colonne `Capex/Opex`
 Ogni riga ha un solo valore Capex oppure Opex, un rischio principale (testo libero) e un impatto principale Alto, Medio o Basso. Spazi esterni e maiuscole dei valori Capex/Opex e dei livelli vengono normalizzati. I nomi dei rischi non sono predefiniti. Non sono ricavati dai domini e non si dividono celle in più rischi.
 
 Le colonne possono mancare nei file già salvati. Celle vuote, colonne assenti e righe OT sono mostrate come **Non specificato**. Valori non riconosciuti sono conservati e mostrati senza assegnare loro un livello o un colore di rischio. Intestazioni duplicate vengono rifiutate. Nessun budget viene stimato o modificato.
+
+Dalla 1.3.1, la mappa rischi e investimenti richiede Capex oppure Opex e un rischio non vuoto. Le righe che non soddisfano questi requisiti sono escluse soltanto da quella mappa con un avviso e un conteggio; rimangono nei dati importati, nelle altre viste e nei totali. L’impatto può ancora risultare non specificato: non viene attribuito automaticamente un livello.

@@ -144,5 +144,5 @@ SOFTWARE.
     return `<section class="country-investments">${header}${legend}${explanation}${globalNote}${unallocated}${grid}<p class="country-method-note">Attribuzioni economiche da formule e gruppi di LE_List: non certificano l’applicabilità operativa delle remediation. Zero, stima mancante e nessuna voce restano distinti.</p></section>`;
   }
 
-  root.CountryInvestments = {render};
+  root.CountryInvestments = {render, countryFlags};
 })(typeof globalThis !== 'undefined' ? globalThis : window);
