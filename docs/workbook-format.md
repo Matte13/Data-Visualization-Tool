@@ -103,3 +103,11 @@ Per le formule e un esempio completo di riconciliazione consultare [Logiche di c
 Il limite di upload è 10 MB; il parser applica anche limiti ai contenuti ZIP e alle dimensioni dei fogli. Sono esclusi file con macro. Dopo aver modificato formule o importi, aprire in Excel/LibreOffice, ricalcolare e salvare prima dell'importazione. Una cache assente o incoerente viene rifiutata con un messaggio esplicito; il progetto precedente rimane disponibile.
 
 Per usare fogli, intestazioni o logiche differenti occorre implementare una mappatura di importazione esplicita. Le celle non vengono interpretate attraverso AI e non vengono inferiti legami verso Findings, dipendenze progettuali o nuove remediation.
+
+## Campi opzionali degli investimenti (1.3.0)
+
+Nel solo foglio **Remediations**, aggiungere alla riga 3 le colonne `Capex/Opex`, `Rischi` e `Impatto`, dopo le colonne esistenti. Sono riconosciute dal nome, non dalla posizione reciproca. Le colonne esistenti devono restare nelle loro posizioni.
+
+Ogni riga ha un solo valore Capex oppure Opex, un rischio principale (testo libero) e un impatto principale Alto, Medio o Basso. Spazi esterni e maiuscole dei valori Capex/Opex e dei livelli vengono normalizzati. I nomi dei rischi non sono predefiniti. Non sono ricavati dai domini e non si dividono celle in più rischi.
+
+Le colonne possono mancare nei file già salvati. Celle vuote, colonne assenti e righe OT sono mostrate come **Non specificato**. Valori non riconosciuti sono conservati e mostrati senza assegnare loro un livello o un colore di rischio. Intestazioni duplicate vengono rifiutate. Nessun budget viene stimato o modificato.

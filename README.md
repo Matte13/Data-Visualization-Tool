@@ -53,7 +53,7 @@ I budget Global sono importi di gruppo: non vengono ripartiti o moltiplicati per
 
 La **Composizione del budget** separa base Remediations e delta OT, per Global e Local. Con le intestazioni esplicite di LE_List o il profilo numerico originale validato mostra Local Complete + OT, Complete senza OT e Business, attribuendo i costi alla categoria delle rispettive entità anche quando una formula usa una colonna unitaria diversa. Il residuo senza attribuzione certa rimane nel totale di gruppo e viene mostrato separatamente. L'owner KPMG è visualizzato come **Advisor**, con il valore originale conservato e senza modificare branding o Excel sorgente.
 
-Le **[note della versione 1.2.1](docs/release-notes.md)** spiegano il riconoscimento del formato originale e le logiche di calcolo con formule ed esempi. Per i progetti già salvati con quel formato basta aggiornare l’immagine e riavviare: non serve importare di nuovo l’Excel e i file originali rimangono invariati. Prima di caricare formati diversi leggere anche la **[procedura di snapshot e rollback](docs/deployment.md#salvataggio-della-libreria-e-rollback-alla-112)**, che distingue il ritorno al software precedente dal ripristino dei dati.
+Le **[note della versione 1.3.0](docs/release-notes.md)** spiegano il riconoscimento del formato originale e le logiche di calcolo con formule ed esempi. Per i progetti già salvati con quel formato basta aggiornare l’immagine e riavviare: non serve importare di nuovo l’Excel e i file originali rimangono invariati. Prima di caricare formati diversi leggere anche la **[procedura di snapshot e rollback](docs/deployment.md#salvataggio-della-libreria-e-rollback-alla-112)**, che distingue il ritorno al software precedente dal ripristino dei dati.
 
 ## Presentazione ed esportazioni
 
@@ -77,7 +77,7 @@ python -m app.export --input percorso/progetto.xlsx --output dist/progetto-offli
 
 ## Azure Container Apps con Azure SQL esistente
 
-L'immagine `ghcr.io/matte13/data-visualization-tool:1.2.1` include Microsoft ODBC Driver 18 e il connettore Azure SQL. Configurazione richiesta: server **dbservertil.database.windows.net**, database **data-visualization-tool-db**, utente **fuddos**; la password va inserita come secret dall'operatore. Il pacchetto non crea server o database SQL.
+L'immagine `ghcr.io/matte13/data-visualization-tool:1.3.0` include Microsoft ODBC Driver 18 e il connettore Azure SQL. Configurazione richiesta: server **dbservertil.database.windows.net**, database **data-visualization-tool-db**, utente **fuddos**; la password va inserita come secret dall'operatore. Il pacchetto non crea server o database SQL.
 
 Per installare e cambiare versione dal portale Azure seguire **[docs/azure-portal.md](docs/azure-portal.md)**: contiene i campi della schermata Container details e i passaggi esatti per **Secrets → azure-sql-password → AZURE_SQL_PASSWORD**. La porta HTTP del container è **8000**. Per rete, template Bicep, Docker locale, aggiornamenti e backup consultare **[docs/deployment.md](docs/deployment.md)**.
 
@@ -92,7 +92,7 @@ Lo script chiede la password nel terminale senza visualizzarla. Salva solo in fi
 
 Il template Azure crea app, ambiente interno, log e DNS su una VNet/subnet esistente collegata ad Azure SQL. Non modifica database, utenti SQL o firewall. Il collegamento al database aziendale deve essere configurato dall'operatore; non è stato effettuato durante la preparazione del pacchetto.
 
-Il push di un tag Git come `v1.2.1` avvia i test e la pubblicazione GHCR con tag `1.2.1`. Le versioni stabili aggiornano anche `latest`; per installazioni e rollback usare il tag di versione. Il workflow include test su SQL Server compatibile con Azure SQL, senza accedere al database aziendale, e allega il pacchetto di installazione. È disponibile anche **Actions → Publish GitHub Container Registry image → Run workflow**.
+Il push di un tag Git come `v1.3.0` avvia i test e la pubblicazione GHCR con tag `1.3.0`. Le versioni stabili aggiornano anche `latest`; per installazioni e rollback usare il tag di versione. Il workflow include test su SQL Server compatibile con Azure SQL, senza accedere al database aziendale, e allega il pacchetto di installazione. È disponibile anche **Actions → Publish GitHub Container Registry image → Run workflow**.
 
 `python scripts/package-release.py` genera l'archivio installabile e il checksum, escludendo Excel, password e dati delle demo. La modalità desktop `python -m app.server` e `compose.yaml` conservano l'uso locale su file senza database esterno. La versione `1.0.0` e i relativi file PostgreSQL restano disponibili per compatibilità; questa installazione usa Azure SQL.
 
@@ -115,3 +115,5 @@ python tests/ui_smoke.py
 ```
 
 Il test UI usa solo store temporanei e dati fittizi. La navigazione diretta a URL `file://` può essere bloccata dalle policy del browser gestito: il test verifica il contenuto HTML autosufficiente con richieste esterne bloccate. Non viene eseguito un deployment.
+
+La vista **Mappa rischi e investimenti** collega anno, Capex/Opex, rischio principale, impatto, dominio e remediation. I nuovi campi opzionali si aggiungono soltanto a Remediations; i relativi filtri sono condivisi da tutte le viste e dalle esportazioni. Per preparare il nuovo Excel vedere [il formato delle colonne](docs/workbook-format.md#campi-opzionali-degli-investimenti-130).

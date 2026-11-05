@@ -21,9 +21,9 @@ Per la prima inizializzazione servono CREATE TABLE nel database e ALTER/REFERENC
 
 I progetti di installazioni locali/PostgreSQL precedenti non vengono trasferiti automaticamente: importarli dai rispettivi Excel originali. Nessun file locale viene caricato di nascosto nel database SQL esistente. La libreria è condivisa fra gli utenti autorizzati all'app; il database non introduce da solo autenticazione individuale nell'interfaccia.
 
-## Aggiornamento alla 1.2.1 e logiche di classificazione
+## Aggiornamento alla 1.3.0 e logiche di classificazione
 
-Per i progetti già salvati con l'Excel originale è sufficiente aggiornare l'immagine alla 1.2.1 e riavviare l'app. Non occorre importare nuovamente il file. Il processo rilegge i workbook conservati e calcola la classificazione senza cambiare sorgenti, ID, date o contenuti dei progetti nel database.
+Per i progetti già salvati con l'Excel originale è sufficiente aggiornare l'immagine alla 1.3.0 e riavviare l'app. Non occorre importare nuovamente il file. Il processo rilegge i workbook conservati e calcola la classificazione senza cambiare sorgenti, ID, date o contenuti dei progetti nel database.
 
 La classificazione è disponibile con le intestazioni semantiche OT / local business / local complete oppure con il profilo numerico originale approvato: i cinque gruppi C=6, D=8, E=13, F=5 e G=9 (o Europa AI ACT 9), cardinalità delle X coerenti, 21 entità, OT comprese nelle Complete e Complete/Business disgiunte ed esaustive. Risultano 6 Complete con OT, 7 senza OT e 8 Business. Il riconoscimento non usa i nomi delle country; altri formati numerici validi rimangono senza classificazione.
 
@@ -59,7 +59,7 @@ export AZURE_SUBSCRIPTION_ID='ID-SUBSCRIPTION'
 export AZURE_RESOURCE_GROUP='rg-data-visualization-tool'
 export AZURE_LOCATION='westeurope'
 export DVT_PREFIX='dvt-azienda'
-export DVT_IMAGE='ghcr.io/matte13/data-visualization-tool:1.2.1'
+export DVT_IMAGE='ghcr.io/matte13/data-visualization-tool:1.3.0'
 export AZURE_SQL_SERVER='dbservertil.database.windows.net'
 export AZURE_SQL_DATABASE='data-visualization-tool-db'
 export AZURE_SQL_USER='fuddos'
@@ -74,7 +74,7 @@ Lo script verifica la subscription attiva, legge il secret da file, crea paramet
 
 ## Versioni, disponibilità e backup
 
-Il push di `v1.2.1` avvia **Publish GitHub Container Registry image**, che esegue prima i test Python, JavaScript e SQL Server/ODBC, poi pubblica `ghcr.io/matte13/data-visualization-tool:1.2.1`, `sha-<commit>` e per le versioni stabili `latest`. La pubblicazione manuale è disponibile nelle Actions. L'archivio e il checksum sono negli artifact della run. La normale push del codice esegue i test e non pubblica immagini.
+Il push di `v1.3.0` avvia **Publish GitHub Container Registry image**, che esegue prima i test Python, JavaScript e SQL Server/ODBC, poi pubblica `ghcr.io/matte13/data-visualization-tool:1.3.0`, `sha-<commit>` e per le versioni stabili `latest`. La pubblicazione manuale è disponibile nelle Actions. L'archivio e il checksum sono negli artifact della run. La normale push del codice esegue i test e non pubblica immagini.
 
 Non spostare un tag di versione già installato. Per aggiornare il portale cambiare il tag mantenendo la configurazione di connessione. Un digest `@sha256:...` identifica esattamente l'immagine. Le versioni `1.0.x` non supportano Azure SQL. Per tornare da 1.2.x a 1.1.2 seguire la procedura seguente: il formato dei workbook salvati nella libreria fa parte della compatibilità del ripristino.
 
@@ -84,17 +84,17 @@ I progetti e gli Excel originali restano nel database Azure SQL. Backup, conserv
 
 ## Salvataggio della libreria e rollback alla 1.1.2
 
-Un tag conserva il software di quella versione. Gli Excel caricati e lo stato della libreria restano invece nel database. La 1.2.1 riconosce il profilo originale senza riscriverlo: se la libreria contiene solo workbook già compatibili con la 1.1.2, questo riconoscimento non richiede un ripristino dei dati per tornare al software precedente. Dopo aver caricato file con le nuove intestazioni, invece, la 1.1.2 potrebbe non riuscire a leggerli: in quel caso occorre ripristinare uno snapshot compatibile prima di cambiare immagine.
+Un tag conserva il software di quella versione. Gli Excel caricati e lo stato della libreria restano invece nel database. La 1.3.0 riconosce il profilo originale senza riscriverlo: se la libreria contiene solo workbook già compatibili con la 1.1.2, questo riconoscimento non richiede un ripristino dei dati per tornare al software precedente. Dopo aver caricato file con le nuove intestazioni, invece, la 1.1.2 potrebbe non riuscire a leggerli: in quel caso occorre ripristinare uno snapshot compatibile prima di cambiare immagine.
 
 Lo strumento `app.library_backup`, disponibile dalla 1.2.0, esporta e ripristina la libreria completa: tutti i progetti, i file Excel attuali e della prima importazione, nomi, date e progetto attivo. Lo snapshot ha un digest di integrità e contiene dati riservati dei progetti, senza credenziali di connessione. Conservarlo fuori dal repository e dai pacchetti pubblici, in un percorso privato autorizzato. Il file viene creato con permessi 0600 ove supportati; su Windows applicare anche i permessi della cartella. Lo snapshot non può superare 256 MiB; per librerie più grandi concordare il backup del database con il DBA.
 
-Usare gli strumenti della versione corrente (1.2.1) su una postazione o un container amministrativo che abbia rete, driver e **le stesse variabili di connessione** dell'installazione. Per Azure SQL sono necessari Microsoft ODBC Driver 18, `requirements-azuresql.txt` e la configurazione `AZURE_SQL_*`; il secret può essere letto tramite `AZURE_SQL_PASSWORD_FILE`. Le credenziali non vanno inserite negli argomenti dei comandi. Per l'archivio locale eseguire i comandi dalla stessa installazione che contiene `runtime/`.
+Usare gli strumenti della versione corrente (1.3.0) su una postazione o un container amministrativo che abbia rete, driver e **le stesse variabili di connessione** dell'installazione. Per Azure SQL sono necessari Microsoft ODBC Driver 18, `requirements-azuresql.txt` e la configurazione `AZURE_SQL_*`; il secret può essere letto tramite `AZURE_SQL_PASSWORD_FILE`. Le credenziali non vanno inserite negli argomenti dei comandi. Per l'archivio locale eseguire i comandi dalla stessa installazione che contiene `runtime/`.
 
 ### Prima di importare un formato diverso
 
-Questa procedura serve quando si decide di caricare un formato diverso. Per aggiornare i progetti salvati con l'Excel originale alla 1.2.1 non è richiesta una nuova importazione.
+Questa procedura serve quando si decide di caricare un formato diverso. Per aggiornare i progetti salvati con l'Excel originale alla 1.3.0 non è richiesta una nuova importazione.
 
-1. Avviare il codice 1.2.1 lasciando ancora nella libreria i workbook precedenti.
+1. Avviare il codice 1.3.0 lasciando ancora nella libreria i workbook precedenti.
 2. Esportare uno snapshot in un percorso privato già disponibile, diverso a ogni salvataggio:
 
 ```bash
@@ -108,7 +108,7 @@ Solo dopo aver conservato e controllato lo snapshot importare l'Excel con le nuo
 
 ### Ripristino dello stato precedente
 
-Fermare l'app e tutte le revisioni/processi che possono modificare la stessa libreria. Eseguire il ripristino da una postazione o un container amministrativo separato, usando il codice 1.2.1. Salvare prima anche lo stato corrente se deve essere recuperabile in seguito:
+Fermare l'app e tutte le revisioni/processi che possono modificare la stessa libreria. Eseguire il ripristino da una postazione o un container amministrativo separato, usando il codice 1.3.0. Salvare prima anche lo stato corrente se deve essere recuperabile in seguito:
 
 ```bash
 python -m app.library_backup export --output /percorso/privato/prima-del-rollback.json

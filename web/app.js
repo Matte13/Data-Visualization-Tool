@@ -1,7 +1,7 @@
 /* Data Visualization Tool — self-contained client. All views derive from the unchanged workbook rows. */
 (() => {
   'use strict';
-  const APP_VERSION = '1.2.1';
+  const APP_VERSION = '1.3.0';
   const M = window.RemediationModel;
   const $ = (selector, root = document) => root.querySelector(selector);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -15,14 +15,15 @@
   };
   // Original vector logo from the supplied KPMG template; no remote asset.
   const kpmgLogo = () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 484832 194706" fill="currentColor" aria-hidden="true" focusable="false"><path d="M480938,148130L455744,148130L459917,131488L409445,131488L405289,148130L380916,148130L380916,144709C381293,142845 381618,140878 382079,138775C386526,120816 398311,103062 418715,103062C426771,103062 434792,106141 433698,117292L463732,117292C464912,112161 466896,103216 461234,95058C454821,86198 441942,82641 425214,82641C413328,82641 395933,84539 380916,94357L380916,3708L480938,3708ZM421914,172537C416372,173606 410745,174179 405101,174247C390683,174247 380643,167543 380438,151910L427027,151910ZM364275,90064L364275,110759C358044,119364 353522,129082 350951,139390C350195,142258 349663,145180 349360,148130L334669,148130L347223,88524L304943,88524L267110,148164L264339,148164L264339,3759L364326,3759ZM308449,148130L293398,148130L316163,112315ZM247731,88388L222709,88388L205606,148130L179027,148130C192538,143136 200765,133592 203314,119413C205400,108399 204408,101164 199893,95725C193154,87652 179642,88353 167653,88353L147796,88353L147796,3759L247697,3759ZM231740,148130L242258,110759L242635,148130ZM158981,133934L158981,133934C158007,133934 157032,134054 155920,134054C154466,134054 153320,134054 152243,134054L145846,134054L148805,123125L150207,117686L153628,104961C155116,104961 156570,104961 157972,104961L162915,104961C171467,104961 176718,105440 178668,108159C180156,110212 179967,113735 178206,119105C175196,128341 171364,133045 159084,133986M131291,93741L129717,98872L115419,146471L114854,148181L67683,148181L64006,140365L114683,88524L82187,88524L42507,131283L55351,88524L31270,88524L31270,3759L131188,3759ZM377119,-89L377119,97076C373861,99667 370856,102560 368140,105713L368140,-89L260525,-89L260525,88388L251614,88388L251614,-89L143965,-89L143965,88524L135071,88524L135071,-89L27456,-89L27456,100907L-47,192480L24120,192480L36247,151927L39667,151927L59696,192480L89028,192480L69513,151927L113623,151927L101377,192480L127785,192480L139860,152047L145641,152047L145641,151927L204408,151927L192761,192360L219374,192360L230662,151927L242635,151927L242960,192360L265280,192360L290935,151927L307713,151927L299059,192360L325227,192360L333779,151927L348933,151927C348334,164464 351533,175872 359845,183517C370004,192839 385603,194617 397131,194617C413526,194421 429850,192418 445807,188648L454872,151927L484786,151927L484786,-89Z"/></svg>`;
-  const filterFields=['sheets','years','domains','owners','entities','nis2','priority'];
+  const filterFields=['sheets','years','domains','owners','entities','nis2','priority','capexOpex','risk','impact'];
   const defaultFilters = () => ({query:'',...Object.fromEntries(filterFields.map(field=>[field,data?filterOptions(field):null])),scope:'all',localBudget:'all',entityScope:'all'});
   let projects = [], activeProjectId = null, pendingFile = null;
   let data, standalone = Boolean(window.DVT_DATA), state = {view:'overview',filters:defaultFilters(),page:1,pageSize:15,sort:'source',direction:1,detail:null,mapYear:null,mapDomain:null,mapPage:0,ownerMapYear:null,ownerMapOwner:null,ownerMapDomain:null,ownerMapPage:0,presentation:false,busy:false,menu:false,filterOpen:['sheets','years'],topFilterOpen:null,projectDialog:null,projectName:''};
   if (window.DVT_STATE) { Object.assign(state, window.DVT_STATE); state.filters = {...defaultFilters(), ...window.DVT_STATE.filters}; }
-  const views = [['overview','grid','Panoramica'],['map','map','Mappa Navigabile'],['owner-map','owners','Mappa Navigabile per Owner'],['table','table','Remediation'],['countries','globe','Country / legal entity']];
+  const views = [['overview','grid','Panoramica'],['map','map','Mappa Navigabile'],['owner-map','owners','Mappa Navigabile per Owner'],['risk-map','map','Mappa rischi e investimenti'],['table','table','Remediation'],['countries','globe','Country / legal entity']];
   const unique = field => [...new Set(data.rows.map(r => String(field==='owner'?(r.owner||'Non specificato'):(r[field]??''))))].sort((a,b) => a.localeCompare(b,'it',{numeric:true}));
   function filterOptions(field) {
+    if(['capexOpex','risk','impact'].includes(field))return [...new Set(data.rows.map(row=>row[field]||'Non specificato'))].sort();
     if(field==='entities')return data.entities.map(entity=>entity.id);
     if(field==='nis2'||field==='priority')return ['yes','no','missing'];
     return unique({sheets:'sheet',years:'year',domains:'domain',owners:'owner'}[field]);
@@ -42,7 +43,7 @@
     const result = M.totals(rows,entitySelection());
     return {...result,displayGlobal:state.filters.scope === 'local' ? 0 : result.global,displayLocal:state.filters.scope === 'global' ? 0 : result.local};
   };
-  const fieldName = field => ({years:'Anno',domains:'Dominio',owners:'Owner',entities:'Country / LE',sheets:'Perimetro dati',nis2:'Riferimento NIS2',priority:'Priorità nel file'})[field];
+  const fieldName = field => ({years:'Anno',domains:'Dominio',owners:'Owner',entities:'Country / LE',sheets:'Perimetro dati',nis2:'Riferimento NIS2',priority:'Priorità nel file',capexOpex:'Capex/Opex',risk:'Rischi',impact:'Impatto'})[field];
   const filterLabel = (field,value) => field==='nis2'||field==='priority'?({yes:'Sì',no:'No',missing:'Non specificato'}[value]):value||'Non specificato';
   const colorBy = (field,value,palette) => palette[Math.max(0,unique(field).indexOf(String(value??'')))%palette.length];
   const colorForYear = value => colorBy('year',value,['#7964cf','#d8942f','#ce668b','#4b91ba','#81994d','#c77a4d']);
@@ -90,7 +91,7 @@
     <select class="budget-select" data-select="localBudget" aria-label="Filtra per budget locale">${[['all','Tutti i budget local'],['positive','Con budget local > 0'],['zero','Budget local = 0'],['missing','Budget local non determinato']].map(([v,l])=>`<option value="${v}" ${state.filters.localBudget===v?'selected':''}>${l}</option>`).join('')}</select></div>`;
   }
   function viewFilters() {
-    const labels={sheets:'Perimetro',years:'Anno',domains:'Dominio',owners:'Owner',entities:'Country / LE',nis2:'NIS2',priority:'Priorità'};
+    const labels={sheets:'Perimetro',years:'Anno',domains:'Dominio',owners:'Owner',entities:'Country / LE',nis2:'NIS2',priority:'Priorità',capexOpex:'Capex/Opex',risk:'Rischi',impact:'Impatto'};
     return `<section class="view-filters" data-source="${esc((data.project?.id||'')+':'+data.source.sha256)}" aria-label="Filtri delle viste">
       <div class="view-filters-heading"><span>${icon('filter',15)} Filtri</span><button class="text-button" data-action="reset">${icon('reset',13)} Ripristina filtri</button></div>
       <div class="view-filter-groups">${filterFields.map(field=>`<details class="view-filter" data-top-group="${field}" name="view-filters" ${state.topFilterOpen===field?'open':''}>
@@ -217,6 +218,45 @@
     const edges=domains.map((d,i)=>`<path class="map-edge ${d.label===state.mapDomain?'highlight':''}" d="M192 ${chosenY} C240 ${chosenY},240 ${102+i*76},282 ${102+i*76}"/>`).join('')+visible.map((r,i)=>`<path class="map-edge highlight" d="M540 ${chosenD} C590 ${chosenD},590 ${117+i*105},632 ${117+i*105}"/>`).join('');
     return `<section class="panel map-panel">${panelTitle('','Mappa delle remediation','<button class="button small" data-action="png">'+icon('download',15)+' Salva PNG</button>')}<div class="map-explanation">Seleziona un anno, poi un dominio. Le frecce raggruppano le remediation; non indicano dipendenze tra progetti.</div><div class="map-path"><span class="year-pill" style="--year-color:${colorForYear(state.mapYear)}">${state.mapYear}</span>${icon('chevron',14)}<strong>${esc(state.mapDomain)}</strong><span class="map-page-controls"><button data-action="map-prev" ${state.mapPage===0?'disabled':''}>←</button>${state.mapPage+1}/${pages}<button data-action="map-next" ${state.mapPage===pages-1?'disabled':''}>→</button></span></div><div class="map-scroll"><svg id="concept-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 995 ${height}" role="img" aria-label="Mappa anno, dominio e remediation"><defs><marker id="map-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="995" height="${height}" fill="#fbfcfd"/><text x="20" y="32" class="map-col-label">01 / ANNO</text><text x="290" y="32" class="map-col-label">02 / DOMINIO</text><text x="640" y="32" class="map-col-label">03 / REMEDIATION · ${focused.length} RIGHE</text>${edges}${yearNodes}${domainNodes}${detailNodes}</svg></div></section>`;
   }
+
+  let riskPath=Array.isArray(window.DVT_STATE?.riskPath)?window.DVT_STATE.riskPath:[];
+  function riskMapView(rows) {
+    const fields=['year','capexOpex','risk','impact','domain'];
+    const labels=['Anno','Capex/Opex','Rischio','Impatto','Dominio','Remediation'];
+    const amount=(records,compact=false)=>{
+      const total=M.totals(records,entitySelection());
+      const unknownGlobal=total.missingGlobal===total.count,unknownLocal=total.missingLocal===total.count;
+      if((state.filters.scope==='global'&&unknownGlobal)||(state.filters.scope==='local'&&unknownLocal)||(unknownGlobal&&unknownLocal))return 'Non stimato';
+      return money((state.filters.scope==='local'?0:total.global)+(state.filters.scope==='global'?0:total.local),compact);
+    };
+    const columns=[];let focused=rows;
+    for(let step=0;step<fields.length;step++){
+      const groups=M.aggregate(focused,fields[step],entitySelection());
+      const chosen=groups.find(group=>group.label===riskPath[step]);
+      if(!chosen)riskPath=riskPath.slice(0,step);
+      columns.push(groups);
+      if(!chosen)break;
+      focused=chosen.rows;
+    }
+    if(columns.length===5&&riskPath.length===5)columns.push(focused.map(row=>({label:row.name,rows:[row],key:row.key})));
+    const height=Math.max(260,...columns.map(groups=>70+groups.length*94));
+    const colors={Alto:'#c64545',Medio:'#b8840a',Basso:'#32835c',Capex:'#647ac0',Opex:'#449b91'};
+    let edges='',nodes='';
+    columns.forEach((groups,step)=>{
+      nodes+=`<text x="${step*260+20}" y="26" fill="#00338d" font-size="15">${labels[step]}</text>`;
+      groups.forEach((group,index)=>{
+        const x=step*260+20,y=52+index*94,selected=riskPath[step]===group.label;
+        const color=colors[group.label]||'#657b98';
+        if(step>0){const parent=columns[step-1].findIndex(g=>g.label===riskPath[step-1]);if(parent>=0)edges+=`<path d="M${x-40},${86+parent*94} C${x-20},${86+parent*94} ${x-20},${y+34} ${x},${y+34}" fill="none" stroke="#9aacc3" marker-end="url(#risk-arrow)"/>`;}
+        const attrs=group.key?`data-detail="${esc(group.key)}"`:`data-risk-step="${step}" data-risk-value="${esc(group.label)}"`;
+        const budget=amount(group.rows,true);
+        nodes+=`<g role="button" tabindex="0" ${attrs} aria-label="${esc(group.label)}"><title>${esc(group.label)} · ${group.rows.length} ${group.rows.length===1?'voce':'voci'}</title><rect x="${x}" y="${y}" width="220" height="72" rx="8" fill="${selected?'#eef2ff':'white'}" stroke="${color}" stroke-width="${selected?3:1}"/><rect x="${x}" y="${y}" width="5" height="72" rx="2" fill="${color}"/><text x="${x+13}" y="${y+24}" fill="${color}" font-size="13">${esc(group.label.length>27?group.label.slice(0,26)+'…':group.label)}</text><text x="${x+13}" y="${y+49}" fill="#425974" font-size="12">${esc(budget)} · ${group.rows.length} ${group.rows.length===1?'voce':'voci'}</text></g>`;
+      });
+    });
+    const summary=M.aggregate(rows,'capexOpex',entitySelection()).map(group=>`<span class="filter-chip">${esc(group.label)}: ${amount(group.rows)}</span>`).join(' ');
+    return `<section class="panel map-panel investment-map"><div class="panel-title"><h2>Rischi e investimenti</h2></div><p class="panel-description">Seleziona un box per proseguire da anno a Capex/Opex, rischio, impatto, dominio e remediation. Gli importi seguono i filtri Global/Local. Alto: rosso; Medio: giallo; Basso: verde. I valori non compilati restano non specificati.</p><div class="chip-row">${summary}</div><div class="map-scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Math.max(780,columns.length*260)} ${height}" style="min-width:${Math.max(780,columns.length*260)}px" role="group" aria-label="Mappa rischi e investimenti"><defs><marker id="risk-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#9aacc3"/></marker></defs>${edges}${nodes}</svg></div></section>`;
+  }
+
   function ownerMapView(rows) {
     const result=window.OwnerMap.render({data,rows,year:state.ownerMapYear,owner:state.ownerMapOwner,
       domain:state.ownerMapDomain,page:state.ownerMapPage,esc,icon,money,model:M,colorForYear,colorForDomain,
@@ -234,7 +274,7 @@
     const text=(label,value)=>`<section class="detail-section"><h3>${label}</h3><p>${esc(value||'Non specificato nel file')}</p></section>`;
     return `<div class="drawer-overlay" data-action="close-detail"></div><aside class="detail-drawer" role="dialog" aria-modal="true" aria-label="Dettaglio remediation" tabindex="-1"><div class="drawer-top"><span class="eyebrow">Dettaglio remediation</span><button id="close-detail" class="icon-button" data-action="close-detail" aria-label="Chiudi dettaglio">${icon('close')}</button></div><span class="source-tag">${esc(sourceRef(r))}${r.id?' · '+esc(r.id):' · ID originale assente'}</span><h2>${esc(r.name)}</h2><p class="detail-domain">${esc(r.domain)}</p><div class="detail-tags"><span class="year-pill" style="--year-color:${colorForYear(r.year)}">${r.year||'Anno non specificato'}</span><span class="owner-badge">${esc(r.owner||'Owner non specificato')}</span><span>NIS2 ${badgeStatus(r.nis2)}</span><span>Priorità ${badgeStatus(r.priority)}</span></div>
     <div class="detail-budgets"><div><small>Budget Global</small><strong>${money(r.globalBudget)}</strong></div><div><small>${entitySelection()!==null?'Local · entità selezionate':'Local complessivo'}</small><strong>${money(M.localAmount(r,entitySelection()))}</strong></div><div><small>Complete · unitario</small><strong>${money(r.localComplete)}</strong></div><div><small>Business Oriented · unitario</small><strong>${money(r.localBusiness)}</strong></div></div>
-    ${text('Attività Global · testo originale',r.globalDescription)}${text('Attività Local · testo originale',r.localDescription)}${text('Applicable Countries · da verificare',r.applicableCountries)}${r.existingCoverage?text('Who has this? · testo originale',r.existingCoverage):''}
+    ${text('Capex/Opex',r.capexOpex)}${text('Rischio',r.risk)}${text('Impatto',r.impact)}${text('Attività Global · testo originale',r.globalDescription)}${text('Attività Local · testo originale',r.localDescription)}${text('Applicable Countries · da verificare',r.applicableCountries)}${r.existingCoverage?text('Who has this? · testo originale',r.existingCoverage):''}
     <section class="detail-section formula-section"><h3>Tracciabilità del budget Local</h3><code>${esc(r.localFormula||'Formula non presente nel file')}</code><p>${esc(r.allocationNote||'Attribuzione da formule e LE_List.')}</p><small>Local complessivo originale: ${money(r.localTotal)}</small></section>
     ${issues.length?`<section class="detail-section detail-alert"><h3>${icon('info',16)} Note su questa riga</h3>${issues.map(i=>`<p>${esc(i.message)}</p>`).join('')}</section>`:''}
     ${r.allocations?.length?`<section class="detail-section"><h3>Attribuzione del budget locale</h3><p class="small-note">Derivata da formula e LE_List; non è una conferma dell’applicabilità.</p><div class="allocation-list">${r.allocations.map(a=>`<div><span>${esc(a.entityId)}</span><strong>${money(a.amount)}</strong></div>`).join('')}</div></section>`:''}</aside>`;
@@ -265,6 +305,8 @@
     const focusedMapField=['ownerMapYear','ownerMapOwner','ownerMapDomain'].find(field=>active?.dataset[field]!==undefined);
     const focusedMapValue=focusedMapField?active.dataset[focusedMapField]:null;
     const sidebarScroll=$('.sidebar')?.scrollTop||0;
+    const riskScroll=$('.investment-map .map-scroll');
+    const riskPosition={left:riskScroll?.scrollLeft||0,top:riskScroll?.scrollTop||0};
     const ownerMapScroll=$('.owner-map-panel .map-scroll');
     const ownerMapPosition={left:ownerMapScroll?.scrollLeft||0,top:ownerMapScroll?.scrollTop||0};
     const groups=[...document.querySelectorAll('details[data-group]')];if(groups.length)state.filterOpen=groups.filter(g=>g.open).map(g=>g.dataset.group);
@@ -273,12 +315,12 @@
     document.body.classList.toggle('presentation',state.presentation);
     document.body.classList.toggle('filters-open',state.menu);
     const markup=`${sidebar()}<div class="main-shell"><header class="topbar"><div class="breadcrumb"><button class="icon-button mobile-menu" data-action="menu" aria-label="Apri navigazione">${icon('menu')}</button><span>Workspace</span>${icon('chevron',12)}<strong>${view[2]}</strong></div><div class="topbar-right"><span class="local-status"><span class="status-dot"></span>${standalone?'Copia offline':'Dati locali'}</span><button class="button small" data-action="presentation">${icon('present',15)}${state.presentation?'Esci presentazione':'Presentazione'}</button></div></header>
-      <main id="main-content"><div class="page-heading"><div><h1>${esc(view[2])}</h1><p>${esc({overview:'Budget e remediation per anno, dominio e owner.',map:'Seleziona anno e dominio per aprire le remediation.','owner-map':'Esplora le associazioni tra anno, owner, dominio e remediation.',table:'Apri una scheda per consultare attività, budget e riferimenti al file.',countries:'Budget Local per country, legal entity e anno.'}[state.view])}</p></div><div class="heading-actions">${!standalone?`<button class="button primary pptx-button" data-action="pptx" ${state.busy||state.exportingPptx||!rows.length?'disabled':''} title="Sintesi di massimo 15 slide dei dati filtrati, con dettagli completi nelle note">${icon('present',16)} ${state.exportingPptx?'Creazione PowerPoint…':'Scarica PowerPoint'}</button>`:''}<button class="button" data-action="export-menu">${icon('download',16)} Esporta ${icon('chevron',12)}</button>${!standalone?`<button class="button" data-action="import" ${state.busy?'disabled':''}>${icon('upload',16)} ${state.busy?'Importazione…':'Aggiorna Excel'}</button>`:''}${state.exportMenu?`<div class="export-menu"><button data-action="csv">${icon('table',16)} CSV delle righe filtrate</button><button data-action="html">${icon('file',16)} Copia HTML offline</button><button data-action="print">${icon('print',16)} Stampa / salva PDF</button>${!standalone?`<button data-action="source">${icon('download',16)} Excel originale</button>`:''}</div>`:''}</div></div>
+      <main id="main-content"><div class="page-heading"><div><h1>${esc(view[2])}</h1><p>${esc({overview:'Budget e remediation per anno, dominio e owner.',map:'Seleziona anno e dominio per aprire le remediation.','owner-map':'Esplora le associazioni tra anno, owner, dominio e remediation.','risk-map':'Associazioni tra investimenti, rischi, impatto e remediation.',table:'Apri una scheda per consultare attività, budget e riferimenti al file.',countries:'Budget Local per country, legal entity e anno.'}[state.view])}</p></div><div class="heading-actions">${!standalone?`<button class="button primary pptx-button" data-action="pptx" ${state.busy||state.exportingPptx||!rows.length?'disabled':''} title="Sintesi di massimo 15 slide dei dati filtrati, con dettagli completi nelle note">${icon('present',16)} ${state.exportingPptx?'Creazione PowerPoint…':'Scarica PowerPoint'}</button>`:''}<button class="button" data-action="export-menu">${icon('download',16)} Esporta ${icon('chevron',12)}</button>${!standalone?`<button class="button" data-action="import" ${state.busy?'disabled':''}>${icon('upload',16)} ${state.busy?'Importazione…':'Aggiorna Excel'}</button>`:''}${state.exportMenu?`<div class="export-menu"><button data-action="csv">${icon('table',16)} CSV delle righe filtrate</button><button data-action="html">${icon('file',16)} Copia HTML offline</button><button data-action="print">${icon('print',16)} Stampa / salva PDF</button>${!standalone?`<button data-action="source">${icon('download',16)} Excel originale</button>`:''}</div>`:''}</div></div>
       <div class="source-line">${icon('file',15)}<strong>${esc(data.source.filename)}</strong><span>•</span><span>${esc(sheetLabel)}</span><span>•</span><span>${data.rows.length} righe disponibili · ${data.entities.length} entità</span>${!standalone?`<button class="text-button" data-action="restore" ${state.busy?'disabled':''}>Ripristina prima importazione</button>`:''}</div>
       ${toolbar()}${chips()}${viewFilters()}${kpis(rows)}
       <div class="data-notice">${icon('info',16)}<p><strong>Importi dal file Excel.</strong> ${ambiguousCount?`${ambiguousCount} righe hanno un’attribuzione geografica da verificare; `:''}le stime mancanti restano distinte da zero.</p></div>
       <div class="view-tabs" role="navigation" aria-label="Seleziona vista">${views.map(([id,i,l])=>`<button data-view="${id}" class="${state.view===id?'active':''}">${icon(i,16)}${l}</button>`).join('')}<span>${rows.length} righe selezionate</span></div>
-      <div id="view-content">${!rows.length?emptyView():state.view==='countries'?countriesView():state.view==='table'?tableView(rows):state.view==='map'?mapView(rows):state.view==='owner-map'?ownerMapView(rows):overview(rows)}</div>
+      <div id="view-content">${!rows.length?emptyView():state.view==='countries'?countriesView():state.view==='table'?tableView(rows):state.view==='map'?mapView(rows):state.view==='owner-map'?ownerMapView(rows):state.view==='risk-map'?riskMapView(rows):overview(rows)}</div>
       <footer class="main-footer"><span><strong>Data Visualization Tool</strong> · KPMG · Uso interno · Versione ${APP_VERSION}</span><span>Fonte Excel · importi in EUR · nessun dato generato</span><span>SHA-256 ${esc(data.source.sha256?.slice(0,12)||'—')}</span></footer></main></div>${detailPanel()}${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
     const oldSidebar=$('.sidebar'),sourceKey=(data.project?.id||'')+':'+data.source.sha256;
     if(oldSidebar?.dataset.source===sourceKey){
@@ -292,6 +334,8 @@
     syncSidebar();
     syncViewFilters();
     for(const {element,top} of topFilterScroll)if(element.isConnected)element.scrollTop=top;
+    const restoredRiskScroll=$('.investment-map .map-scroll');
+    if(restoredRiskScroll){restoredRiskScroll.scrollLeft=riskPosition.left;restoredRiskScroll.scrollTop=riskPosition.top;}
     const restoredOwnerMapScroll=$('.owner-map-panel .map-scroll');
     if(restoredOwnerMapScroll){restoredOwnerMapScroll.scrollLeft=ownerMapPosition.left;restoredOwnerMapScroll.scrollTop=ownerMapPosition.top;}
     if(focusedMapField){const node=[...document.querySelectorAll('#owner-concept-map .map-node')].find(item=>item.dataset[focusedMapField]===focusedMapValue);node?.focus({preventScroll:true});}
@@ -314,7 +358,7 @@
     const doc=document.documentElement.cloneNode(true);doc.querySelector('#app').innerHTML='<div class="initial-loading">Apertura della copia offline…</div>';
     doc.querySelectorAll('script').forEach(el=>el.remove());doc.querySelectorAll('link[rel="stylesheet"]').forEach(el=>el.remove());
     const style=document.createElement('style');style.textContent=window.DVT_CSS;doc.querySelector('head').appendChild(style);
-    for(const contents of ['window.DVT_DATA='+JSON.stringify(data).replace(/</g,'\\u003c')+';window.DVT_STATE='+JSON.stringify({view:state.view,filters:state.filters,mapYear:state.mapYear,mapDomain:state.mapDomain,mapPage:state.mapPage,ownerMapYear:state.ownerMapYear,ownerMapOwner:state.ownerMapOwner,ownerMapDomain:state.ownerMapDomain,ownerMapPage:state.ownerMapPage,pageSize:state.pageSize,sort:state.sort,direction:state.direction}).replace(/</g,'\\u003c')+';', window.DVT_MODEL, window.DVT_COUNTRIES, window.DVT_OWNER_MAP, window.DVT_APP]) {const script=document.createElement('script');script.textContent=contents;doc.querySelector('body').appendChild(script);}
+    for(const contents of ['window.DVT_DATA='+JSON.stringify(data).replace(/</g,'\\u003c')+';window.DVT_STATE='+JSON.stringify({view:state.view,filters:state.filters,riskPath,mapYear:state.mapYear,mapDomain:state.mapDomain,mapPage:state.mapPage,ownerMapYear:state.ownerMapYear,ownerMapOwner:state.ownerMapOwner,ownerMapDomain:state.ownerMapDomain,ownerMapPage:state.ownerMapPage,pageSize:state.pageSize,sort:state.sort,direction:state.direction}).replace(/</g,'\\u003c')+';', window.DVT_MODEL, window.DVT_COUNTRIES, window.DVT_OWNER_MAP, window.DVT_APP]) {const script=document.createElement('script');script.textContent=contents;doc.querySelector('body').appendChild(script);}
     // Scripts are static application code; source cell text is JSON-escaped above.
     download('<!doctype html>\n'+doc.outerHTML,'text/html;charset=utf-8','Data-Visualization-Tool-remediation-offline.html');toast('Copia offline salvata: include tutti i dati e i filtri.');
   }
@@ -361,7 +405,7 @@
     catch {return ' Il progetto è salvato; l’elenco non è stato aggiornato. Ricarica la pagina per riprovare.';}
   }
   function resetProjectView() {
-    clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.topFilterOpen=null;state.projectDialog=null;state.projectName='';pendingFile=null;
+    riskPath=[];clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.topFilterOpen=null;state.projectDialog=null;state.projectName='';pendingFile=null;
   }
   function openProjectDialog(mode, file=null) {
     if(state.busy)return;
@@ -427,7 +471,7 @@
   document.addEventListener('click',event=>{
     const openFilter=$('.view-filters details[open]');
     if(openFilter&&!openFilter.contains(event.target))closeViewFilters();
-    const el=event.target.closest('[data-action],[data-view],[data-detail],[data-scope],[data-budget-component],[data-year],[data-domain],[data-owner],[data-entity],[data-sort],[data-remove-field],[data-clear],[data-map-year],[data-map-domain],[data-country-year],[data-reset-group],[data-owner-map-year],[data-owner-map-owner],[data-owner-map-domain]');if(!el){if(state.exportMenu&&!event.target.closest('.export-menu,.heading-actions')){state.exportMenu=false;render();}return;}
+    const el=event.target.closest('[data-risk-step],[data-action],[data-view],[data-detail],[data-scope],[data-budget-component],[data-year],[data-domain],[data-owner],[data-entity],[data-sort],[data-remove-field],[data-clear],[data-map-year],[data-map-domain],[data-country-year],[data-reset-group],[data-owner-map-year],[data-owner-map-owner],[data-owner-map-domain]');if(!el){if(state.exportMenu&&!event.target.closest('.export-menu,.heading-actions')){state.exportMenu=false;render();}return;}
     if(el.hasAttribute('disabled')||el.getAttribute('aria-disabled')==='true')return;
     event.preventDefault();
     if(el.dataset.action){action(el.dataset.action);return;}
@@ -448,6 +492,7 @@
     if(el.dataset.sort){state.direction=state.sort===el.dataset.sort?-state.direction:1;state.sort=el.dataset.sort;render();return;}
     if(el.dataset.removeField){setFilters({[el.dataset.removeField]:state.filters[el.dataset.removeField].filter(v=>v!==el.dataset.value)});return;}
     if(el.dataset.clear){setFilters({[el.dataset.clear]:'all'});return;}
+    if(el.dataset.riskStep!==undefined){const step=Number(el.dataset.riskStep);riskPath=riskPath.slice(0,step);riskPath[step]=el.dataset.riskValue;render();[...document.querySelectorAll('[data-risk-step]')].find(node=>Number(node.dataset.riskStep)===step&&node.dataset.riskValue===riskPath[step])?.focus({preventScroll:true});return;}
     if(el.dataset.ownerMapYear!==undefined){state.ownerMapYear=el.dataset.ownerMapYear;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;render();return;}
     if(el.dataset.ownerMapOwner!==undefined){state.ownerMapOwner=el.dataset.ownerMapOwner;state.ownerMapDomain=null;state.ownerMapPage=0;render();return;}
     if(el.dataset.ownerMapDomain!==undefined){state.ownerMapDomain=el.dataset.ownerMapDomain;state.ownerMapPage=0;render();return;}

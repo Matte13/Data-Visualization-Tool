@@ -270,6 +270,14 @@ def _allocate(record, entities, issues):
 def _main_rows(formulas, values, entities, issues):
     sheet = formulas['Remediations']; saved = values['Remediations']
     _check_headers(sheet, 3, MAIN_HEADERS)
+    optional = {}
+    aliases = {'capex/opex': 'capexOpex', 'rischi': 'risk', 'impatto': 'impact'}
+    for cell in sheet[3]:
+        field = aliases.get(''.join(_label(cell.value).casefold().split()))
+        if field:
+            if field in optional:
+                raise ValueError(f'Remediations: intestazione duplicata {cell.value}.')
+            optional[field] = cell.column
     rows = []
     for row in range(4, sheet.max_row + 1):
         if sheet[f'D{row}'].value is None:
@@ -292,6 +300,16 @@ def _main_rows(formulas, values, entities, issues):
             'sourceOwner': _text(saved[f'Q{row}'].value), 'priority': _text(saved[f'R{row}'].value),
             'category': _text(saved[f'S{row}'].value),
         }
+        for field in ('capexOpex', 'risk', 'impact'):
+            if field in optional and sheet.cell(row, optional[field]).data_type == 'f' and saved.cell(row, optional[field]).value is None:
+                raise ValueError(f'Remediations!{sheet.cell(row, optional[field]).coordinate}: formula senza risultato salvato; ricalcolare e salvare il file.')
+            value = _label(saved.cell(row, optional[field]).value) if field in optional else ''
+            normalized = value.casefold()
+            if field == 'capexOpex':
+                value = {'capex': 'Capex', 'opex': 'Opex'}.get(normalized, value)
+            if field == 'impact':
+                value = {'alto': 'Alto', 'medio': 'Medio', 'basso': 'Basso'}.get(normalized, value)
+            record[field] = value
         if not record['domain'] or not record['name'].strip():
             raise ValueError(f'Remediations!{row}: dominio e nome remediation sono obbligatori.')
         if record['year'] is not None and record['year'] != int(record['year']):

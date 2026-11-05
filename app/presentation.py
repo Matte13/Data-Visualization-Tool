@@ -305,7 +305,7 @@ def _source_notes(report, extra=''):
 def _filter_lines(report):
     filters = report.get('filters', {})
     names = [('sheets', 'Fogli'), ('years', 'Anni'), ('domains', 'Domini'), ('owners', 'Owner'),
-             ('entities', 'Country / legal entity'), ('nis2', 'NIS2'), ('priority', 'Priorità')]
+             ('entities', 'Country / legal entity'), ('nis2', 'NIS2'), ('priority', 'Priorità'), ('capexOpex', 'Capex/Opex'), ('risk', 'Rischi'), ('impact', 'Impatto')]
     lines = []
     for key, label in names:
         value = filters.get(key)

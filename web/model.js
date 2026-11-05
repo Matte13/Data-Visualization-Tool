@@ -28,6 +28,7 @@
     return rows.filter(row => {
       if (!selected(filters.sheets, row.sheet) || !selected(filters.years, row.year) ||
           !selected(filters.domains, row.domain) || !selected(filters.owners, row.owner || 'Non specificato')) return false;
+      if (['capexOpex','risk','impact'].some(field => !selected(filters[field], row[field] || 'Non specificato'))) return false;
       const nis2Value = (row.nis2 || '').trim().toLowerCase();
       const nis2Status = ['yes','nis 2','nis2'].includes(nis2Value) ? 'yes' : nis2Value === 'no' ? 'no' : 'missing';
       if (!statusSelected(filters.nis2, nis2Status)) return false;
@@ -41,7 +42,7 @@
       if (filters.localBudget === 'positive' && !(local > 0)) return false;
       if (filters.localBudget === 'zero' && local !== 0) return false;
       if (filters.localBudget === 'missing' && local !== null) return false;
-      if (query && ![row.id,row.name,row.domain,row.owner,row.globalDescription,row.localDescription,row.applicableCountries,row.excelRow]
+      if (query && ![row.id,row.name,row.domain,row.owner,row.globalDescription,row.localDescription,row.applicableCountries,row.capexOpex,row.risk,row.impact,row.excelRow]
         .join(' ').toLocaleLowerCase('it').includes(query)) return false;
       return true;
     });
@@ -114,7 +115,7 @@
       entities != null ? 'Budget Local EUR (entità selezionate)' : 'Budget Local complessivo EUR',
       'Local Complete unitario EUR','Local BO unitario EUR','Formula Local originale','Stato attribuzione','Nota attribuzione',
       'Country / LE selezionate','NIS2','Priorità','Descrizione Global','Descrizione Local','Applicabilità originale (da verificare)',
-      'Owner nel file originale','Budget visualizzato','Budget visualizzato EUR'];
+      'Capex/Opex','Rischi','Impatto','Owner nel file originale','Budget visualizzato','Budget visualizzato EUR'];
     const selectedAmount = row => {
       const global=number(row.globalBudget),local=localAmount(row,entities);
       return scope==='global'?global:scope==='local'?local:global==null&&local==null?null:(global??0)+(local??0);
@@ -122,7 +123,7 @@
     const values = rows.map(r => [r.sheet,r.excelRow,r.id,r.domain,r.name,r.year,r.owner,r.globalBudget,
       localAmount(r, entities),r.localComplete,r.localBusiness,r.localFormula,r.allocationStatus,r.allocationNote,
       (entities || []).join(' | '),r.nis2,r.priority,r.globalDescription,r.localDescription,r.applicableCountries,
-      r.sourceOwner??r.owner,{all:'Global + Local',global:'Global',local:'Local'}[scope],selectedAmount(r)]);
+      r.capexOpex||'',r.risk||'',r.impact||'',r.sourceOwner??r.owner,{all:'Global + Local',global:'Global',local:'Local'}[scope],selectedAmount(r)]);
     return '\uFEFF' + [headers, ...values].map(row => row.map(quote).join(';')).join('\r\n');
   }
   const api = {number,sum,money,localAmount,filterRows,totals,aggregate,budgetBreakdown,csv};

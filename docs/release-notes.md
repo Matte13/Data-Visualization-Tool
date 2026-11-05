@@ -1,5 +1,21 @@
 # Note di versione
 
+## 1.3.0
+
+Aggiunta la vista **Mappa rischi e investimenti**: Anno → Capex/Opex → Rischio → Impatto → Dominio → Remediation. Selezionare un box per aprire il livello successivo; frecce e importi rappresentano esclusivamente le righe del percorso e i filtri Global/Local e country correnti. I dettagli conservano anche owner e descrizioni originali.
+
+I tre filtri nuovi sono disponibili nella barra laterale e sopra i KPI, anche in presentazione. Si applicano a tutte le viste e alle esportazioni. Il CSV include i tre attributi e il PowerPoint riporta i filtri selezionati nelle note. La copia HTML conserva la nuova vista e il percorso senza servizi esterni.
+
+### Logiche dei nuovi attributi
+
+Le colonne opzionali sono lette per nome dalla riga 3 di Remediations, lasciando intatte le colonne esistenti. Ogni riga ha un rischio e un impatto principale. Alto è rosso, Medio giallo, Basso verde: i colori descrivono il livello fornito, senza calcoli di rischio. Capex/Opex classifica l’intero budget della riga; non ne produce una ripartizione percentuale.
+
+Valori vuoti e righe OT restano Non specificato. Il tool non deduce dati dai domini. I file precedenti continuano a funzionare e non richiedono reimportazione; per mostrare i nuovi valori compilati occorre caricare il nuovo Excel nel progetto. Formule, totali, moltiplicatori, duplicati e attribuzioni NIS2 conservano le logiche precedenti.
+
+### Verifiche
+
+Test Python e JavaScript, controlli browser del nuovo percorso, filtri sincronizzati, PPT filtrata e HTML offline. Confronto dei budget prima/dopo l’aggiunta delle colonne su workbook sintetici: totali e attribuzioni invariati. Il workflow di rilascio verifica anche la persistenza SQL su un database di prova.
+
 ## 1.2.1
 
 ### Correzione per i progetti già salvati
