@@ -1,5 +1,9 @@
 # Note di versione
 
+## 1.3.2
+
+Rimossa l’opzione Non specificato dai filtri Capex/Opex, Rischi e Impatto nelle due barre e nella copia offline. Tutti conserva le righe prive di attributi nei totali; le selezioni parziali escludono le righe senza i valori selezionati. Nessuna modifica ai dati importati o alle regole della mappa rischi e investimenti.
+
 ## 1.3.1
 
 - Grafica della mappa rischi e investimenti allineata alle altre mappe mediante le stesse classi, tipografia, dimensioni e palette di anni e domini.

@@ -27,6 +27,10 @@ def main():
                 errors=[]
                 page.on('pageerror',lambda error:errors.append(str(error)))
                 page.goto(f'http://127.0.0.1:{server.server_port}')
+                for field in ('capexOpex','risk','impact'):
+                    expect(page.locator(f'[data-top-filter="{field}"][value="Non specificato"]')).to_have_count(0)
+                    expect(page.locator(f'[data-filter="{field}"][value="Non specificato"]')).to_have_count(0)
+                expect(page.locator('.kpi-value').nth(0)).to_have_text('11.090 €')
                 page.locator('.view-tabs [data-view="risk-map"]').click()
                 expect(page.locator('.investment-map [role="status"]')).to_contain_text('5 righe escluse')
                 expect(page.locator('[data-risk-value="Non specificato"]')).to_have_count(0)
@@ -60,6 +64,12 @@ def main():
                 group.locator('[data-top-filter][value="Capex"]').check()
                 expect(page.locator('.kpi-value').nth(0)).to_have_text('2380 €')
                 expect(page.locator('.sidebar [data-filter="capexOpex"][value="Capex"]')).to_be_checked()
+                group.locator('[data-top-filter-all]').check()
+                expect(page.locator('.kpi-value').nth(0)).to_have_text('11.090 €')
+                group.locator('[data-top-filter-all]').uncheck()
+                expect(page.locator('.kpi-value').nth(3)).to_have_text('00')
+                group.locator('[data-top-filter][value="Capex"]').check()
+                expect(page.locator('.kpi-value').nth(0)).to_have_text('2380 €')
                 page.screenshot(path='/tmp/dvt-investment-map.png',full_page=True)
                 page.set_viewport_size({'width':390,'height':844})
                 expect(page.locator('.investment-map')).to_be_visible()

@@ -1,7 +1,7 @@
 /* Data Visualization Tool — self-contained client. All views derive from the unchanged workbook rows. */
 (() => {
   'use strict';
-  const APP_VERSION = '1.3.1';
+  const APP_VERSION = '1.3.2';
   const M = window.RemediationModel;
   const $ = (selector, root = document) => root.querySelector(selector);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,6 +28,7 @@
     if(field==='nis2'||field==='priority')return ['yes','no','missing'];
     return unique({sheets:'sheet',years:'year',domains:'domain',owners:'owner'}[field]);
   }
+  const visibleFilterOptions=field=>filterOptions(field).filter(value=>!['capexOpex','risk','impact'].includes(field)||String(value).trim().toLocaleLowerCase('it')!=='non specificato');
   function normalizeFilters() {
     for(const field of filterFields){
       const options=filterOptions(field),value=state.filters[field];
@@ -51,7 +52,7 @@
   function syncSidebar() {
     const sidebar=$('.sidebar');if(!sidebar)return;
     for(const field of filterFields){
-      const options=filterOptions(field),selected=state.filters[field],group=sidebar.querySelector(`details[data-group="${field}"]`);
+      const options=visibleFilterOptions(field),selected=state.filters[field].filter(value=>options.includes(value)),group=sidebar.querySelector(`details[data-group="${field}"]`);
       if(!group)continue;
       group.querySelector('.filter-count').textContent=selected.length===options.length?'Tutti':`${selected.length}/${options.length}`;
       for(const input of group.querySelectorAll('input[data-filter]'))input.checked=selected.includes(input.value);
@@ -66,7 +67,7 @@
     const scope=sidebar.querySelector('[data-sidebar-select="scope"]');if(scope)scope.value=state.filters.scope;
   }
   function checks(field, values, {label} = {}) {
-    const selected=state.filters[field]||[],all=selected.length===values.length;
+    const selected=(state.filters[field]||[]).filter(value=>values.includes(value)),all=selected.length===values.length;
     return `<details class="filter-group" ${state.filterOpen.includes(field)?'open':''} data-group="${field}"><summary>${esc(label||fieldName(field))}<span class="filter-count">${all?'Tutti':`${selected.length}/${values.length}`}</span></summary><div class="filter-group-content"><label class="check-option master-option"><input type="checkbox" data-filter-all="${field}" aria-label="Seleziona tutti: ${esc(label||fieldName(field))}" ${all?'checked':''}><span>Seleziona tutti</span></label><div class="filter-options">${values.map(value=>`<label class="check-option"><input type="checkbox" data-filter="${field}" value="${esc(value)}" ${selected.includes(value)?'checked':''}><span>${esc(filterLabel(field,value))}</span></label>`).join('')}</div></div></details>`;
   }
   function sidebar() {
@@ -74,7 +75,7 @@
       ${projectPicker()}
       <div class="sidebar-label">Viste</div><nav aria-label="Viste principali">${views.map(([id,i,label]) => `<button data-view="${id}" class="nav-item ${state.view === id ? 'active' : ''}" ${state.view === id ? 'aria-current="page"' : ''}>${icon(i)}<span>${label}</span></button>`).join('')}</nav>
       <div class="sidebar-divider"></div><div class="sidebar-label filter-label">Filtri <button title="Ripristina filtri" aria-label="Ripristina filtri" data-action="reset">${icon('reset',15)}</button></div>
-      <div class="sidebar-filters"><label class="select-filter budget-sidebar-filter" for="sidebar-budget-scope">Budget da visualizzare<select id="sidebar-budget-scope" data-sidebar-select="scope">${[['all','Global + Local'],['global','Global'],['local','Local']].map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label>${filterFields.map(field=>checks(field,filterOptions(field))).join('')}</div>
+      <div class="sidebar-filters"><label class="select-filter budget-sidebar-filter" for="sidebar-budget-scope">Budget da visualizzare<select id="sidebar-budget-scope" data-sidebar-select="scope">${[['all','Global + Local'],['global','Global'],['local','Local']].map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label>${filterFields.map(field=>checks(field,visibleFilterOptions(field))).join('')}</div>
       <footer class="sidebar-footer">${icon('shield',16)}<span>Elaborazione locale<small>Nessun servizio AI o cloud</small><small class="app-version">Versione ${APP_VERSION}</small></span><span class="status-dot"></span></footer></aside>`;
   }
   function chips() {
@@ -97,7 +98,7 @@
       <div class="view-filter-groups">${filterFields.map(field=>`<details class="view-filter" data-top-group="${field}" name="view-filters" ${state.topFilterOpen===field?'open':''}>
         <summary title="${esc(fieldName(field))}"><span class="view-filter-label">${esc(labels[field])}</span><span class="view-filter-count"></span>${icon('chevron',12)}</summary>
         <div class="view-filter-panel"><label class="view-filter-option view-filter-master"><input type="checkbox" data-top-filter-all="${field}" aria-label="Seleziona tutti: ${esc(fieldName(field))}"><span>Seleziona tutti</span></label>
-          <div class="view-filter-options">${filterOptions(field).map(value=>`<label class="view-filter-option"><input type="checkbox" data-top-filter="${field}" value="${esc(value)}"><span>${esc(filterLabel(field,value))}</span></label>`).join('')}</div></div>
+          <div class="view-filter-options">${visibleFilterOptions(field).map(value=>`<label class="view-filter-option"><input type="checkbox" data-top-filter="${field}" value="${esc(value)}"><span>${esc(filterLabel(field,value))}</span></label>`).join('')}</div></div>
       </details>`).join('')}</div>
       <div class="view-filter-tools"><label class="budget-level-filter">Budget da visualizzare<select class="budget-select" data-top-select="scope">${[['all','Global + Local'],['global','Global'],['local','Local']].map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>
         <div class="view-filters-presentation-tools"><label class="search-box">${icon('search',16)}<input id="presentation-search" placeholder="Cerca remediation, dominio o owner…" aria-label="Cerca remediation in presentazione"></label>
@@ -107,7 +108,7 @@
   function syncViewFilters() {
     const bar=$('.view-filters');if(!bar)return;
     for(const group of bar.querySelectorAll('[data-top-group]')){
-      const field=group.dataset.topGroup,options=filterOptions(field),selected=state.filters[field];
+      const field=group.dataset.topGroup,options=visibleFilterOptions(field),selected=state.filters[field].filter(value=>options.includes(value));
       const all=selected.length===options.length;
       group.querySelector('.view-filter-count').textContent=all?'Tutti':`${selected.length}/${options.length}`;
       group.classList.toggle('is-filtered',!all);
@@ -360,6 +361,11 @@
   function toast(message,error=false){clearTimeout(toastTimer);const el=$('#toast');el.textContent=message;el.className='toast visible'+(error?' error':'');toastTimer=setTimeout(()=>el.classList.remove('visible'),6500);}
   function setFilters(patch){
     const position=patch.scope!==undefined?{left:window.scrollX,top:window.scrollY}:null;
+    for(const field of ['capexOpex','risk','impact']){
+      if(!Array.isArray(patch[field]))continue;
+      const visible=visibleFilterOptions(field),chosen=patch[field].filter(value=>visible.includes(value));
+      patch[field]=chosen.length>0&&chosen.length===visible.length?filterOptions(field):chosen;
+    }
     Object.assign(state.filters,patch);state.page=1;state.mapPage=0;state.ownerMapPage=0;render();
     if(position)window.scrollTo(position.left,position.top);
   }
