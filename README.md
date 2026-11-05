@@ -4,6 +4,32 @@ Applicativo locale per presentare e navigare piani di remediation da Excel. Gest
 
 Tutte le logiche sono offline e deterministiche: nessun modello AI, API esterna, CDN, font remoto o telemetria. Le remediation vengono lette dal file senza suggerimenti, riscritture o correzioni automatiche. Il frontend non richiede Node/npm o un processo di build.
 
+## Modifiche per versione
+
+Ogni aggiornamento del tool viene documentato in questo README, indicando funzionalità, logiche dei dati e passaggi richiesti all’utente. Le spiegazioni estese restano nelle [note di versione](docs/release-notes.md).
+
+### 1.3.0 — Rischi e investimenti
+
+- Nuova **Mappa rischi e investimenti**, con box e frecce navigabili: **Anno → Capex/Opex → Rischio → Impatto → Dominio → Remediation**. Selezionare un box apre il livello successivo; aprire una remediation mostra anche owner, descrizioni e riferimenti al file.
+- Aggiunti i filtri **Capex/Opex**, **Rischi** e **Impatto**, sia nella barra laterale sia sopra i KPI, disponibili anche in presentazione. Aggiornano tutte le viste e le esportazioni insieme ai filtri esistenti.
+- Ogni remediation ha una classificazione **Capex oppure Opex**, un rischio principale e un impatto principale. I livelli **Alto, Medio e Basso** sono rappresentati rispettivamente in **rosso, giallo e verde**. I nomi dei rischi provengono dall’Excel.
+- Le colonne opzionali `Capex/Opex`, `Rischi` e `Impatto` si aggiungono alla **riga 3 del solo foglio Remediations**, dopo le colonne esistenti. Sono riconosciute per nome, senza modificare il tracciato precedente. Vedere il [formato delle colonne](docs/workbook-format.md#campi-opzionali-degli-investimenti-130).
+- Colonne assenti, celle vuote e righe OT restano **Non specificato**. I valori non vengono dedotti dai domini; formule, budget, moltiplicatori e attribuzioni mantengono le logiche precedenti.
+- Il CSV include i tre attributi; il PowerPoint rispetta le selezioni e riporta i filtri nelle note, mantenendo il limite di 15 slide. La copia HTML offline conserva la nuova mappa e il percorso selezionato.
+- **Per aggiornare:** usare l’immagine `ghcr.io/matte13/data-visualization-tool:1.3.0`. I progetti esistenti continuano a funzionare; quando l’Excel sarà compilato, caricarlo dal pulsante **Aggiorna Excel** del progetto. Nessun Excel cliente è incluso nel repository.
+- Verifiche: test Python e JavaScript, navigazione del grafico da tastiera, filtri condivisi, budget invariati, PowerPoint filtrato, HTML senza rete e persistenza SQL su database di prova.
+
+### 1.2.1 — Compatibilità senza reimportazione
+
+- Riconoscimento del profilo numerico originale di LE_List per mostrare le categorie Local nei progetti già salvati, senza reimportare o riscrivere l’Excel.
+- Versione del tool visibile nel footer dell’interfaccia, anche in modalità presentazione.
+
+### 1.2.0 — Composizione del budget
+
+- Distinzione tra base Remediations e delta OT e tra Local Complete con OT, Complete senza OT e Business.
+- Filtri sopra i KPI, label owner **Advisor** e strumenti per snapshot e rollback della libreria.
+- Logiche e limiti di attribuzione documentati nelle [note della versione](docs/release-notes.md#120).
+
 ## Avvio locale
 
 Prerequisito: Python 3.12 o superiore. Dalla cartella del repository:
@@ -39,7 +65,7 @@ Titoli, testo e controlli web usano la tipografia precedente, **Inter / font di 
 
 **Panoramica** mostra gli investimenti annuali, per dominio e per owner. Subito sotto, **Mappa Navigabile** esplora anno → dominio → remediation. **Mappa Navigabile per Owner** aggiunge il percorso anno → owner → dominio → remediation: mostra gli owner riportati nel file e apre le remediation selezionando un dominio, nel rispetto dei filtri correnti. Le frecce delle mappe rappresentano raggruppamenti, non dipendenze progettuali. **Remediation** presenta schede visive con dominio, owner, anno e budget Global/Local, ricerca, ordinamento e paginazione. **Country / legal entity** associa ogni entità ai suoi investimenti annuali con schede e barre sulla stessa scala; un click sull’anno apre la mappa filtrata per entità e anno.
 
-Tutti i filtri sono **selezionati di default**, incluso OT quando presente. Ogni gruppo (perimetro, anno, dominio, owner, entità, NIS2 e priorità) ha una casella **Seleziona tutti**: attivarla seleziona tutte le voci, disattivarla le esclude tutte. Una selezione vuota mostra zero risultati, mentre una selezione parziale è segnalata dalla casella intermedia. Durante le selezioni la barra laterale conserva posizione, gruppi aperti e focus del cursore.
+Tutti i filtri sono **selezionati di default**, incluso OT quando presente. Ogni gruppo (perimetro, anno, dominio, owner, entità, NIS2, priorità, Capex/Opex, rischi e impatto) ha una casella **Seleziona tutti**: attivarla seleziona tutte le voci, disattivarla le esclude tutte. Una selezione vuota mostra zero risultati, mentre una selezione parziale è segnalata dalla casella intermedia. Durante le selezioni la barra laterale conserva posizione, gruppi aperti e focus del cursore.
 
 Gli stessi filtri sono disponibili anche nella barra **Filtri** sopra i riquadri dei budget, prima delle schede Panoramica, Mappe, Remediation e Country / legal entity. Le due barre condividono le selezioni; i menu superiori restano aperti durante le scelte multiple e conservano la posizione nell'elenco. Escape chiude prima il menu aperto. In modalità **Presentazione** la barra superiore rimane visibile e offre anche ricerca, livello Global/Local e filtro sul budget locale. I controlli vengono esclusi dalla stampa e funzionano anche nella copia HTML offline.
 
@@ -47,7 +73,7 @@ Gli stessi filtri sono disponibili anche nella barra **Filtri** sopra i riquadri
 
 I colori hanno un significato stabile: lo stesso anno mantiene lo stesso colore nelle diverse viste, i domini sono riconoscibili dai loro colori e Global/Local restano distinti. La precedente sezione “Qualità dei dati” è stata rimossa; gli avvisi necessari per interpretare importi mancanti o attribuzioni incerte restano nel dettaglio delle singole remediation e accanto ai grafici.
 
-Filtri combinabili: perimetro Remediations/OT, anno, dominio, owner, country/legal entity, NIS2, priorità, ricerca e budget locale **positivo / zero / non determinato**. Il selettore Global/Local sceglie gli importi rappresentati, senza eliminare le righe a zero o prive di stima.
+Filtri combinabili: perimetro Remediations/OT, anno, dominio, owner, country/legal entity, NIS2, priorità, Capex/Opex, rischi, impatto, ricerca e budget locale **positivo / zero / non determinato**. Il selettore Global/Local sceglie gli importi rappresentati, senza eliminare le righe a zero o prive di stima.
 
 I budget Global sono importi di gruppo: non vengono ripartiti o moltiplicati per country. Complete/Business Oriented sono costi unitari; il Local complessivo viene letto dal file. Le attribuzioni per entità derivano esclusivamente dalle formule riconosciute e dai gruppi espliciti di LE_List, non certificano l'applicabilità operativa. Le attribuzioni ambigue restano segnalate e non diventano ripartizioni inventate. ID duplicati e righe senza ID rimangono distinti; celle vuote e zero rimangono distinguibili.
 
@@ -115,5 +141,3 @@ python tests/ui_smoke.py
 ```
 
 Il test UI usa solo store temporanei e dati fittizi. La navigazione diretta a URL `file://` può essere bloccata dalle policy del browser gestito: il test verifica il contenuto HTML autosufficiente con richieste esterne bloccate. Non viene eseguito un deployment.
-
-La vista **Mappa rischi e investimenti** collega anno, Capex/Opex, rischio principale, impatto, dominio e remediation. I nuovi campi opzionali si aggiungono soltanto a Remediations; i relativi filtri sono condivisi da tutte le viste e dalle esportazioni. Per preparare il nuovo Excel vedere [il formato delle colonne](docs/workbook-format.md#campi-opzionali-degli-investimenti-130).
