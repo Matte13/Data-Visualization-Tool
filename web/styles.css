@@ -473,3 +473,10 @@ h1 { font-size: 42px; line-height: 1.12; letter-spacing: -.4px; color: #00338d; 
 .allocation-country{display:inline-flex;align-items:center;gap:8px;min-width:0}
 .allocation-country .country-flags{display:inline-flex;gap:3px;flex-shrink:0}
 .allocation-country .country-flag{width:18px;height:13.5px;object-fit:cover}
+
+/* Presentation maps use the viewport rather than the normal reading column. */
+@media screen {
+  .presentation main { max-width:none; width:100%; padding-left:16px; padding-right:16px; }
+  .presentation .map-panel { width:100%; min-width:0; }
+  .presentation .map-scroll svg { display:block; width:100%!important; min-width:0!important; height:auto; }
+}

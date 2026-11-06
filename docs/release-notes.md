@@ -1,5 +1,9 @@
 # Note di versione
 
+## 1.3.3
+
+La modalità presentazione usa la larghezza disponibile della finestra, con margini laterali di 16 px. I grafici delle tre mappe si adattano al contenitore conservando le proporzioni: tutte le colonne rientrano nella larghezza visibile. Il layout normale e le logiche dei dati rimangono invariati. Il controllo browser verifica i margini e l’assenza di scorrimento orizzontale su schermi larghi.
+
 ## 1.3.2
 
 Rimossa l’opzione Non specificato dai filtri Capex/Opex, Rischi e Impatto nelle due barre e nella copia offline. Tutti conserva le righe prive di attributi nei totali; le selezioni parziali escludono le righe senza i valori selezionati. Nessuna modifica ai dati importati o alle regole della mappa rischi e investimenti.

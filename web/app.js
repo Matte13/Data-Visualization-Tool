@@ -1,7 +1,7 @@
 /* Data Visualization Tool — self-contained client. All views derive from the unchanged workbook rows. */
 (() => {
   'use strict';
-  const APP_VERSION = '1.3.2';
+  const APP_VERSION = '1.3.3';
   const M = window.RemediationModel;
   const $ = (selector, root = document) => root.querySelector(selector);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

@@ -58,6 +58,19 @@ def main():
                     expect(page.locator('.allocation-list [data-country-code="it"]')).to_have_count(1)
                     page.locator('#close-detail').click()
                 page.locator('.view-tabs [data-view="risk-map"]').click()
+                page.set_viewport_size({'width':2560,'height':1440})
+                page.locator('[data-action="presentation"]').click()
+                for view in ('map','owner-map','risk-map'):
+                    page.locator(f'.view-tabs [data-view="{view}"]').click()
+                    geometry=page.locator('.map-panel').evaluate('''panel=>{
+                      const box=panel.getBoundingClientRect(),scroll=panel.querySelector('.map-scroll');
+                      const svg=scroll.querySelector('svg').getBoundingClientRect();
+                      return {left:box.left,right:innerWidth-box.right,overflow:scroll.scrollWidth-scroll.clientWidth,svg:svg.width,available:scroll.clientWidth};
+                    }''')
+                    assert geometry['left']<=20 and geometry['right']<=20,geometry
+                    assert geometry['overflow']<=1 and geometry['svg']<=geometry['available']+1,geometry
+                page.locator('[data-action="presentation"]').click()
+                page.set_viewport_size({'width':1600,'height':1000})
                 group=page.locator('.view-filters [data-top-group="capexOpex"]')
                 group.locator('summary').click()
                 group.locator('[data-top-filter-all]').uncheck()
