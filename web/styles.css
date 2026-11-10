@@ -481,3 +481,6 @@ h1 { font-size: 42px; line-height: 1.12; letter-spacing: -.4px; color: #00338d; 
   .presentation .map-scroll svg { display:block; width:100%!important; min-width:0!important; height:auto; }
 }
 .capex-note-section p{white-space:pre-wrap}
+
+/* Keep the existing detail styling; position it as a centered dialog. */
+.detail-drawer{inset:auto;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,calc(100% - 32px));max-height:calc(100dvh - 32px)}

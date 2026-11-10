@@ -1,5 +1,11 @@
 # Note di versione
 
+## 1.4.3
+
+Nelle mappe un click seleziona/prosegue, due click aprono il dettaglio. La gestione considera l’eventuale ridimensionamento del grafico dopo il primo click in presentazione. Invio mantiene l’accesso da tastiera ai dettagli; nelle schede non cambia il click singolo.
+
+La finestra del dettaglio è centrata, senza modificare lo stile dei contenuti o il pulsante X. Altezza limitata allo schermo e scorrimento interno; funzionamento anche su mobile e nella copia offline. Nessuna modifica a dati, budget o formato Excel.
+
 ## 1.4.2
 
 Note Capex/Opex spostate nel pannello della singola remediation, soltanto quando il campo contiene una nota effettiva. Rimosso il popup dei box Capex/Opex.

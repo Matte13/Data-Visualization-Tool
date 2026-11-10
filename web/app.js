@@ -1,7 +1,7 @@
 /* Data Visualization Tool — self-contained client. All views derive from the unchanged workbook rows. */
 (() => {
   'use strict';
-  const APP_VERSION = '1.4.2';
+  const APP_VERSION = '1.4.3';
   const M = window.RemediationModel;
   const $ = (selector, root = document) => root.querySelector(selector);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -215,10 +215,10 @@
     const visible=focused.slice(state.mapPage*6,state.mapPage*6+6), height=Math.max(590,domains.length*76+82,visible.length*105+85);
     const yearNodes=years.map((y,i)=>{const yy=105+i*145,t=scopeTotals(rows.filter(r=>r.year===y));return `<g class="map-node year-node ${y===state.mapYear?'chosen':''}" role="button" tabindex="0" data-map-year="${y}" style="--year-color:${colorForYear(y)}" aria-label="Esplora anno ${y}"><rect x="20" y="${yy}" width="172" height="102" rx="10"/><text x="38" y="${yy+31}" class="map-year">${y}</text><text x="38" y="${yy+57}" class="node-budget">${esc(selectedMoney(t,true))}</text></g>`}).join('');
     const domainNodes=domains.map((d,i)=>{const yy=70+i*76,total=(state.filters.scope==='local'?0:d.global)+(state.filters.scope==='global'?0:d.local);return `<g class="map-node domain-node ${d.label===state.mapDomain?'chosen':''}" role="button" tabindex="0" data-map-domain="${esc(d.label)}" style="--domain-color:${colorForDomain(d.label)}" aria-label="Esplora ${esc(d.label)}"><rect x="290" y="${yy}" width="250" height="65" rx="8"/>${svgText(d.label,306,yy+23,31,2)}<text x="306" y="${yy+55}" class="node-sub">${esc(budgetMoney(d,true))}</text></g>`}).join('');
-    const detailNodes=visible.map((r,i)=>{const yy=70+i*105;return `<g class="map-node leaf" style="--domain-color:${colorForDomain(r.domain)}" role="button" tabindex="0" data-detail="${esc(r.key)}" aria-label="Dettaglio ${esc(r.name)}"><rect x="640" y="${yy}" width="330" height="94" rx="8"/>${svgText(r.name,656,yy+39,39,2)}<text x="656" y="${yy+82}" class="node-sub">${esc(selectedMoney(scopeTotals([r]),true))}</text></g>`}).join('');
+    const detailNodes=visible.map((r,i)=>{const yy=70+i*105;return `<g class="map-node leaf${state.selectedRemediation===r.key?' chosen':''}" style="--domain-color:${colorForDomain(r.domain)}" role="button" tabindex="0" data-detail="${esc(r.key)}" aria-label="Dettaglio ${esc(r.name)}"><rect x="640" y="${yy}" width="330" height="94" rx="8"/>${svgText(r.name,656,yy+39,39,2)}<text x="656" y="${yy+82}" class="node-sub">${esc(selectedMoney(scopeTotals([r]),true))}</text></g>`}).join('');
     const chosenY=105+years.indexOf(state.mapYear)*145+51,chosenD=70+domains.findIndex(d=>d.label===state.mapDomain)*76+32;
     const edges=domains.map((d,i)=>`<path class="map-edge ${d.label===state.mapDomain?'highlight':''}" d="M192 ${chosenY} C240 ${chosenY},240 ${102+i*76},282 ${102+i*76}"/>`).join('')+visible.map((r,i)=>`<path class="map-edge highlight" d="M540 ${chosenD} C590 ${chosenD},590 ${117+i*105},632 ${117+i*105}"/>`).join('');
-    return `<section class="panel map-panel">${panelTitle('','Mappa delle remediation','<button class="button small" data-action="png">'+icon('download',15)+' Salva PNG</button>')}<div class="map-explanation">Seleziona un anno, poi un dominio. Le frecce raggruppano le remediation; non indicano dipendenze tra progetti.</div><div class="map-path"><span class="year-pill" style="--year-color:${colorForYear(state.mapYear)}">${state.mapYear}</span>${icon('chevron',14)}<strong>${esc(state.mapDomain)}</strong><span class="map-page-controls"><button data-action="map-prev" ${state.mapPage===0?'disabled':''}>←</button>${state.mapPage+1}/${pages}<button data-action="map-next" ${state.mapPage===pages-1?'disabled':''}>→</button></span></div><div class="map-scroll"><svg id="concept-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 995 ${height}" role="img" aria-label="Mappa anno, dominio e remediation"><defs><marker id="map-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="995" height="${height}" fill="#fbfcfd"/><text x="20" y="32" class="map-col-label">01 / ANNO</text><text x="290" y="32" class="map-col-label">02 / DOMINIO</text><text x="640" y="32" class="map-col-label">03 / REMEDIATION · ${focused.length} RIGHE</text>${edges}${yearNodes}${domainNodes}${detailNodes}</svg></div></section>`;
+    return `<section class="panel map-panel">${panelTitle('','Mappa delle remediation','<button class="button small" data-action="png">'+icon('download',15)+' Salva PNG</button>')}<div class="map-explanation">Seleziona un anno, poi un dominio. Doppio click sulla remediation per i dettagli. Le frecce raggruppano le remediation; non indicano dipendenze tra progetti.</div><div class="map-path"><span class="year-pill" style="--year-color:${colorForYear(state.mapYear)}">${state.mapYear}</span>${icon('chevron',14)}<strong>${esc(state.mapDomain)}</strong><span class="map-page-controls"><button data-action="map-prev" ${state.mapPage===0?'disabled':''}>←</button>${state.mapPage+1}/${pages}<button data-action="map-next" ${state.mapPage===pages-1?'disabled':''}>→</button></span></div><div class="map-scroll"><svg id="concept-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 995 ${height}" role="img" aria-label="Mappa anno, dominio e remediation"><defs><marker id="map-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="995" height="${height}" fill="#fbfcfd"/><text x="20" y="32" class="map-col-label">01 / ANNO</text><text x="290" y="32" class="map-col-label">02 / DOMINIO</text><text x="640" y="32" class="map-col-label">03 / REMEDIATION · ${focused.length} RIGHE</text>${edges}${yearNodes}${domainNodes}${detailNodes}</svg></div></section>`;
   }
 
   let riskPath=Array.isArray(window.DVT_STATE?.riskPath)?window.DVT_STATE.riskPath:[];
@@ -272,13 +272,13 @@
       });
     });
     const width=Math.max(780,xs[columns.length-1]+widths[columns.length-1]+20);
-    return `<section class="panel map-panel investment-map"><div class="panel-title"><h2>Rischi e investimenti</h2></div><div class="map-explanation">Seleziona anno, Capex/Opex e dominio, poi una remediation per vedere il rischio associato e il suo impatto. Il dettaglio si apre selezionando la remediation. Risk Type e Impact Type sono attributi della remediation: le frecce non indicano coppie rischio–impatto. I budget dei gruppi di attributi possono sovrapporsi e non si sommano. Risk Level: High rosso, Medium giallo, Low verde.</div>${notice}<div class="map-scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" style="min-width:${width}px;width:${width}px" role="group" aria-label="Mappa rischi e investimenti"><defs><marker id="risk-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="${width}" height="${height}" fill="#fbfcfd"/>${edges}${nodes}</svg></div></section>`;
+    return `<section class="panel map-panel investment-map"><div class="panel-title"><h2>Rischi e investimenti</h2></div><div class="map-explanation">Seleziona anno, Capex/Opex e dominio, poi una remediation per vedere il rischio associato e il suo impatto. Click singolo per proseguire; doppio click sulla remediation per aprire il dettaglio. Risk Type e Impact Type sono attributi della remediation: le frecce non indicano coppie rischio–impatto. I budget dei gruppi di attributi possono sovrapporsi e non si sommano. Risk Level: High rosso, Medium giallo, Low verde.</div>${notice}<div class="map-scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" style="min-width:${width}px;width:${width}px" role="group" aria-label="Mappa rischi e investimenti"><defs><marker id="risk-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="${width}" height="${height}" fill="#fbfcfd"/>${edges}${nodes}</svg></div></section>`;
   }
 
   function ownerMapView(rows) {
     const result=window.OwnerMap.render({data,rows,year:state.ownerMapYear,owner:state.ownerMapOwner,
       domain:state.ownerMapDomain,page:state.ownerMapPage,esc,icon,money,model:M,colorForYear,colorForDomain,
-      scope:state.filters.scope,entitySelection:entitySelection()});
+      scope:state.filters.scope,entitySelection:entitySelection(),selectedRemediation:state.selectedRemediation});
     state.ownerMapYear=result.year;state.ownerMapOwner=result.owner;
     state.ownerMapDomain=result.domain;state.ownerMapPage=result.page;
     return result.html;
@@ -372,7 +372,7 @@
       const visible=visibleFilterOptions(field),chosen=patch[field].filter(value=>visible.includes(value));
       patch[field]=chosen.length>0&&chosen.length===visible.length?filterOptions(field):chosen;
     }
-    Object.assign(state.filters,patch);state.page=1;state.mapPage=0;state.ownerMapPage=0;render();
+    lastMapActivation=null;Object.assign(state.filters,patch);state.page=1;state.mapPage=0;state.ownerMapPage=0;render();
     if(position)window.scrollTo(position.left,position.top);
   }
   function download(content,type,filename){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -381,7 +381,7 @@
     const doc=document.documentElement.cloneNode(true);doc.querySelector('#app').innerHTML='<div class="initial-loading">Apertura della copia offline…</div>';
     doc.querySelectorAll('script').forEach(el=>el.remove());doc.querySelectorAll('link[rel="stylesheet"]').forEach(el=>el.remove());
     const style=document.createElement('style');style.textContent=window.DVT_CSS;doc.querySelector('head').appendChild(style);
-    for(const contents of ['window.DVT_DATA='+JSON.stringify(data).replace(/</g,'\\u003c')+';window.DVT_STATE='+JSON.stringify({view:state.view,filters:state.filters,riskPath,mapYear:state.mapYear,mapDomain:state.mapDomain,mapPage:state.mapPage,ownerMapYear:state.ownerMapYear,ownerMapOwner:state.ownerMapOwner,ownerMapDomain:state.ownerMapDomain,ownerMapPage:state.ownerMapPage,pageSize:state.pageSize,sort:state.sort,direction:state.direction}).replace(/</g,'\\u003c')+';', window.DVT_MODEL, window.DVT_COUNTRIES, window.DVT_OWNER_MAP, window.DVT_APP]) {const script=document.createElement('script');script.textContent=contents;doc.querySelector('body').appendChild(script);}
+    for(const contents of ['window.DVT_DATA='+JSON.stringify(data).replace(/</g,'\\u003c')+';window.DVT_STATE='+JSON.stringify({view:state.view,filters:state.filters,selectedRemediation:state.selectedRemediation,riskPath,mapYear:state.mapYear,mapDomain:state.mapDomain,mapPage:state.mapPage,ownerMapYear:state.ownerMapYear,ownerMapOwner:state.ownerMapOwner,ownerMapDomain:state.ownerMapDomain,ownerMapPage:state.ownerMapPage,pageSize:state.pageSize,sort:state.sort,direction:state.direction}).replace(/</g,'\\u003c')+';', window.DVT_MODEL, window.DVT_COUNTRIES, window.DVT_OWNER_MAP, window.DVT_APP]) {const script=document.createElement('script');script.textContent=contents;doc.querySelector('body').appendChild(script);}
     // Scripts are static application code; source cell text is JSON-escaped above.
     download('<!doctype html>\n'+doc.outerHTML,'text/html;charset=utf-8','Data-Visualization-Tool-remediation-offline.html');toast('Copia offline salvata: include tutti i dati e i filtri.');
   }
@@ -428,7 +428,7 @@
     catch {return ' Il progetto è salvato; l’elenco non è stato aggiornato. Ricarica la pagina per riprovare.';}
   }
   function resetProjectView() {
-    riskPath=[];clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.topFilterOpen=null;state.projectDialog=null;state.projectName='';pendingFile=null;
+    riskPath=[];clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.selectedRemediation=null;lastMapActivation=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.topFilterOpen=null;state.projectDialog=null;state.projectName='';pendingFile=null;
   }
   function openProjectDialog(mode, file=null) {
     if(state.busy)return;
@@ -491,16 +491,31 @@
       case 'restore':await restoreProject();break;
     }
   }
+  let lastMapActivation=null;
+  function selectMapRemediation(el, open=false, event=null) {
+    const key=el.dataset.riskDetail||el.dataset.detail;
+    const now=performance.now();
+    state.selectedRemediation=key;
+    if(el.dataset.riskDetail){const step=Number(el.dataset.riskStep);riskPath=riskPath.slice(0,step);riskPath[step]=el.dataset.riskValue;}
+    if(open){lastMapActivation=null;state.detail=key;render();return;}
+    lastMapActivation={key,view:state.view,time:now,x:event?.clientX,y:event?.clientY};
+    if(el.dataset.riskDetail){render();[...document.querySelectorAll('[data-risk-detail]')].find(node=>node.dataset.riskDetail===key)?.focus({preventScroll:true});}
+    else{document.querySelectorAll('.map-node.leaf.chosen').forEach(node=>node.classList.remove('chosen'));el.classList.add('chosen');}
+  }
+
   document.addEventListener('click',event=>{
+    // A first click can expand/rescale the SVG under the pointer in presentation mode.
+    // Recognize the second physical click even if it now lands on a different SVG child.
+    if(event.detail>0&&lastMapActivation?.view===state.view&&performance.now()-lastMapActivation.time<500&&Math.hypot(event.clientX-lastMapActivation.x,event.clientY-lastMapActivation.y)<6&&event.target.closest('.map-panel')){event.preventDefault();state.detail=lastMapActivation.key;lastMapActivation=null;render();return;}
     const openFilter=$('.view-filters details[open]');
     if(openFilter&&!openFilter.contains(event.target))closeViewFilters();
-    const el=event.target.closest('[data-risk-step],[data-action],[data-view],[data-detail],[data-scope],[data-budget-component],[data-year],[data-domain],[data-owner],[data-entity],[data-sort],[data-remove-field],[data-clear],[data-map-year],[data-map-domain],[data-country-year],[data-reset-group],[data-owner-map-year],[data-owner-map-owner],[data-owner-map-domain]');if(!el){if(state.exportMenu&&!event.target.closest('.export-menu,.heading-actions')){state.exportMenu=false;render();}return;}
+    const el=event.target.closest('[data-risk-step],[data-action],[data-view],[data-detail],[data-scope],[data-budget-component],[data-year],[data-domain],[data-owner],[data-entity],[data-sort],[data-remove-field],[data-clear],[data-map-year],[data-map-domain],[data-country-year],[data-reset-group],[data-owner-map-year],[data-owner-map-owner],[data-owner-map-domain]');if(!el){lastMapActivation=null;if(state.exportMenu&&!event.target.closest('.export-menu,.heading-actions')){state.exportMenu=false;render();}return;}
     if(el.hasAttribute('disabled')||el.getAttribute('aria-disabled')==='true')return;
     event.preventDefault();
     if(el.dataset.action){action(el.dataset.action);return;}
-    if(el.dataset.view){state.view=el.dataset.view;state.exportMenu=false;state.menu=false;render();return;}
+    if(el.dataset.view){lastMapActivation=null;state.view=el.dataset.view;state.exportMenu=false;state.menu=false;render();return;}
 
-    if(el.dataset.riskDetail){const step=Number(el.dataset.riskStep);riskPath=riskPath.slice(0,step);riskPath[step]=el.dataset.riskValue;state.detail=el.dataset.riskDetail;render();return;}
+    if(el.closest('.map-panel')&&(el.dataset.riskDetail||el.dataset.detail)){selectMapRemediation(el,event.detail===0,event);return;}
     if(el.dataset.detail){state.detail=el.dataset.detail;render();return;}
     if(el.dataset.scope){setFilters({scope:el.dataset.scope});return;}
     if(el.dataset.budgetComponent){
@@ -524,6 +539,7 @@
     if(el.dataset.mapYear){state.mapYear=Number(el.dataset.mapYear);state.mapPage=0;render();return;}
     if(el.dataset.mapDomain){state.mapDomain=el.dataset.mapDomain;state.mapPage=0;render();return;}
   });
+  document.addEventListener('dblclick',event=>{const el=event.target.closest('.map-node[data-detail],.map-node[data-risk-detail]');if(el&&!state.detail){event.preventDefault();selectMapRemediation(el,true,event);}});
   document.addEventListener('toggle',event=>{
     const group=event.target;
     if(!group.matches?.('details[data-top-group]'))return;

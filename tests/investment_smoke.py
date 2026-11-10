@@ -44,6 +44,10 @@ def main():
                 expect(leaf).to_have_class('map-node leaf')
                 expect(leaf.locator('rect')).to_have_attribute('width','440')
                 leaf.click()
+                expect(page.locator('.detail-drawer')).to_have_count(0)
+                expect(page.locator('[data-risk-step="4"]')).to_have_count(1)
+                page.wait_for_timeout(550)
+                leaf.dblclick()
                 expect(page.locator('.detail-drawer')).to_contain_text('Cyber')
                 expect(page.locator('.detail-drawer')).to_contain_text('Alto')
                 for code in ('it','nl','be'):
@@ -55,7 +59,11 @@ def main():
                     page.locator(f'.view-tabs [data-view="{view}"]').click()
                     attribute='data-map-domain' if view=='map' else 'data-owner-map-domain'
                     page.locator(f'[{attribute}="Governance"]').click()
-                    page.locator('#view-content [data-detail="Remediations:4"]').click()
+                    leaf=page.locator('#view-content [data-detail="Remediations:4"]')
+                    leaf.click()
+                    expect(page.locator('.detail-drawer')).to_have_count(0)
+                    page.wait_for_timeout(550)
+                    leaf.dblclick()
                     expect(page.locator('.allocation-list [data-country-code="it"]')).to_have_count(1)
                     page.locator('#close-detail').click()
                 page.locator('.view-tabs [data-view="risk-map"]').click()
