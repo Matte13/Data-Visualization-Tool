@@ -13,7 +13,7 @@ from .budget_breakdown import budget_breakdown
 
 MAX_ROWS = 5000
 MAX_COUNTRY_REFERENCES = 200000
-FILTER_FIELDS = ('sheets', 'years', 'domains', 'owners', 'entities', 'nis2', 'priority', 'capexOpex', 'risk', 'impact')
+FILTER_FIELDS = ('sheets', 'years', 'domains', 'owners', 'entities', 'nis2', 'priority', 'capexOpex', 'risk', 'impact', 'riskLevel', 'remediationType')
 
 
 def _number(value):

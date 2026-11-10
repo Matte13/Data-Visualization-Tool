@@ -113,3 +113,13 @@ Ogni riga ha un solo valore Capex oppure Opex, un rischio principale (testo libe
 Le colonne possono mancare nei file già salvati. Celle vuote, colonne assenti e righe OT sono mostrate come **Non specificato**. Valori non riconosciuti sono conservati e mostrati senza assegnare loro un livello o un colore di rischio. Intestazioni duplicate vengono rifiutate. Nessun budget viene stimato o modificato.
 
 Dalla 1.3.1, la mappa rischi e investimenti richiede Capex oppure Opex e un rischio non vuoto. Le righe che non soddisfano questi requisiti sono escluse soltanto da quella mappa con un avviso e un conteggio; rimangono nei dati importati, nelle altre viste e nei totali. L’impatto può ancora risultare non specificato: non viene attribuito automaticamente un livello.
+
+## Consolidato All Remediations (1.4.0)
+
+Richiede LE_List e All Remediations. Intestazioni alla riga 1: Remediation, Domain, Remediation name, Budget Global, Budget Local - Complete, Budget Local - Business Oriented, BUDGET LOCAL TOT, Year, NIS2, Owner, Priority, Type Of Remediation, Risk Type, Impact type, Risk Level, CAPEX/OPEX, Note. Le descrizioni tra parentesi su righe successive delle intestazioni Risk/Impact sono accettate.
+
+Il consolidato è la fonte unica di dati economici e attributi. I fogli CMA, WIFI, VA Remediations e OT Remediations sono facoltativi per descrizioni e applicabilità: si confrontano anno, importi e nome normalizzato (oppure ID quando il nome non coincide). Non si sommano i loro budget. I riepiloghi Budget non sono fonti additive. Gli ID R.OT. identificano il perimetro OT; le chiavi univoche sono All Remediations:riga.
+
+Risk Type e Impact Type possono contenere più valori separati da ritorni a capo; non definiscono coppie rischio–impatto. Risk Level ammette High/Medium/Low e resta separato dai tipi di impatto. CAPEX/OPEX classifica la riga intera. Note è testo originale riferito alla classificazione economica; non cambia automaticamente classificazioni o budget.
+
+I risultati numerici delle formule devono essere salvati. La formula originale è conservata. Se una formula richiama un’altra riga o usa un gruppo non identificabile in LE_List, il totale viene conservato senza attribuzione country automatica. Gli anni delle righe annuali NIS2 devono essere corretti nel file, non vengono ricostruiti dal nome o dall’ID.

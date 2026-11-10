@@ -31,6 +31,7 @@ jobs:
           python tests/presentation_filters_smoke.py
           python tests/semantic_budget_smoke.py
           python tests/investment_smoke.py
+          python tests/consolidated_smoke.py
 
   azure-sql-and-container:
     runs-on: ubuntu-latest

@@ -213,7 +213,7 @@ def _formula_groups(sheet_name, row, formula, known_groups):
 def _allocate(record, entities, issues):
     key = record['key']
     known_groups = {group for entity in entities for group in entity['groups']}
-    groups = _formula_groups(record['sheet'], record['excelRow'], record['localFormula'], known_groups)
+    groups = _formula_groups(record['sheet'], record['excelRow'], record.get('allocationFormula', record['localFormula']), known_groups)
     record.update(allocations=[], allocationStatus='unavailable', allocationNote='Formula non riconosciuta: budget locale non attribuito alle legal entity.')
     if record['localTotal'] is None:
         record['allocationNote'] = 'Budget locale complessivo non specificato nel file.'
@@ -396,7 +396,8 @@ def parse_workbook(data: bytes, filename: str) -> dict:
     except Exception as error:
         raise ValueError('Impossibile leggere il file. Selezionare un file .xlsx valido con il tracciato Remediations/LE_List previsto.') from error
     try:
-        for required in ('LE_List', 'Remediations'):
+        consolidated = 'All Remediations' in formulas.sheetnames
+        for required in (('LE_List',) if consolidated else ('LE_List', 'Remediations')):
             if required not in formulas.sheetnames:
                 raise ValueError(f'Foglio obbligatorio «{required}» mancante.')
         if any(sheet.max_row > 5000 or sheet.max_column > 200 for sheet in formulas):
@@ -404,9 +405,13 @@ def parse_workbook(data: bytes, filename: str) -> dict:
         entities = _entities(values['LE_List'])
         legacy_profile = _apply_legacy_classification(values['LE_List'], entities)
         issues = []
-        rows = _main_rows(formulas, values, entities, issues)
-        if 'OT' in formulas.sheetnames:
-            rows += _ot_rows(formulas, values, entities, issues)
+        if consolidated:
+            from .consolidated import parse_rows
+            rows = parse_rows(formulas, values, entities, issues)
+        else:
+            rows = _main_rows(formulas, values, entities, issues)
+            if 'OT' in formulas.sheetnames:
+                rows += _ot_rows(formulas, values, entities, issues)
         _issue(issues, 'provisional-applicability', 'Le attribuzioni per legal entity rappresentano i gruppi di budget della formula. La colonna Applicable Countries è «to be verified» e non certifica l’applicabilità delle remediation.', severity='info')
         by_id = defaultdict(list)
         for record in rows:
@@ -429,7 +434,7 @@ def parse_workbook(data: bytes, filename: str) -> dict:
             _issue(issues, 'missing-descriptions', 'Alcune descrizioni Global/Local non sono presenti nel file.', missing_descriptions, 'info')
         totals = _summaries(rows)
         # Match the source's own total row where present, without evaluating it.
-        for r in range(4, formulas['Remediations'].max_row + 1):
+        for r in (() if consolidated else range(4, formulas['Remediations'].max_row + 1)):
             if formulas['Remediations'][f'D{r}'].value is None and formulas['Remediations'][f'I{r}'].data_type == 'f':
                 global_reference = _number(formulas['Remediations'], values['Remediations'], f'I{r}')
                 local_reference = _number(formulas['Remediations'], values['Remediations'], f'L{r}')

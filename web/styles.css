@@ -480,3 +480,8 @@ h1 { font-size: 42px; line-height: 1.12; letter-spacing: -.4px; color: #00338d; 
   .presentation .map-panel { width:100%; min-width:0; }
   .presentation .map-scroll svg { display:block; width:100%!important; min-width:0!important; height:auto; }
 }
+
+.capex-notes-dialog{position:fixed;z-index:95;top:50%;left:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 32px));max-height:85vh;overflow:auto;background:white;border:1px solid #dce5e9;border-radius:12px;padding:24px;box-shadow:0 20px 80px #00338d33;color:#425974}
+.capex-notes-dialog h2{color:#00338d;font-size:22px;margin:0}
+.capex-notes-dialog p,.capex-notes-dialog li{font-size:13px;line-height:1.6}
+.capex-note-text{white-space:pre-wrap}

@@ -19,6 +19,20 @@
     if (allocations.some(a => number(a.amount) == null)) return null;
     return allocations.reduce((total, allocation) => total + allocation.amount, 0);
   }
+  function attributeValues(row, field) {
+    if(field==='risk'&&Array.isArray(row.riskTypes))return row.riskTypes.length?row.riskTypes:['Non specificato'];
+    if(field==='impact'&&Array.isArray(row.impactTypes))return row.impactTypes.length?row.impactTypes:['Non specificato'];
+    if(field==='riskLevel')return [row.riskLevel||({Alto:'High',Medio:'Medium',Basso:'Low'}[row.impact])||'Non specificato'];
+    return [row[field]||'Non specificato'];
+  }
+  function attributeGroups(rows, field, entities=null) {
+    const groups=new Map();
+    for(const row of rows)for(const label of new Set(attributeValues(row,field))){
+      if(!groups.has(label))groups.set(label,[]);
+      groups.get(label).push(row);
+    }
+    return [...groups].map(([label,records])=>({label,rows:records,...totals(records,entities)}));
+  }
   function filterRows(rows, filters = {}) {
     // 'all' is explicit because summing every entity cannot recover unallocated
     // source budgets; group totals must retain the original cached Excel amount.
@@ -28,7 +42,7 @@
     return rows.filter(row => {
       if (!selected(filters.sheets, row.sheet) || !selected(filters.years, row.year) ||
           !selected(filters.domains, row.domain) || !selected(filters.owners, row.owner || 'Non specificato')) return false;
-      if (['capexOpex','risk','impact'].some(field => !selected(filters[field], row[field] || 'Non specificato'))) return false;
+      if (['capexOpex','risk','impact','riskLevel','remediationType'].some(field => !attributeValues(row,field).some(value=>selected(filters[field],value)))) return false;
       const nis2Value = (row.nis2 || '').trim().toLowerCase();
       const nis2Status = ['yes','nis 2','nis2'].includes(nis2Value) ? 'yes' : nis2Value === 'no' ? 'no' : 'missing';
       if (!statusSelected(filters.nis2, nis2Status)) return false;
@@ -42,7 +56,7 @@
       if (filters.localBudget === 'positive' && !(local > 0)) return false;
       if (filters.localBudget === 'zero' && local !== 0) return false;
       if (filters.localBudget === 'missing' && local !== null) return false;
-      if (query && ![row.id,row.name,row.domain,row.owner,row.globalDescription,row.localDescription,row.applicableCountries,row.capexOpex,row.risk,row.impact,row.excelRow]
+      if (query && ![row.id,row.name,row.domain,row.owner,row.globalDescription,row.localDescription,row.applicableCountries,row.capexOpex,row.risk,row.impact,row.riskTypes,row.impactTypes,row.riskLevel,row.remediationType,row.capexOpexNote,row.excelRow]
         .join(' ').toLocaleLowerCase('it').includes(query)) return false;
       return true;
     });
@@ -50,7 +64,7 @@
   // Only declared metadata may enter the investment map; never fill gaps.
   function investmentRows(rows) {
     return rows.filter(row => ['capex','opex'].includes(String(row.capexOpex||'').trim().toLowerCase())
-      && String(row.risk||'').trim() && String(row.risk).trim().toLowerCase()!=='non specificato');
+      && attributeValues(row,'risk').some(value=>String(value).trim()&&String(value).trim().toLowerCase()!=='non specificato'));
   }
   function totals(rows, entities = null) {
     return {
@@ -120,7 +134,7 @@
       entities != null ? 'Budget Local EUR (entità selezionate)' : 'Budget Local complessivo EUR',
       'Local Complete unitario EUR','Local BO unitario EUR','Formula Local originale','Stato attribuzione','Nota attribuzione',
       'Country / LE selezionate','NIS2','Priorità','Descrizione Global','Descrizione Local','Applicabilità originale (da verificare)',
-      'Capex/Opex','Rischi','Impatto','Owner nel file originale','Budget visualizzato','Budget visualizzato EUR'];
+      'Capex/Opex','Risk Type','Impact Type','Impatto legacy','Risk Level','Type Of Remediation','Note Capex/Opex','Foglio sorgente','Owner nel file originale','Budget visualizzato','Budget visualizzato EUR'];
     const selectedAmount = row => {
       const global=number(row.globalBudget),local=localAmount(row,entities);
       return scope==='global'?global:scope==='local'?local:global==null&&local==null?null:(global??0)+(local??0);
@@ -128,10 +142,10 @@
     const values = rows.map(r => [r.sheet,r.excelRow,r.id,r.domain,r.name,r.year,r.owner,r.globalBudget,
       localAmount(r, entities),r.localComplete,r.localBusiness,r.localFormula,r.allocationStatus,r.allocationNote,
       (entities || []).join(' | '),r.nis2,r.priority,r.globalDescription,r.localDescription,r.applicableCountries,
-      r.capexOpex||'',r.risk||'',r.impact||'',r.sourceOwner??r.owner,{all:'Global + Local',global:'Global',local:'Local'}[scope],selectedAmount(r)]);
+      r.capexOpex||'',attributeValues(r,'risk').filter(v=>v!=='Non specificato').join(' | '),(Array.isArray(r.impactTypes)?r.impactTypes.join(' | '):''),r.impact||'',attributeValues(r,'riskLevel').filter(v=>v!=='Non specificato').join(' | '),r.remediationType||'',r.capexOpexNote||'',r.sourceSheet||r.sheet,r.sourceOwner??r.owner,{all:'Global + Local',global:'Global',local:'Local'}[scope],selectedAmount(r)]);
     return '\uFEFF' + [headers, ...values].map(row => row.map(quote).join(';')).join('\r\n');
   }
-  const api = {number,sum,money,localAmount,filterRows,investmentRows,totals,aggregate,budgetBreakdown,csv};
+  const api = {attributeValues,attributeGroups,number,sum,money,localAmount,filterRows,investmentRows,totals,aggregate,budgetBreakdown,csv};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RemediationModel = api;
 })(typeof globalThis !== 'undefined' ? globalThis : window);

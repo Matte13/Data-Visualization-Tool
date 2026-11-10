@@ -1,5 +1,23 @@
 # Note di versione
 
+## 1.4.0
+
+Nuovo importatore per All Remediations con LE_List, compatibile con i file precedenti. Il consolidato viene importato una sola volta, distinguendo OT dagli ID R.OT.; descrizioni e applicabilità dei fogli di dettaglio vengono aggiunte solo da abbinamenti verificabili. Riferimenti e formule originali restano tracciabili.
+
+### Logiche dei dati
+
+- Risk Type e Impact Type sono liste indipendenti di attributi della remediation, non coppie. I filtri usano OR nello stesso campo e AND tra campi; budget e conteggi lavorano su righe sorgente univoche. I gruppi di attributi possono sovrapporsi e non sono sommabili.
+- Risk Level è distinto da Impact Type: High rosso, Medium giallo, Low verde. Type Of Remediation distingue People, Process e Technology.
+- Le formule locali riconosciute del consolidato sono E×n+F×m per CMA e E×n per OT, con riferimenti assoluti o relativi. Si verificano i risultati salvati; le attribuzioni usano le X di LE_List. Gruppi non associabili o riferimenti ad altre righe conservano il totale Excel senza attribuzione country inventata.
+- Gli interventi annuali NIS2 restano separati e il loro budget è annuale. Gli anni vengono sempre letti dall’Excel: le correzioni vanno caricate con Aggiorna Excel.
+- Il Global resta di gruppo e il delta OT viene conteggiato una sola volta. Il nuovo foglio consolidato non si somma ai fogli CMA/OT o ai riepiloghi Budget.
+
+### Note Capex/Opex
+
+Il click sul box apre le note originali delle righe incluse nell’anno e nei filtri correnti. Testi identici sono mostrati una volta con tutti i riferimenti alle righe. Celle vuote o `-` non generano spiegazioni automatiche. Il popup è richiudibile con pulsante, Esc o click esterno e funziona nella copia HTML offline.
+
+L’immagine 1.4.0 supporta entrambi i tracciati. Il caricamento del nuovo formato non è leggibile dalle immagini 1.3.x: conservare uno snapshot della libreria prima dell’aggiornamento dei dati se serve ripristinare anche quella versione. Nessuna migrazione delle tabelle SQL.
+
 ## 1.3.3
 
 La modalità presentazione usa la larghezza disponibile della finestra, con margini laterali di 16 px. I grafici delle tre mappe si adattano al contenitore conservando le proporzioni: tutte le colonne rientrano nella larghezza visibile. Il layout normale e le logiche dei dati rimangono invariati. Il controllo browser verifica i margini e l’assenza di scorrimento orizzontale su schermi larghi.

@@ -21,7 +21,7 @@ test('unknown metadata includes OT explicitly and never invents its classificati
 });
 test('CSV carries source attributes and still escapes spreadsheet formulas',()=>{
  const csv=M.csv([{...rows[0],risk:'=UNTRUSTED()'}]);
- assert.match(csv,/Capex\/Opex/);assert.match(csv,/Impatto/);
+ assert.match(csv,/Capex\/Opex/);assert.match(csv,/Impact Type/);
  assert.match(csv,/'=UNTRUSTED/);
 });
 
@@ -30,4 +30,15 @@ test('investment map excludes missing or invalid classifications without alterin
  const found=M.investmentRows([...rows,{...rows[0],key:'missing-risk',risk:''},{...rows[0],key:'invalid-class',capexOpex:'Other'}]);
  assert.equal(found.length,2);assert.equal(found[0].key,'a');assert.equal(found[1].key,'b');
  assert.equal(M.totals(rows).global,before.global);assert.equal(rows.length,3);
+});
+
+test('multi-valued risk/impact filters count each source row once and remain independent',()=>{
+ const multi=[{...rows[0],riskTypes:['Cyber','Compliance'],impactTypes:['Economic','Regulatory'],riskLevel:'High'},
+ {...rows[1],riskTypes:['Compliance'],impactTypes:['Operational'],riskLevel:'Low'}];
+ const found=M.filterRows(multi,{risk:['Cyber','Compliance'],impact:['Economic','Regulatory']});
+ assert.equal(found.length,1);assert.equal(M.totals(found).global,100);
+ assert.equal(M.attributeGroups(multi,'risk').find(g=>g.label==='Compliance').count,2);
+ assert.equal(M.filterRows(multi,{riskLevel:['Low']}).length,1);
+ assert.equal(M.attributeValues(multi[0],'impact').join(','),'Economic,Regulatory');
+ assert.equal(M.attributeValues(multi[0],'riskLevel')[0],'High');
 });

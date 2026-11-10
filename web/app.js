@@ -1,7 +1,7 @@
 /* Data Visualization Tool — self-contained client. All views derive from the unchanged workbook rows. */
 (() => {
   'use strict';
-  const APP_VERSION = '1.3.3';
+  const APP_VERSION = '1.4.0';
   const M = window.RemediationModel;
   const $ = (selector, root = document) => root.querySelector(selector);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -15,7 +15,7 @@
   };
   // Original vector logo from the supplied KPMG template; no remote asset.
   const kpmgLogo = () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 484832 194706" fill="currentColor" aria-hidden="true" focusable="false"><path d="M480938,148130L455744,148130L459917,131488L409445,131488L405289,148130L380916,148130L380916,144709C381293,142845 381618,140878 382079,138775C386526,120816 398311,103062 418715,103062C426771,103062 434792,106141 433698,117292L463732,117292C464912,112161 466896,103216 461234,95058C454821,86198 441942,82641 425214,82641C413328,82641 395933,84539 380916,94357L380916,3708L480938,3708ZM421914,172537C416372,173606 410745,174179 405101,174247C390683,174247 380643,167543 380438,151910L427027,151910ZM364275,90064L364275,110759C358044,119364 353522,129082 350951,139390C350195,142258 349663,145180 349360,148130L334669,148130L347223,88524L304943,88524L267110,148164L264339,148164L264339,3759L364326,3759ZM308449,148130L293398,148130L316163,112315ZM247731,88388L222709,88388L205606,148130L179027,148130C192538,143136 200765,133592 203314,119413C205400,108399 204408,101164 199893,95725C193154,87652 179642,88353 167653,88353L147796,88353L147796,3759L247697,3759ZM231740,148130L242258,110759L242635,148130ZM158981,133934L158981,133934C158007,133934 157032,134054 155920,134054C154466,134054 153320,134054 152243,134054L145846,134054L148805,123125L150207,117686L153628,104961C155116,104961 156570,104961 157972,104961L162915,104961C171467,104961 176718,105440 178668,108159C180156,110212 179967,113735 178206,119105C175196,128341 171364,133045 159084,133986M131291,93741L129717,98872L115419,146471L114854,148181L67683,148181L64006,140365L114683,88524L82187,88524L42507,131283L55351,88524L31270,88524L31270,3759L131188,3759ZM377119,-89L377119,97076C373861,99667 370856,102560 368140,105713L368140,-89L260525,-89L260525,88388L251614,88388L251614,-89L143965,-89L143965,88524L135071,88524L135071,-89L27456,-89L27456,100907L-47,192480L24120,192480L36247,151927L39667,151927L59696,192480L89028,192480L69513,151927L113623,151927L101377,192480L127785,192480L139860,152047L145641,152047L145641,151927L204408,151927L192761,192360L219374,192360L230662,151927L242635,151927L242960,192360L265280,192360L290935,151927L307713,151927L299059,192360L325227,192360L333779,151927L348933,151927C348334,164464 351533,175872 359845,183517C370004,192839 385603,194617 397131,194617C413526,194421 429850,192418 445807,188648L454872,151927L484786,151927L484786,-89Z"/></svg>`;
-  const filterFields=['sheets','years','domains','owners','entities','nis2','priority','capexOpex','risk','impact'];
+  const filterFields=['sheets','years','domains','owners','entities','nis2','priority','capexOpex','risk','impact','riskLevel','remediationType'];
   const defaultFilters = () => ({query:'',...Object.fromEntries(filterFields.map(field=>[field,data?filterOptions(field):null])),scope:'all',localBudget:'all',entityScope:'all'});
   let projects = [], activeProjectId = null, pendingFile = null;
   let data, standalone = Boolean(window.DVT_DATA), state = {view:'overview',filters:defaultFilters(),page:1,pageSize:15,sort:'source',direction:1,detail:null,mapYear:null,mapDomain:null,mapPage:0,ownerMapYear:null,ownerMapOwner:null,ownerMapDomain:null,ownerMapPage:0,presentation:false,busy:false,menu:false,filterOpen:['sheets','years'],topFilterOpen:null,projectDialog:null,projectName:''};
@@ -23,12 +23,12 @@
   const views = [['overview','grid','Panoramica'],['map','map','Mappa Navigabile'],['owner-map','owners','Mappa Navigabile per Owner'],['risk-map','map','Mappa rischi e investimenti'],['table','table','Remediation'],['countries','globe','Country / legal entity']];
   const unique = field => [...new Set(data.rows.map(r => String(field==='owner'?(r.owner||'Non specificato'):(r[field]??''))))].sort((a,b) => a.localeCompare(b,'it',{numeric:true}));
   function filterOptions(field) {
-    if(['capexOpex','risk','impact'].includes(field))return [...new Set(data.rows.map(row=>row[field]||'Non specificato'))].sort();
+    if(['capexOpex','risk','impact','riskLevel','remediationType'].includes(field))return [...new Set(data.rows.flatMap(row=>M.attributeValues(row,field)))].sort();
     if(field==='entities')return data.entities.map(entity=>entity.id);
     if(field==='nis2'||field==='priority')return ['yes','no','missing'];
     return unique({sheets:'sheet',years:'year',domains:'domain',owners:'owner'}[field]);
   }
-  const visibleFilterOptions=field=>filterOptions(field).filter(value=>!['capexOpex','risk','impact'].includes(field)||String(value).trim().toLocaleLowerCase('it')!=='non specificato');
+  const visibleFilterOptions=field=>filterOptions(field).filter(value=>!['capexOpex','risk','impact','riskLevel','remediationType'].includes(field)||String(value).trim().toLocaleLowerCase('it')!=='non specificato');
   function normalizeFilters() {
     for(const field of filterFields){
       const options=filterOptions(field),value=state.filters[field];
@@ -44,7 +44,7 @@
     const result = M.totals(rows,entitySelection());
     return {...result,displayGlobal:state.filters.scope === 'local' ? 0 : result.global,displayLocal:state.filters.scope === 'global' ? 0 : result.local};
   };
-  const fieldName = field => ({years:'Anno',domains:'Dominio',owners:'Owner',entities:'Country / LE',sheets:'Perimetro dati',nis2:'Riferimento NIS2',priority:'Priorità nel file',capexOpex:'Capex/Opex',risk:'Rischi',impact:'Impatto'})[field];
+  const fieldName = field => ({years:'Anno',domains:'Dominio',owners:'Owner',entities:'Country / LE',sheets:'Perimetro dati',nis2:'Riferimento NIS2',priority:'Priorità nel file',capexOpex:'Capex/Opex',risk:'Risk Type',impact:'Impact Type',riskLevel:'Risk Level',remediationType:'Type Of Remediation'})[field];
   const filterLabel = (field,value) => field==='nis2'||field==='priority'?({yes:'Sì',no:'No',missing:'Non specificato'}[value]):value||'Non specificato';
   const colorBy = (field,value,palette) => palette[Math.max(0,unique(field).indexOf(String(value??'')))%palette.length];
   const colorForYear = value => colorBy('year',value,['#7964cf','#d8942f','#ce668b','#4b91ba','#81994d','#c77a4d']);
@@ -92,7 +92,7 @@
     <select class="budget-select" data-select="localBudget" aria-label="Filtra per budget locale">${[['all','Tutti i budget local'],['positive','Con budget local > 0'],['zero','Budget local = 0'],['missing','Budget local non determinato']].map(([v,l])=>`<option value="${v}" ${state.filters.localBudget===v?'selected':''}>${l}</option>`).join('')}</select></div>`;
   }
   function viewFilters() {
-    const labels={sheets:'Perimetro',years:'Anno',domains:'Dominio',owners:'Owner',entities:'Country / LE',nis2:'NIS2',priority:'Priorità',capexOpex:'Capex/Opex',risk:'Rischi',impact:'Impatto'};
+    const labels={sheets:'Perimetro',years:'Anno',domains:'Dominio',owners:'Owner',entities:'Country / LE',nis2:'NIS2',priority:'Priorità',capexOpex:'Capex/Opex',risk:'Risk Type',impact:'Impact Type',riskLevel:'Risk Level',remediationType:'Type Of Remediation'};
     return `<section class="view-filters" data-source="${esc((data.project?.id||'')+':'+data.source.sha256)}" aria-label="Filtri delle viste">
       <div class="view-filters-heading"><span>${icon('filter',15)} Filtri</span><button class="text-button" data-action="reset">${icon('reset',13)} Ripristina filtri</button></div>
       <div class="view-filter-groups">${filterFields.map(field=>`<details class="view-filter" data-top-group="${field}" name="view-filters" ${state.topFilterOpen===field?'open':''}>
@@ -181,7 +181,7 @@
       <section class="panel domain-panel">${panelTitle('','Budget per dominio',`<span class="subtle-label">${domains.length} domini</span>`)}<div class="domain-chart">${domains.map(d=>`<button class="domain-row" data-domain="${esc(d.label)}"><span class="domain-name" style="--domain-color:${colorForDomain(d.label)}"><i class="domain-dot"></i>${esc(d.label)}</span><span class="domain-track"><span class="domain-stack" style="width:${Math.max(1,totalOf(d)/Math.max(...domains.map(totalOf),1)*100)}%"><i class="global" style="flex:${state.filters.scope==='local'?0:d.global}"></i><i class="local" style="flex:${state.filters.scope==='global'?0:d.local}"></i></span></span><strong>${budgetMoney(d,true)}</strong><span class="row-count">${d.count}</span></button>`).join('')}</div><div class="chart-footnote domain-chart-footer"><span>Seleziona un dominio per aprire il dettaglio delle remediation.</span>${budgetLegend('domain')}</div></section>
     </div>`;
   }
-  const sourceRef=row=>`${row.sheet} · riga ${row.excelRow}`;
+  const sourceRef=row=>`${row.sourceSheet||row.sheet} · riga ${row.excelRow}`;
   function sortedRows(rows) {
     if(state.sort==='source') return rows;
     return [...rows].sort((a,b)=> {
@@ -226,9 +226,9 @@
     rows=M.investmentRows(rows);
     const excluded=originalCount-rows.length;
     const notice=excluded?`<div class="map-explanation" role="status">${excluded} righe escluse da questa mappa: servono Capex oppure Opex e un rischio compilato. Comprendono eventuali righe OT senza questi attributi. Le righe restano disponibili nelle altre viste e nei totali.</div>`:'';
-    if(!rows.length){riskPath=[];return `<section class="panel map-panel investment-map"><div class="panel-title"><h2>Rischi e investimenti</h2></div>${notice}<div class="empty-state"><h2>Nessuna remediation con gli attributi richiesti</h2><p>Compila Capex/Opex e Rischi nel foglio Remediations, poi aggiorna l’Excel del progetto.</p></div></section>`;}
+    if(!rows.length){riskPath=[];return `<section class="panel map-panel investment-map"><div class="panel-title"><h2>Rischi e investimenti</h2></div>${notice}<div class="empty-state"><h2>Nessuna remediation con gli attributi richiesti</h2><p>Compila CAPEX/OPEX e Risk Type nel foglio All Remediations (oppure i campi del tracciato precedente), poi aggiorna l’Excel del progetto.</p></div></section>`;}
     const fields=['year','capexOpex','domain','key','risk','impact'];
-    const labels=['Anno','Capex/Opex','Dominio','Remediation','Rischio associato','Impatto'];
+    const labels=['Anno','Capex/Opex','Dominio','Remediation','Risk Type','Impact Type'];
     const xs=[20,220,510,860,1380,1660], widths=[150,210,260,440,210,210];
     const heights=[108,74,68,108,74,74];
     const amount=(records,compact=false)=>{
@@ -239,10 +239,12 @@
     };
     const columns=[];let focused=rows;
     for(let step=0;step<fields.length;step++){
-      const groups=M.aggregate(focused,fields[step],entitySelection());
+      const groups=['risk','impact'].includes(fields[step])?M.attributeGroups(focused,fields[step],entitySelection()):M.aggregate(focused,fields[step],entitySelection());
       const chosen=groups.find(group=>group.label===riskPath[step]);
-      if(!chosen)riskPath=riskPath.slice(0,step);
+      if(!chosen&&step<4)riskPath=riskPath.slice(0,step);
       columns.push(groups);
+      // Risk and Impact are independent attributes of the selected remediation.
+      if(step>=4)continue;
       if(!chosen)break;
       focused=chosen.rows;
     }
@@ -251,7 +253,8 @@
       for(const word of words){if((lines.at(-1)+' '+word).trim().length>width&&lines.at(-1))lines.push(word);else lines[lines.length-1]=(lines.at(-1)+' '+word).trim();}
       return `<text x="${x}" y="${y}" class="${className}">${lines.slice(0,2).map((line,i)=>`<tspan x="${x}" dy="${i?17:0}">${esc(line.length>width?line.slice(0,width-1)+'…':line)}${i===1&&lines.length>2?'…':''}</tspan>`).join('')}</text>`;
     };
-    const height=Math.max(610,...columns.map(groups=>85+groups.length*128));
+    const impactLane=85+(columns[4]?.length||0)*128+16;
+    const height=Math.max(610,...columns.map(groups=>85+groups.length*128),columns[5]?impactLane+40:0);
     let edges='',nodes='';
     columns.forEach((groups,step)=>{
       nodes+=`<text x="${xs[step]}" y="32" class="map-col-label">${String(step+1).padStart(2,'0')} / ${labels[step].toLocaleUpperCase('it')}</text>`;
@@ -259,14 +262,15 @@
         const x=xs[step],y=85+index*128,h=heights[step],selected=riskPath[step]===group.label;
         const row=group.rows[0],label=step===3?row.name:group.label;
         const color=step===0?colorForYear(group.label):step===2||step===3?colorForDomain(row.domain):step===1?(group.label==='Capex'?'#4b72bf':'#1b9b89'):'#58738c';
-        const impactColor={Alto:'#c64545',Medio:'#b8840a',Basso:'#32835c'}[group.label]||'#8a9da7';
-        if(step>0){const parent=columns[step-1].findIndex(g=>g.label===riskPath[step-1]);if(parent>=0){const start=xs[step-1]+widths[step-1],py=85+parent*128+heights[step-1]/2;edges+=`<path class="map-edge highlight" d="M${start} ${py} C${start+30} ${py},${x-30} ${y+h/2},${x-8} ${y+h/2}" style="marker-end:url(#risk-arrow)"/>`;}}
+        const level=M.attributeValues(row,'riskLevel')[0];
+        const impactColor={High:'#c64545',Medium:'#b8840a',Low:'#32835c'}[level]||'#8a9da7';
+        if(step>0){const parentStep=step===5?3:step-1;const parent=columns[parentStep].findIndex(g=>g.label===riskPath[parentStep]);if(parent>=0){const start=xs[parentStep]+widths[parentStep],py=85+parent*128+heights[parentStep]/2;const path=step===5?`M${start} ${py} H${start+34} V${impactLane} H${x-30} V${y+h/2} H${x-8}`:`M${start} ${py} C${start+30} ${py},${x-30} ${y+h/2},${x-8} ${y+h/2}`;edges+=`<path class="map-edge highlight" data-risk-edge="${step===5?'remediation-impact':step===4?'remediation-risk':'group'}" d="${path}" style="marker-end:url(#risk-arrow)"/>`;}}
         const classes=['year-node','owner-node','domain-node','leaf','owner-node','impact-node'][step];
-        nodes+=`<g class="map-node ${classes}${selected?' chosen':''}" role="button" tabindex="0" data-risk-step="${step}" data-risk-value="${esc(group.label)}" ${step===3?`data-risk-detail="${esc(row.key)}"`:''} aria-label="${esc(label)}" aria-pressed="${selected}" style="--year-color:${color};--domain-color:${color};--owner-color:${color};--impact-color:${impactColor}"><title>${esc(label)} · ${esc(amount(group.rows))}</title><rect x="${x}" y="${y}" width="${widths[step]}" height="${h}" rx="${step===0?10:8}"/>${step===0?`<text x="${x+14}" y="${y+31}" class="map-year">${esc(label)}</text><text x="${x+14}" y="${y+69}" class="node-budget">${esc(amount(group.rows,true))}</text><text x="${x+14}" y="${y+92}" class="node-sub">${group.rows.length} righe</text>`:step===3?`${text(row.id||'ID assente',x+16,y+17,68,'node-code')}${text(label,x+16,y+41,60)}<text x="${x+16}" y="${y+83}" class="node-sub">${esc(amount(group.rows,true))} · ${esc(row.owner||'Owner non specificato')}</text>${text(sourceRef(row),x+16,y+100,68,'node-code')}`:`${text(label,x+14,y+23,step===2?34:26)}<text x="${x+14}" y="${y+h-12}" class="node-sub">${esc(amount(group.rows,true))} · ${group.rows.length} righe</text>`}</g>`;
+        nodes+=`<g class="map-node ${classes}${selected?' chosen':''}" role="button" tabindex="0" data-risk-step="${step}" data-risk-value="${esc(group.label)}" ${step===1?`data-capex-notes="${esc(group.label)}"`: ""} ${step===3?`data-risk-detail="${esc(row.key)}"`:''} aria-label="${esc(label)}" aria-pressed="${selected}" style="--year-color:${color};--domain-color:${color};--owner-color:${color};--impact-color:${impactColor}"><title>${esc(label)} · ${esc(amount(group.rows))}</title><rect x="${x}" y="${y}" width="${widths[step]}" height="${h}" rx="${step===0?10:8}"/>${step===0?`<text x="${x+14}" y="${y+31}" class="map-year">${esc(label)}</text><text x="${x+14}" y="${y+69}" class="node-budget">${esc(amount(group.rows,true))}</text><text x="${x+14}" y="${y+92}" class="node-sub">${group.rows.length} righe</text>`:step===3?`<circle cx="${x+widths[step]-15}" cy="${y+16}" r="5" fill="${impactColor}"><title>Risk Level: ${esc(level)}</title></circle>${text((row.id||'ID assente')+' · Risk Level: '+level,x+16,y+17,66,'node-code')}${text(label,x+16,y+41,60)}<text x="${x+16}" y="${y+83}" class="node-sub">${esc(amount(group.rows,true))} · ${esc(row.owner||'Owner non specificato')}</text>${text(sourceRef(row),x+16,y+100,68,'node-code')}`:`${text(label,x+14,y+23,step===2?34:26)}<text x="${x+14}" y="${y+h-12}" class="node-sub">${esc(amount(group.rows,true))} · ${group.rows.length} righe</text>`}</g>`;
       });
     });
     const width=Math.max(780,xs[columns.length-1]+widths[columns.length-1]+20);
-    return `<section class="panel map-panel investment-map"><div class="panel-title"><h2>Rischi e investimenti</h2></div><div class="map-explanation">Seleziona anno, Capex/Opex e dominio, poi una remediation per vedere il rischio associato e il suo impatto. Il dettaglio si apre selezionando la remediation. Impatto: Alto rosso, Medio giallo, Basso verde.</div>${notice}<div class="map-scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" style="min-width:${width}px;width:${width}px" role="group" aria-label="Mappa rischi e investimenti"><defs><marker id="risk-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="${width}" height="${height}" fill="#fbfcfd"/>${edges}${nodes}</svg></div></section>`;
+    return `<section class="panel map-panel investment-map"><div class="panel-title"><h2>Rischi e investimenti</h2></div><div class="map-explanation">Seleziona anno, Capex/Opex e dominio, poi una remediation per vedere il rischio associato e il suo impatto. Il dettaglio si apre selezionando la remediation. Risk Type e Impact Type sono attributi della remediation: le frecce non indicano coppie rischio–impatto. I budget dei gruppi di attributi possono sovrapporsi e non si sommano. Risk Level: High rosso, Medium giallo, Low verde.</div>${notice}<div class="map-scroll"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" style="min-width:${width}px;width:${width}px" role="group" aria-label="Mappa rischi e investimenti"><defs><marker id="risk-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="${width}" height="${height}" fill="#fbfcfd"/>${edges}${nodes}</svg></div></section>`;
   }
 
   function ownerMapView(rows) {
@@ -280,13 +284,26 @@
   function countriesView() {
     return window.CountryInvestments.render({data,filters:state.filters,rows:currentRows(),esc,icon,money,model:M,colorForYear,colorForDomain});
   }
+  function closeCapexNotes() {
+    const label=state.capexNotes?.label;state.capexNotes=null;render();
+    [...document.querySelectorAll('[data-capex-notes]')].find(node=>node.dataset.capexNotes===label)?.focus({preventScroll:true});
+  }
+
+  function capexNotesDialog() {
+    const selected=state.capexNotes;if(!selected)return '';
+    const rows=data.rows.filter(row=>selected.keys.includes(row.key));
+    const notes=new Map();
+    for(const row of rows){const note=String(row.capexOpexNote||'').trim();if(!note||note==='-')continue;if(!notes.has(note))notes.set(note,[]);notes.get(note).push(row);}
+    return `<div class="drawer-overlay" data-action="close-capex-notes"></div><section class="capex-notes-dialog" role="dialog" aria-modal="true" aria-labelledby="capex-notes-title" tabindex="-1"><div class="drawer-top"><h2 id="capex-notes-title">Note ${esc(selected.label)}</h2><button id="close-capex-notes" class="icon-button" data-action="close-capex-notes" aria-label="Chiudi note">${icon('close')}</button></div><p>Note originali del box selezionato: ${rows.length} righe nel perimetro corrente. Non modificano la classificazione o gli importi.</p>${notes.size?[...notes].map(([note,records])=>`<article class="detail-section"><p class="capex-note-text">${esc(note)}</p><ul>${records.map(row=>`<li>${esc(row.name)} · ${esc(row.year||'Anno non specificato')} · ${esc(sourceRef(row))}</li>`).join('')}</ul></article>`).join(''):'<p>Nessuna nota presente.</p>'}</section>`;
+  }
+
   function detailPanel() {
     const r=data.rows.find(r=>r.key===state.detail);if(!r)return '';
     const issues=data.issues.filter(i=>i.rowKeys?.includes(r.key));
     const text=(label,value)=>`<section class="detail-section"><h3>${label}</h3><p>${esc(value||'Non specificato nel file')}</p></section>`;
     return `<div class="drawer-overlay" data-action="close-detail"></div><aside class="detail-drawer" role="dialog" aria-modal="true" aria-label="Dettaglio remediation" tabindex="-1"><div class="drawer-top"><span class="eyebrow">Dettaglio remediation</span><button id="close-detail" class="icon-button" data-action="close-detail" aria-label="Chiudi dettaglio">${icon('close')}</button></div><span class="source-tag">${esc(sourceRef(r))}${r.id?' · '+esc(r.id):' · ID originale assente'}</span><h2>${esc(r.name)}</h2><p class="detail-domain">${esc(r.domain)}</p><div class="detail-tags"><span class="year-pill" style="--year-color:${colorForYear(r.year)}">${r.year||'Anno non specificato'}</span><span class="owner-badge">${esc(r.owner||'Owner non specificato')}</span><span>NIS2 ${badgeStatus(r.nis2)}</span><span>Priorità ${badgeStatus(r.priority)}</span></div>
     <div class="detail-budgets"><div><small>Budget Global</small><strong>${money(r.globalBudget)}</strong></div><div><small>${entitySelection()!==null?'Local · entità selezionate':'Local complessivo'}</small><strong>${money(M.localAmount(r,entitySelection()))}</strong></div><div><small>Complete · unitario</small><strong>${money(r.localComplete)}</strong></div><div><small>Business Oriented · unitario</small><strong>${money(r.localBusiness)}</strong></div></div>
-    ${text('Capex/Opex',r.capexOpex)}${text('Rischio',r.risk)}${text('Impatto',r.impact)}${text('Attività Global · testo originale',r.globalDescription)}${text('Attività Local · testo originale',r.localDescription)}${text('Applicable Countries · da verificare',r.applicableCountries)}${r.existingCoverage?text('Who has this? · testo originale',r.existingCoverage):''}
+    ${text('Capex/Opex',r.capexOpex)}${text('Risk Type',M.attributeValues(r,'risk').join(', '))}${text('Impact Type',M.attributeValues(r,'impact').join(', '))}${text('Risk Level',M.attributeValues(r,'riskLevel').join(', '))}${text('Type Of Remediation',r.remediationType)}${text('Note Capex/Opex',r.capexOpexNote)}${text('Attività Global · testo originale',r.globalDescription)}${text('Attività Local · testo originale',r.localDescription)}${text('Applicable Countries · da verificare',r.applicableCountries)}${r.existingCoverage?text('Who has this? · testo originale',r.existingCoverage):''}
     <section class="detail-section formula-section"><h3>Tracciabilità del budget Local</h3><code>${esc(r.localFormula||'Formula non presente nel file')}</code><p>${esc(r.allocationNote||'Attribuzione da formule e LE_List.')}</p><small>Local complessivo originale: ${money(r.localTotal)}</small></section>
     ${issues.length?`<section class="detail-section detail-alert"><h3>${icon('info',16)} Note su questa riga</h3>${issues.map(i=>`<p>${esc(i.message)}</p>`).join('')}</section>`:''}
     ${r.allocations?.length?`<section class="detail-section"><h3>Attribuzione del budget locale</h3><p class="small-note">Derivata da formula e LE_List; non è una conferma dell’applicabilità.</p><div class="allocation-list">${r.allocations.map(a=>`<div><span class="allocation-country">${window.CountryInvestments.countryFlags(a.entityId,esc,icon)}<span>${esc(a.entityId)}</span></span><strong>${money(a.amount)}</strong></div>`).join('')}</div></section>`:''}</aside>`;
@@ -299,11 +316,11 @@
   function projectDialog() {
     if(!state.projectDialog)return '';
     const creating=state.projectDialog==='create';
-    return `<div class="project-overlay"></div><section class="project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title" tabindex="-1"><div class="drawer-top"><span class="eyebrow">Progetti</span><button class="icon-button" data-action="close-project" aria-label="Chiudi importazione" ${state.busy?'disabled':''}>${icon('close')}</button></div><h2 id="project-dialog-title">${creating?'Nuovo progetto':'Aggiorna Excel'}</h2><p>${creating?'Assegna un nome e carica l’Excel del progetto. Sarà conservato separatamente dagli altri.':'Sostituisci l’Excel del progetto attivo. Gli altri progetti non vengono modificati.'}</p><label class="project-field" for="project-name">Nome progetto<input id="project-name" maxlength="100" value="${esc(creating?state.projectName:data?.project?.name||'Progetto')}" ${!creating?'readonly':''} placeholder="Es. Piano di remediation 2027"></label><label class="project-dropzone" for="project-file">${icon('upload',28)}<strong>${pendingFile?esc(pendingFile.name):'Seleziona il file Excel'}</strong><span>.xlsx · massimo 10 MB · stesso tracciato</span><input type="file" id="project-file" accept=".xlsx" ${state.busy?'disabled':''}></label><div class="import-guidance"><strong>Formato supportato</strong><span>Fogli Remediations e LE_List; OT opzionale. I dati e i gruppi delle entità possono cambiare. Le formule devono avere risultati ricalcolati e salvati.</span></div><div class="project-dialog-actions"><button class="button" data-action="close-project" ${state.busy?'disabled':''}>Annulla</button><button class="button primary" id="submit-project" data-action="submit-project" ${state.busy?'disabled':''}>${state.busy?'Importazione…':creating?'Crea progetto':'Aggiorna progetto'}</button></div></section>`;
+    return `<div class="project-overlay"></div><section class="project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title" tabindex="-1"><div class="drawer-top"><span class="eyebrow">Progetti</span><button class="icon-button" data-action="close-project" aria-label="Chiudi importazione" ${state.busy?'disabled':''}>${icon('close')}</button></div><h2 id="project-dialog-title">${creating?'Nuovo progetto':'Aggiorna Excel'}</h2><p>${creating?'Assegna un nome e carica l’Excel del progetto. Sarà conservato separatamente dagli altri.':'Sostituisci l’Excel del progetto attivo. Gli altri progetti non vengono modificati.'}</p><label class="project-field" for="project-name">Nome progetto<input id="project-name" maxlength="100" value="${esc(creating?state.projectName:data?.project?.name||'Progetto')}" ${!creating?'readonly':''} placeholder="Es. Piano di remediation 2027"></label><label class="project-dropzone" for="project-file">${icon('upload',28)}<strong>${pendingFile?esc(pendingFile.name):'Seleziona il file Excel'}</strong><span>.xlsx · massimo 10 MB · stesso tracciato</span><input type="file" id="project-file" accept=".xlsx" ${state.busy?'disabled':''}></label><div class="import-guidance"><strong>Formato supportato</strong><span>Fogli All Remediations e LE_List; supportato anche il formato precedente Remediations/OT. I dati e i gruppi delle entità possono cambiare. Le formule devono avere risultati ricalcolati e salvati.</span></div><div class="project-dialog-actions"><button class="button" data-action="close-project" ${state.busy?'disabled':''}>Annulla</button><button class="button primary" id="submit-project" data-action="submit-project" ${state.busy?'disabled':''}>${state.busy?'Importazione…':creating?'Crea progetto':'Aggiorna progetto'}</button></div></section>`;
   }
   function renderEmpty() {
     document.body.classList.remove('presentation','filters-open');
-    $('#app').innerHTML=`<header class="empty-header"><a class="brand" aria-label="KPMG · Data Visualization Tool" href="#"><span class="brand-mark kpmg-brand" aria-hidden="true">${kpmgLogo()}</span><span class="brand-name">Data Visualization<span class="brand-line"> Tool</span><span class="brand-sub">STRUMENTO INTERNO</span></span></a><span class="local-status"><span class="status-dot"></span>Archivio locale</span></header><main class="welcome-page"><h1>Progetti</h1><p>Crea un progetto e carica il relativo Excel per consultare remediation, budget e country.</p><button class="button primary" data-action="new-project">${icon('upload',18)} Crea il primo progetto</button><div class="welcome-features"><article>${icon('grid',25)}<h2>Budget</h2><p>Investimenti per anno, dominio e owner.</p></article><article>${icon('map',25)}<h2>Navigazione</h2><p>Schede delle remediation, mappa e budget per country.</p></article><article>${icon('shield',25)}<h2>Archivio progetti</h2><p>Ogni progetto mantiene il proprio Excel e i propri dati.</p></article></div><div class="welcome-format">Formato Excel: <strong>Remediations + LE_List</strong>, foglio OT opzionale. Usa lo stesso tracciato per i progetti futuri.</div></main>${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
+    $('#app').innerHTML=`<header class="empty-header"><a class="brand" aria-label="KPMG · Data Visualization Tool" href="#"><span class="brand-mark kpmg-brand" aria-hidden="true">${kpmgLogo()}</span><span class="brand-name">Data Visualization<span class="brand-line"> Tool</span><span class="brand-sub">STRUMENTO INTERNO</span></span></a><span class="local-status"><span class="status-dot"></span>Archivio locale</span></header><main class="welcome-page"><h1>Progetti</h1><p>Crea un progetto e carica il relativo Excel per consultare remediation, budget e country.</p><button class="button primary" data-action="new-project">${icon('upload',18)} Crea il primo progetto</button><div class="welcome-features"><article>${icon('grid',25)}<h2>Budget</h2><p>Investimenti per anno, dominio e owner.</p></article><article>${icon('map',25)}<h2>Navigazione</h2><p>Schede delle remediation, mappa e budget per country.</p></article><article>${icon('shield',25)}<h2>Archivio progetti</h2><p>Ogni progetto mantiene il proprio Excel e i propri dati.</p></article></div><div class="welcome-format">Formato Excel: <strong>All Remediations + LE_List</strong>, oppure tracciato precedente Remediations/OT. Usa lo stesso tracciato per i progetti futuri.</div></main>${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
     document.body.style.overflow=state.projectDialog?'hidden':'';
     if(state.projectDialog)$('#project-name')?.focus();
   }
@@ -333,7 +350,7 @@
       <div class="data-notice">${icon('info',16)}<p><strong>Importi dal file Excel.</strong> ${ambiguousCount?`${ambiguousCount} righe hanno un’attribuzione geografica da verificare; `:''}le stime mancanti restano distinte da zero.</p></div>
       <div class="view-tabs" role="navigation" aria-label="Seleziona vista">${views.map(([id,i,l])=>`<button data-view="${id}" class="${state.view===id?'active':''}">${icon(i,16)}${l}</button>`).join('')}<span>${rows.length} righe selezionate</span></div>
       <div id="view-content">${!rows.length?emptyView():state.view==='countries'?countriesView():state.view==='table'?tableView(rows):state.view==='map'?mapView(rows):state.view==='owner-map'?ownerMapView(rows):state.view==='risk-map'?riskMapView(rows):overview(rows)}</div>
-      <footer class="main-footer"><span><strong>Data Visualization Tool</strong> · KPMG · Uso interno · Versione ${APP_VERSION}</span><span>Fonte Excel · importi in EUR · nessun dato generato</span><span>SHA-256 ${esc(data.source.sha256?.slice(0,12)||'—')}</span></footer></main></div>${detailPanel()}${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
+      <footer class="main-footer"><span><strong>Data Visualization Tool</strong> · KPMG · Uso interno · Versione ${APP_VERSION}</span><span>Fonte Excel · importi in EUR · nessun dato generato</span><span>SHA-256 ${esc(data.source.sha256?.slice(0,12)||'—')}</span></footer></main></div>${detailPanel()}${capexNotesDialog()}${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
     const oldSidebar=$('.sidebar'),sourceKey=(data.project?.id||'')+':'+data.source.sha256;
     if(oldSidebar?.dataset.source===sourceKey){
       const template=document.createElement('template');template.innerHTML=markup;template.content.querySelector('.sidebar').remove();
@@ -355,13 +372,14 @@
     if(topFilterFocus?.isConnected)topFilterFocus.focus({preventScroll:true});
     if(focusId&&$('#'+focusId)){const input=$('#'+focusId);input.focus({preventScroll:true});if(typeof position==='number'&&input.setSelectionRange) input.setSelectionRange(position,position);}
     if(state.projectDialog){$('#project-name')?.focus();document.body.style.overflow='hidden';}
+    else if(state.capexNotes){$('#close-capex-notes')?.focus();document.body.style.overflow='hidden';}
     else if(state.detail) {$('#close-detail')?.focus(); document.body.style.overflow='hidden';} else document.body.style.overflow='';
   }
   let toastTimer;
   function toast(message,error=false){clearTimeout(toastTimer);const el=$('#toast');el.textContent=message;el.className='toast visible'+(error?' error':'');toastTimer=setTimeout(()=>el.classList.remove('visible'),6500);}
   function setFilters(patch){
     const position=patch.scope!==undefined?{left:window.scrollX,top:window.scrollY}:null;
-    for(const field of ['capexOpex','risk','impact']){
+    for(const field of ['capexOpex','risk','impact','riskLevel','remediationType']){
       if(!Array.isArray(patch[field]))continue;
       const visible=visibleFilterOptions(field),chosen=patch[field].filter(value=>visible.includes(value));
       patch[field]=chosen.length>0&&chosen.length===visible.length?filterOptions(field):chosen;
@@ -422,7 +440,7 @@
     catch {return ' Il progetto è salvato; l’elenco non è stato aggiornato. Ricarica la pagina per riprovare.';}
   }
   function resetProjectView() {
-    riskPath=[];clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.topFilterOpen=null;state.projectDialog=null;state.projectName='';pendingFile=null;
+    state.capexNotes=null;riskPath=[];clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.topFilterOpen=null;state.projectDialog=null;state.projectName='';pendingFile=null;
   }
   function openProjectDialog(mode, file=null) {
     if(state.busy)return;
@@ -460,6 +478,7 @@
     switch(name){
       case 'home':state.view='overview';render();break;
       case 'menu':state.menu=!state.menu;render();break;
+      case 'close-capex-notes':closeCapexNotes();break;
       case 'reset':state.filters=defaultFilters();state.page=1;state.mapPage=0;state.ownerMapPage=0;render();break;
       case 'presentation':state.presentation=!state.presentation;render();break;
       case 'export-menu':state.exportMenu=!state.exportMenu;render();break;
@@ -493,6 +512,7 @@
     event.preventDefault();
     if(el.dataset.action){action(el.dataset.action);return;}
     if(el.dataset.view){state.view=el.dataset.view;state.exportMenu=false;state.menu=false;render();return;}
+    if(el.dataset.capexNotes){const step=Number(el.dataset.riskStep);riskPath=riskPath.slice(0,step);riskPath[step]=el.dataset.riskValue;const rows=currentRows().filter(row=>String(row.year||'Non specificato')===riskPath[0]&&row.capexOpex===el.dataset.capexNotes);state.capexNotes={label:el.dataset.capexNotes,keys:M.investmentRows(rows).map(row=>row.key)};render();return;}
     if(el.dataset.riskDetail){const step=Number(el.dataset.riskStep);riskPath=riskPath.slice(0,step);riskPath[step]=el.dataset.riskValue;state.detail=el.dataset.riskDetail;render();return;}
     if(el.dataset.detail){state.detail=el.dataset.detail;render();return;}
     if(el.dataset.scope){setFilters({scope:el.dataset.scope});return;}
@@ -537,9 +557,9 @@
   });
   let searchTimer;document.addEventListener('input',e=>{if(e.target.id==='project-name'){state.projectName=e.target.value;}if(e.target.id==='search'||e.target.id==='presentation-search'){const value=e.target.value;clearTimeout(searchTimer);searchTimer=setTimeout(()=>setFilters({query:value}),150);}});
   document.addEventListener('keydown',event=>{
-    if(event.key==='Escape'){if(state.projectDialog){if(!state.busy){state.projectDialog=null;pendingFile=null;render();}}else if(state.exportMenu){state.exportMenu=false;render();}else if(state.detail){state.detail=null;render();}else if(closeViewFilters({focus:true})){event.preventDefault();}else if(state.presentation){state.presentation=false;render();}return;}
+    if(event.key==='Escape'){if(state.projectDialog){if(!state.busy){state.projectDialog=null;pendingFile=null;render();}}else if(state.capexNotes){closeCapexNotes();}else if(state.exportMenu){state.exportMenu=false;render();}else if(state.detail){state.detail=null;render();}else if(closeViewFilters({focus:true})){event.preventDefault();}else if(state.presentation){state.presentation=false;render();}return;}
     if((event.key==='Enter'||event.key===' ')&&event.target.matches('[role="button"]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}
-    if(event.key==='Tab'&&(state.detail||state.projectDialog)){const drawer=state.projectDialog?$('.project-dialog'):$('.detail-drawer'),items=[...drawer.querySelectorAll('button,a,input,select,[tabindex="0"]')].filter(el=>!el.disabled);if(!items.length)return;if(event.shiftKey&&document.activeElement===items[0]){event.preventDefault();items.at(-1).focus();}else if(!event.shiftKey&&document.activeElement===items.at(-1)){event.preventDefault();items[0].focus();}}
+    if(event.key==='Tab'&&(state.detail||state.projectDialog||state.capexNotes)){const drawer=state.projectDialog?$('.project-dialog'):state.capexNotes?$('.capex-notes-dialog'):$('.detail-drawer'),items=[...drawer.querySelectorAll('button,a,input,select,[tabindex="0"]')].filter(el=>!el.disabled);if(!items.length)return;if(event.shiftKey&&document.activeElement===items[0]){event.preventDefault();items.at(-1).focus();}else if(!event.shiftKey&&document.activeElement===items.at(-1)){event.preventDefault();items[0].focus();}}
   });
   document.addEventListener('dragover',e=>{if(!standalone){e.preventDefault();}});
   document.addEventListener('drop',e=>{if(!standalone){e.preventDefault();if(!state.busy)openProjectDialog('create',e.dataTransfer.files[0]);}});

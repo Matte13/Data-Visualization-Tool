@@ -76,7 +76,7 @@
     const yearColor = value => suppliedYearColor ? suppliedYearColor(value) : YEAR_COLORS[Math.max(0, years.indexOf(value)) % YEAR_COLORS.length];
     const domainColor = value => suppliedDomainColor ? suppliedDomainColor(value) : DOMAIN_COLORS[Math.max(0, domains.indexOf(value)) % DOMAIN_COLORS.length];
     const yearLabel = value => value === '' ? 'Anno non specificato' : value;
-    const sourceRef = row => `${row.sheet || 'Excel'} · riga ${row.excelRow ?? '—'}`;
+    const sourceRef = row => `${row.sourceSheet || row.sheet || 'Excel'} · riga ${row.excelRow ?? '—'}`;
     const rowKey = row => String(row.key ?? `${row.sheet || 'Excel'}:${row.excelRow ?? ''}`);
     const text = (value, x, y, width, lines = 2, className = 'node-title') => `<text class="${className}" x="${x}" y="${y}">${wrap(value, width, lines).map((line, index) => `<tspan x="${x}" dy="${index ? 17 : 0}">${esc(line)}</tspan>`).join('')}</text>`;
     const amount = (records, compact = true) => {

@@ -38,6 +38,9 @@ def main():
                     node=page.locator(f'[data-risk-step="{step}"][data-risk-value="{value}"]')
                     node.scroll_into_view_if_needed()
                     node.focus();page.keyboard.press('Enter')
+                    if step==1:
+                        expect(page.locator('.capex-notes-dialog')).to_be_visible()
+                        page.locator('#close-capex-notes').click()
                 leaf=page.locator('#view-content [data-risk-detail="Remediations:4"]')
                 expect(leaf).to_have_count(1)
                 expect(leaf).to_have_class('map-node leaf')
