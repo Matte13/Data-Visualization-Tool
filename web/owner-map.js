@@ -80,7 +80,7 @@
     const rowKey = row => String(row.key ?? `${row.sheet || 'Excel'}:${row.excelRow ?? ''}`);
     const text = (value, x, y, width, lines = 2, className = 'node-title') => `<text class="${className}" x="${x}" y="${y}">${wrap(value, width, lines).map((line, index) => `<tspan x="${x}" dy="${index ? 17 : 0}">${esc(line)}</tspan>`).join('')}</text>`;
     const amount = (records, compact = true) => {
-      if (!records.length) return 'Nessuna voce';
+      if (!records.length) return '—';
       const total = model.totals(records, entities);
       const unknownGlobal = total.count > 0 && total.missingGlobal === total.count;
       const unknownLocal = total.count > 0 && total.missingLocal === total.count;
@@ -108,20 +108,20 @@
     const yearNodes = years.map((label, index) => {
       const y = yearY(index);
       const long = label === '';
-      return `<g class="map-node year-node${label === year ? ' chosen' : ''}" role="button" tabindex="0" data-owner-map-year="${esc(label)}" style="--year-color:${esc(yearColor(label))}" aria-label="Esplora anno ${esc(yearLabel(label))}" aria-pressed="${label === year}"><title>${esc(yearLabel(label))} · ${esc(amount(yearGroups.get(label), false))} · ${yearGroups.get(label).length} righe</title><rect x="20" y="${y}" width="150" height="108" rx="10"/>${long ? text(yearLabel(label), 34, y + 25, 18, 2) : `<text x="34" y="${y + 31}" class="map-year">${esc(label)}</text>`}<text x="34" y="${y + 69}" class="node-budget">${esc(amount(yearGroups.get(label)))}</text><text x="34" y="${y + 92}" class="node-sub">${yearGroups.get(label).length} righe</text></g>`;
+      return `<g class="map-node year-node${label === year ? ' chosen' : ''}" role="button" tabindex="0" data-owner-map-year="${esc(label)}" style="--year-color:${esc(yearColor(label))}" aria-label="Esplora anno ${esc(yearLabel(label))}" aria-pressed="${label === year}"><title>${esc(yearLabel(label))} · ${esc(amount(yearGroups.get(label), false))}</title><rect x="20" y="${y}" width="150" height="108" rx="10"/>${long ? text(yearLabel(label), 34, y + 25, 18, 2) : `<text x="34" y="${y + 31}" class="map-year">${esc(label)}</text>`}<text x="34" y="${y + 69}" class="node-budget">${esc(amount(yearGroups.get(label)))}</text></g>`;
     }).join('');
     const ownerNodes = owners.map((label, index) => {
       const y = ownerY(index);
-      return `<g class="map-node owner-node${label === owner ? ' chosen' : ''}${owner != null && label !== owner ? ' dimmed' : ''}" role="button" tabindex="0" data-owner-map-owner="${esc(label)}" style="--owner-color:${ownerColors.get(label) || OWNER_COLORS[0]}" aria-label="Esplora owner ${esc(label)}" aria-pressed="${label === owner}"><title>${esc(label)} · ${esc(amount(ownerGroups.get(label), false))} · ${ownerGroups.get(label).length} righe</title><rect x="220" y="${y}" width="210" height="74" rx="8"/>${text(label, 234, y + 23, 26, 2)}<text x="234" y="${y + 61}" class="node-sub">${esc(amount(ownerGroups.get(label)))} · ${ownerGroups.get(label).length} righe</text></g>`;
+      return `<g class="map-node owner-node${label === owner ? ' chosen' : ''}${owner != null && label !== owner ? ' dimmed' : ''}" role="button" tabindex="0" data-owner-map-owner="${esc(label)}" style="--owner-color:${ownerColors.get(label) || OWNER_COLORS[0]}" aria-label="Esplora owner ${esc(label)}" aria-pressed="${label === owner}"><title>${esc(label)} · ${esc(amount(ownerGroups.get(label), false))}</title><rect x="220" y="${y}" width="210" height="74" rx="8"/>${text(label, 234, y + 23, 26, 2)}<text x="234" y="${y + 61}" class="node-sub">${esc(amount(ownerGroups.get(label)))}</text></g>`;
     }).join('');
     const domainNodes = domains.map((label, index) => {
       const y = domainY(index), records = focusedDomains.get(label) || [], available = records.length > 0;
       const interaction = available ? `role="button" tabindex="0" data-owner-map-domain="${esc(label)}" aria-pressed="${label === domain}"` : 'aria-disabled="true"';
-      return `<g class="map-node domain-node${label === domain ? ' chosen' : ''}" ${interaction} style="--domain-color:${esc(domainColor(label))}" aria-label="${available ? 'Apri dominio' : 'Nessuna voce per questo owner nel dominio'} ${esc(label)}"><title>${esc(label)} · ${esc(amount(records, false))} · ${records.length} righe</title><rect x="510" y="${y}" width="260" height="68" rx="8"/>${text(label, 524, y + 23, 34, 2)}<text x="524" y="${y + 57}" class="node-sub">${esc(amount(records))}${available ? ' · ' + records.length + ' righe' : ''}</text></g>`;
+      return `<g class="map-node domain-node${label === domain ? ' chosen' : ''}" ${interaction} style="--domain-color:${esc(domainColor(label))}" aria-label="${available ? 'Apri dominio' : 'Nessuna voce per questo owner nel dominio'} ${esc(label)}"><title>${esc(label)} · ${esc(amount(records, false))}</title><rect x="510" y="${y}" width="260" height="68" rx="8"/>${text(label, 524, y + 23, 34, 2)}<text x="524" y="${y + 57}" class="node-sub">${esc(amount(records))}</text></g>`;
     }).join('');
     const leaves = visible.map((row, index) => {
       const y = leafY(index);
-      return `<g class="map-node leaf" role="button" tabindex="0" data-detail="${esc(rowKey(row))}" style="--domain-color:${esc(domainColor(domain))}" aria-label="Dettaglio ${esc(row.name)} · ${esc(ownerKey(row))} · ${esc(sourceRef(row))}"><title>${esc(row.name)} · ${esc(ownerKey(row))} · ${esc(sourceRef(row))} · G ${esc(money(row.globalBudget))} · L ${esc(money(model.localAmount(row, entities)))}</title><rect x="860" y="${y}" width="440" height="108" rx="8"/>${text(`${row.id || 'ID assente'} · ${ownerKey(row)}`, 876, y + 17, 68, 1, 'node-code')}${text(row.name, 876, y + 41, 60, 2)}<text x="876" y="${y + 83}" class="node-sub">G ${esc(money(row.globalBudget, true))} · L ${esc(money(model.localAmount(row, entities), true))}</text>${text(`${sourceRef(row)} · ${rowKey(row)}`, 876, y + 100, 68, 1, 'node-code')}</g>`;
+      return `<g class="map-node leaf" role="button" tabindex="0" data-detail="${esc(rowKey(row))}" style="--domain-color:${esc(domainColor(domain))}" aria-label="Dettaglio ${esc(row.name)} · ${esc(ownerKey(row))} · ${esc(sourceRef(row))}"><title>${esc(row.name)} · ${esc(amount([row], false))}</title><rect x="860" y="${y}" width="440" height="108" rx="8"/>${text(row.name, 876, y + 41, 60, 2)}<text x="876" y="${y + 83}" class="node-sub">${esc(amount([row]))}</text></g>`;
     }).join('');
     const selectedYearY = yearY(years.indexOf(year)) + 54;
     const yearEdges = owners.map((label, index) => edge('year-owner', year, label,

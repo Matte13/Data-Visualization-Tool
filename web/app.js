@@ -1,7 +1,7 @@
 /* Data Visualization Tool — self-contained client. All views derive from the unchanged workbook rows. */
 (() => {
   'use strict';
-  const APP_VERSION = '1.4.1';
+  const APP_VERSION = '1.4.2';
   const M = window.RemediationModel;
   const $ = (selector, root = document) => root.querySelector(selector);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -213,9 +213,9 @@
     if(!domains.some(d=>d.label===state.mapDomain))state.mapDomain=domains[0]?.label;
     const focused=yearRows.filter(r=>r.domain===state.mapDomain),pages=Math.max(1,Math.ceil(focused.length/6));state.mapPage=Math.min(state.mapPage,pages-1);
     const visible=focused.slice(state.mapPage*6,state.mapPage*6+6), height=Math.max(590,domains.length*76+82,visible.length*105+85);
-    const yearNodes=years.map((y,i)=>{const yy=105+i*145,t=scopeTotals(rows.filter(r=>r.year===y));return `<g class="map-node year-node ${y===state.mapYear?'chosen':''}" role="button" tabindex="0" data-map-year="${y}" style="--year-color:${colorForYear(y)}" aria-label="Esplora anno ${y}"><rect x="20" y="${yy}" width="172" height="102" rx="10"/><text x="38" y="${yy+31}" class="map-year">${y}</text><text x="38" y="${yy+57}" class="node-budget">${esc(selectedMoney(t,true))}</text><text x="38" y="${yy+80}" class="node-sub">${t.count} righe</text></g>`}).join('');
-    const domainNodes=domains.map((d,i)=>{const yy=70+i*76,total=(state.filters.scope==='local'?0:d.global)+(state.filters.scope==='global'?0:d.local);return `<g class="map-node domain-node ${d.label===state.mapDomain?'chosen':''}" role="button" tabindex="0" data-map-domain="${esc(d.label)}" style="--domain-color:${colorForDomain(d.label)}" aria-label="Esplora ${esc(d.label)}"><rect x="290" y="${yy}" width="250" height="65" rx="8"/>${svgText(d.label,306,yy+23,31,2)}<text x="306" y="${yy+55}" class="node-sub">${esc(budgetMoney(d,true))} · ${d.count} righe</text></g>`}).join('');
-    const detailNodes=visible.map((r,i)=>{const yy=70+i*105;return `<g class="map-node leaf" style="--domain-color:${colorForDomain(r.domain)}" role="button" tabindex="0" data-detail="${esc(r.key)}" aria-label="Dettaglio ${esc(r.name)}"><rect x="640" y="${yy}" width="330" height="94" rx="8"/><text x="656" y="${yy+18}" class="node-code">${esc(r.id||`Riga ${r.excelRow}`)} · ${esc(r.owner||'Owner non specificato')}</text>${svgText(r.name,656,yy+39,39,2)}<text x="656" y="${yy+82}" class="node-sub">G ${esc(money(r.globalBudget,true))} · L ${esc(money(M.localAmount(r,entitySelection()),true))}</text></g>`}).join('');
+    const yearNodes=years.map((y,i)=>{const yy=105+i*145,t=scopeTotals(rows.filter(r=>r.year===y));return `<g class="map-node year-node ${y===state.mapYear?'chosen':''}" role="button" tabindex="0" data-map-year="${y}" style="--year-color:${colorForYear(y)}" aria-label="Esplora anno ${y}"><rect x="20" y="${yy}" width="172" height="102" rx="10"/><text x="38" y="${yy+31}" class="map-year">${y}</text><text x="38" y="${yy+57}" class="node-budget">${esc(selectedMoney(t,true))}</text></g>`}).join('');
+    const domainNodes=domains.map((d,i)=>{const yy=70+i*76,total=(state.filters.scope==='local'?0:d.global)+(state.filters.scope==='global'?0:d.local);return `<g class="map-node domain-node ${d.label===state.mapDomain?'chosen':''}" role="button" tabindex="0" data-map-domain="${esc(d.label)}" style="--domain-color:${colorForDomain(d.label)}" aria-label="Esplora ${esc(d.label)}"><rect x="290" y="${yy}" width="250" height="65" rx="8"/>${svgText(d.label,306,yy+23,31,2)}<text x="306" y="${yy+55}" class="node-sub">${esc(budgetMoney(d,true))}</text></g>`}).join('');
+    const detailNodes=visible.map((r,i)=>{const yy=70+i*105;return `<g class="map-node leaf" style="--domain-color:${colorForDomain(r.domain)}" role="button" tabindex="0" data-detail="${esc(r.key)}" aria-label="Dettaglio ${esc(r.name)}"><rect x="640" y="${yy}" width="330" height="94" rx="8"/>${svgText(r.name,656,yy+39,39,2)}<text x="656" y="${yy+82}" class="node-sub">${esc(selectedMoney(scopeTotals([r]),true))}</text></g>`}).join('');
     const chosenY=105+years.indexOf(state.mapYear)*145+51,chosenD=70+domains.findIndex(d=>d.label===state.mapDomain)*76+32;
     const edges=domains.map((d,i)=>`<path class="map-edge ${d.label===state.mapDomain?'highlight':''}" d="M192 ${chosenY} C240 ${chosenY},240 ${102+i*76},282 ${102+i*76}"/>`).join('')+visible.map((r,i)=>`<path class="map-edge highlight" d="M540 ${chosenD} C590 ${chosenD},590 ${117+i*105},632 ${117+i*105}"/>`).join('');
     return `<section class="panel map-panel">${panelTitle('','Mappa delle remediation','<button class="button small" data-action="png">'+icon('download',15)+' Salva PNG</button>')}<div class="map-explanation">Seleziona un anno, poi un dominio. Le frecce raggruppano le remediation; non indicano dipendenze tra progetti.</div><div class="map-path"><span class="year-pill" style="--year-color:${colorForYear(state.mapYear)}">${state.mapYear}</span>${icon('chevron',14)}<strong>${esc(state.mapDomain)}</strong><span class="map-page-controls"><button data-action="map-prev" ${state.mapPage===0?'disabled':''}>←</button>${state.mapPage+1}/${pages}<button data-action="map-next" ${state.mapPage===pages-1?'disabled':''}>→</button></span></div><div class="map-scroll"><svg id="concept-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 995 ${height}" role="img" aria-label="Mappa anno, dominio e remediation"><defs><marker id="map-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#a0b8bc"/></marker></defs><rect width="995" height="${height}" fill="#fbfcfd"/><text x="20" y="32" class="map-col-label">01 / ANNO</text><text x="290" y="32" class="map-col-label">02 / DOMINIO</text><text x="640" y="32" class="map-col-label">03 / REMEDIATION · ${focused.length} RIGHE</text>${edges}${yearNodes}${domainNodes}${detailNodes}</svg></div></section>`;
@@ -254,7 +254,8 @@
       for(const word of words){if((lines.at(-1)+' '+word).trim().length>width&&lines.at(-1))lines.push(word);else lines[lines.length-1]=(lines.at(-1)+' '+word).trim();}
       return `<text x="${x}" y="${y}" class="${className}">${lines.slice(0,2).map((line,i)=>`<tspan x="${x}" dy="${i?17:0}">${esc(line.length>width?line.slice(0,width-1)+'…':line)}${i===1&&lines.length>2?'…':''}</tspan>`).join('')}</text>`;
     };
-    const impactLane=85+(columns[4]?.length||0)*128+16;
+    const selectedRemediation=columns[3]?.findIndex(group=>group.label===riskPath[3])??0;
+    const impactLane=Math.max(85+(columns[4]?.length||0)*128+24,85+Math.max(0,selectedRemediation)*128+heights[3]+32,85+(columns[5]?.length||0)*128+24);
     const height=Math.max(610,...columns.map(groups=>85+groups.length*128),columns[5]?impactLane+40:0);
     let edges='',nodes='';
     columns.forEach((groups,step)=>{
@@ -265,9 +266,9 @@
         const color=step===0?colorForYear(group.label):step===2||step===3?colorForDomain(row.domain):step===1?(group.label==='Capex'?'#4b72bf':'#1b9b89'):'#58738c';
         const level=M.attributeValues(row,'riskLevel')[0];
         const impactColor={High:'#c64545',Medium:'#b8840a',Low:'#32835c'}[level]||'#8a9da7';
-        if(step>0){const parentStep=step===5?3:step-1;const parent=columns[parentStep].findIndex(g=>g.label===riskPath[parentStep]);if(parent>=0){const start=xs[parentStep]+widths[parentStep],py=85+parent*128+heights[parentStep]/2;const path=step===5?`M${start} ${py} H${start+34} V${impactLane} H${x-30} V${y+h/2} H${x-8}`:`M${start} ${py} C${start+30} ${py},${x-30} ${y+h/2},${x-8} ${y+h/2}`;edges+=`<path class="map-edge highlight" data-risk-edge="${step===5?'remediation-impact':step===4?'remediation-risk':'group'}" d="${path}" style="marker-end:url(#risk-arrow)"/>`;}}
+        if(step>0){const parentStep=step===5?3:step-1;const parent=columns[parentStep].findIndex(g=>g.label===riskPath[parentStep]);if(parent>=0){const start=xs[parentStep]+widths[parentStep],py=85+parent*128+heights[parentStep]/2;const path=step===5?`M${start} ${py} C${start+24} ${py},${start+34} ${py},${start+34} ${py+24} C${start+34} ${impactLane-24},${start+34} ${impactLane},${start+58} ${impactLane} C${x-54} ${impactLane},${x-30} ${impactLane},${x-30} ${impactLane-24} C${x-30} ${y+h/2+24},${x-30} ${y+h/2},${x-8} ${y+h/2}`:`M${start} ${py} C${start+30} ${py},${x-30} ${y+h/2},${x-8} ${y+h/2}`;edges+=`<path class="map-edge highlight" data-risk-edge="${step===5?'remediation-impact':step===4?'remediation-risk':'group'}" d="${path}" style="marker-end:url(#risk-arrow)"/>`;}}
         const classes=['year-node','owner-node','domain-node','leaf','owner-node','impact-node'][step];
-        nodes+=`<g class="map-node ${classes}${selected?' chosen':''}" role="button" tabindex="0" data-risk-step="${step}" data-risk-value="${esc(group.label)}" ${step===1?`data-capex-notes="${esc(group.label)}"`: ""} ${step===3?`data-risk-detail="${esc(row.key)}"`:''} aria-label="${esc(label)}" aria-pressed="${selected}" style="--year-color:${color};--domain-color:${color};--owner-color:${color};--impact-color:${impactColor}"><title>${esc(label)} · ${esc(amount(group.rows))}</title><rect x="${x}" y="${y}" width="${widths[step]}" height="${h}" rx="${step===0?10:8}"/>${step===0?`<text x="${x+14}" y="${y+31}" class="map-year">${esc(label)}</text><text x="${x+14}" y="${y+69}" class="node-budget">${esc(amount(group.rows,true))}</text><text x="${x+14}" y="${y+92}" class="node-sub">${group.rows.length} righe</text>`:step===3?`<circle cx="${x+widths[step]-15}" cy="${y+16}" r="5" fill="${impactColor}"><title>Risk Level: ${esc(level)}</title></circle>${text((row.id||'ID assente')+' · Risk Level: '+level,x+16,y+17,66,'node-code')}${text(label,x+16,y+41,60)}<text x="${x+16}" y="${y+83}" class="node-sub">${esc(amount(group.rows,true))} · ${esc(row.owner||'Owner non specificato')}</text>${text(sourceRef(row),x+16,y+100,68,'node-code')}`:`${text(label,x+14,y+23,step===2?34:26)}<text x="${x+14}" y="${y+h-12}" class="node-sub">${esc(amount(group.rows,true))} · ${group.rows.length} righe</text>`}</g>`;
+        nodes+=`<g class="map-node ${classes}${selected?' chosen':''}" role="button" tabindex="0" data-risk-step="${step}" data-risk-value="${esc(group.label)}" ${step===3?`data-risk-detail="${esc(row.key)}"`:''} aria-label="${esc(label)}" aria-pressed="${selected}" style="--year-color:${color};--domain-color:${color};--owner-color:${color};--impact-color:${impactColor}"><title>${esc(label)} · ${esc(amount(group.rows))}</title><rect x="${x}" y="${y}" width="${widths[step]}" height="${h}" rx="${step===0?10:8}"/>${step===0?`<text x="${x+14}" y="${y+31}" class="map-year">${esc(label)}</text><text x="${x+14}" y="${y+69}" class="node-budget">${esc(amount(group.rows,true))}</text>`:step===3?`${text(label,x+16,y+41,60)}<text x="${x+16}" y="${y+83}" class="node-sub">${esc(amount(group.rows,true))}</text>`:`${text(label,x+14,y+23,step===2?34:26)}<text x="${x+14}" y="${y+h-12}" class="node-sub">${esc(amount(group.rows,true))}</text>`}</g>`;
       });
     });
     const width=Math.max(780,xs[columns.length-1]+widths[columns.length-1]+20);
@@ -285,26 +286,13 @@
   function countriesView() {
     return window.CountryInvestments.render({data,filters:state.filters,rows:currentRows(),esc,icon,money,model:M,colorForYear,colorForDomain});
   }
-  function closeCapexNotes() {
-    const label=state.capexNotes?.label;state.capexNotes=null;render();
-    [...document.querySelectorAll('[data-capex-notes]')].find(node=>node.dataset.capexNotes===label)?.focus({preventScroll:true});
-  }
-
-  function capexNotesDialog() {
-    const selected=state.capexNotes;if(!selected)return '';
-    const rows=data.rows.filter(row=>selected.keys.includes(row.key));
-    const notes=new Map();
-    for(const row of rows){const note=String(row.capexOpexNote||'').trim();if(!note||note==='-')continue;if(!notes.has(note))notes.set(note,[]);notes.get(note).push(row);}
-    return `<div class="drawer-overlay" data-action="close-capex-notes"></div><section class="capex-notes-dialog" role="dialog" aria-modal="true" aria-labelledby="capex-notes-title" tabindex="-1"><div class="drawer-top"><h2 id="capex-notes-title">Note ${esc(selected.label)}</h2><button id="close-capex-notes" class="icon-button" data-action="close-capex-notes" aria-label="Chiudi note">${icon('close')}</button></div><p>Note originali del box selezionato: ${rows.length} righe nel perimetro corrente. Non modificano la classificazione o gli importi.</p>${notes.size?[...notes].map(([note,records])=>`<article class="detail-section"><p class="capex-note-text">${esc(note)}</p><ul>${records.map(row=>`<li>${esc(row.name)} · ${esc(row.year||'Anno non specificato')} · ${esc(sourceRef(row))}</li>`).join('')}</ul></article>`).join(''):'<p>Nessuna nota presente.</p>'}</section>`;
-  }
-
   function detailPanel() {
     const r=data.rows.find(r=>r.key===state.detail);if(!r)return '';
     const issues=data.issues.filter(i=>i.rowKeys?.includes(r.key));
     const text=(label,value)=>`<section class="detail-section"><h3>${label}</h3><p>${esc(value||'Non specificato nel file')}</p></section>`;
     return `<div class="drawer-overlay" data-action="close-detail"></div><aside class="detail-drawer" role="dialog" aria-modal="true" aria-label="Dettaglio remediation" tabindex="-1"><div class="drawer-top"><span class="eyebrow">Dettaglio remediation</span><button id="close-detail" class="icon-button" data-action="close-detail" aria-label="Chiudi dettaglio">${icon('close')}</button></div><span class="source-tag">${esc(sourceRef(r))}${r.id?' · '+esc(r.id):' · ID originale assente'}</span><h2>${esc(r.name)}</h2><p class="detail-domain">${esc(r.domain)}</p><div class="detail-tags"><span class="year-pill" style="--year-color:${colorForYear(r.year)}">${r.year||'Anno non specificato'}</span><span class="owner-badge">${esc(r.owner||'Owner non specificato')}</span><span>NIS2 ${badgeStatus(r.nis2)}</span><span>Priorità ${badgeStatus(r.priority)}</span></div>
     <div class="detail-budgets"><div><small>Budget Global</small><strong>${money(r.globalBudget)}</strong></div><div><small>${entitySelection()!==null?'Local · entità selezionate':'Local complessivo'}</small><strong>${money(M.localAmount(r,entitySelection()))}</strong></div><div><small>Complete · unitario</small><strong>${money(r.localComplete)}</strong></div><div><small>Business Oriented · unitario</small><strong>${money(r.localBusiness)}</strong></div></div>
-    ${text('Capex/Opex',r.capexOpex)}${text('Risk Type',M.attributeValues(r,'risk').join(', '))}${text('Impact Type',M.attributeValues(r,'impact').join(', '))}${text('Risk Level',M.attributeValues(r,'riskLevel').join(', '))}${text('Type Of Remediation',r.remediationType)}${text('Note Capex/Opex',r.capexOpexNote)}${r.prioritySourceHeader?text(r.prioritySourceHeader,r.priority):''}${r.sourceBudgetMarkers?text('Stime da definire nel file',Object.entries(r.sourceBudgetMarkers).map(([field,value])=>({globalBudget:'Budget Global',localComplete:'Budget Local Complete',localBusiness:'Budget Local Business',localTotal:'Budget Local complessivo'}[field]||'Budget')+': '+value).join(', ')):''}${text('Attività Global · testo originale',r.globalDescription)}${text('Attività Local · testo originale',r.localDescription)}${text('Applicable Countries · da verificare',r.applicableCountries)}${r.existingCoverage?text('Who has this? · testo originale',r.existingCoverage):''}
+    ${text('Capex/Opex',r.capexOpex)}${text('Risk Type',M.attributeValues(r,'risk').join(', '))}${text('Impact Type',M.attributeValues(r,'impact').join(', '))}${text('Risk Level',M.attributeValues(r,'riskLevel').join(', '))}${text('Type Of Remediation',r.remediationType)}${String(r.capexOpexNote||'').trim()&&String(r.capexOpexNote).trim()!=='-'?`<section class="detail-section capex-note-section"><h3>Note Capex/Opex</h3><p>${esc(r.capexOpexNote)}</p></section>`:''}${r.prioritySourceHeader?text(r.prioritySourceHeader,r.priority):''}${r.sourceBudgetMarkers?text('Stime da definire nel file',Object.entries(r.sourceBudgetMarkers).map(([field,value])=>({globalBudget:'Budget Global',localComplete:'Budget Local Complete',localBusiness:'Budget Local Business',localTotal:'Budget Local complessivo'}[field]||'Budget')+': '+value).join(', ')):''}${text('Attività Global · testo originale',r.globalDescription)}${text('Attività Local · testo originale',r.localDescription)}${text('Applicable Countries · da verificare',r.applicableCountries)}${r.existingCoverage?text('Who has this? · testo originale',r.existingCoverage):''}
     <section class="detail-section formula-section"><h3>Tracciabilità del budget Local</h3><code>${esc(r.localFormula||'Formula non presente nel file')}</code><p>${esc(r.allocationNote||'Attribuzione da formule e LE_List.')}</p><small>Local complessivo originale: ${money(r.localTotal)}</small></section>
     ${issues.length?`<section class="detail-section detail-alert"><h3>${icon('info',16)} Note su questa riga</h3>${issues.map(i=>`<p>${esc(i.message)}</p>`).join('')}</section>`:''}
     ${r.allocations?.length?`<section class="detail-section"><h3>Attribuzione del budget locale</h3><p class="small-note">Derivata da formula e LE_List; non è una conferma dell’applicabilità.</p><div class="allocation-list">${r.allocations.map(a=>`<div><span class="allocation-country">${window.CountryInvestments.countryFlags(a.entityId,esc,icon)}<span>${esc(a.entityId)}</span></span><strong>${money(a.amount)}</strong></div>`).join('')}</div></section>`:''}</aside>`;
@@ -351,7 +339,7 @@
       <div class="data-notice">${icon('info',16)}<p><strong>Importi dal file Excel.</strong> ${ambiguousCount?`${ambiguousCount} righe hanno un’attribuzione geografica da verificare; `:''}le stime mancanti restano distinte da zero.</p></div>
       <div class="view-tabs" role="navigation" aria-label="Seleziona vista">${views.map(([id,i,l])=>`<button data-view="${id}" class="${state.view===id?'active':''}">${icon(i,16)}${l}</button>`).join('')}<span>${rows.length} righe selezionate</span></div>
       <div id="view-content">${!rows.length?emptyView():state.view==='countries'?countriesView():state.view==='table'?tableView(rows):state.view==='map'?mapView(rows):state.view==='owner-map'?ownerMapView(rows):state.view==='risk-map'?riskMapView(rows):overview(rows)}</div>
-      <footer class="main-footer"><span><strong>Data Visualization Tool</strong> · KPMG · Uso interno · Versione ${APP_VERSION}</span><span>Fonte Excel · importi in EUR · nessun dato generato</span><span>SHA-256 ${esc(data.source.sha256?.slice(0,12)||'—')}</span></footer></main></div>${detailPanel()}${capexNotesDialog()}${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
+      <footer class="main-footer"><span><strong>Data Visualization Tool</strong> · KPMG · Uso interno · Versione ${APP_VERSION}</span><span>Fonte Excel · importi in EUR · nessun dato generato</span><span>SHA-256 ${esc(data.source.sha256?.slice(0,12)||'—')}</span></footer></main></div>${detailPanel()}${projectDialog()}<div id="toast" class="toast" role="status" aria-live="polite"></div>`;
     const oldSidebar=$('.sidebar'),sourceKey=(data.project?.id||'')+':'+data.source.sha256;
     if(oldSidebar?.dataset.source===sourceKey){
       const template=document.createElement('template');template.innerHTML=markup;template.content.querySelector('.sidebar').remove();
@@ -373,7 +361,6 @@
     if(topFilterFocus?.isConnected)topFilterFocus.focus({preventScroll:true});
     if(focusId&&$('#'+focusId)){const input=$('#'+focusId);input.focus({preventScroll:true});if(typeof position==='number'&&input.setSelectionRange) input.setSelectionRange(position,position);}
     if(state.projectDialog){$('#project-name')?.focus();document.body.style.overflow='hidden';}
-    else if(state.capexNotes){$('#close-capex-notes')?.focus();document.body.style.overflow='hidden';}
     else if(state.detail) {$('#close-detail')?.focus(); document.body.style.overflow='hidden';} else document.body.style.overflow='';
   }
   let toastTimer;
@@ -441,7 +428,7 @@
     catch {return ' Il progetto è salvato; l’elenco non è stato aggiornato. Ricarica la pagina per riprovare.';}
   }
   function resetProjectView() {
-    state.capexNotes=null;riskPath=[];clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.topFilterOpen=null;state.projectDialog=null;state.projectName='';pendingFile=null;
+    riskPath=[];clearTimeout(searchTimer);state.filters=defaultFilters();state.detail=null;state.page=1;state.view='overview';state.mapYear=null;state.mapDomain=null;state.mapPage=0;state.ownerMapYear=null;state.ownerMapOwner=null;state.ownerMapDomain=null;state.ownerMapPage=0;state.menu=false;state.exportMenu=false;state.topFilterOpen=null;state.projectDialog=null;state.projectName='';pendingFile=null;
   }
   function openProjectDialog(mode, file=null) {
     if(state.busy)return;
@@ -479,7 +466,6 @@
     switch(name){
       case 'home':state.view='overview';render();break;
       case 'menu':state.menu=!state.menu;render();break;
-      case 'close-capex-notes':closeCapexNotes();break;
       case 'reset':state.filters=defaultFilters();state.page=1;state.mapPage=0;state.ownerMapPage=0;render();break;
       case 'presentation':state.presentation=!state.presentation;render();break;
       case 'export-menu':state.exportMenu=!state.exportMenu;render();break;
@@ -513,7 +499,7 @@
     event.preventDefault();
     if(el.dataset.action){action(el.dataset.action);return;}
     if(el.dataset.view){state.view=el.dataset.view;state.exportMenu=false;state.menu=false;render();return;}
-    if(el.dataset.capexNotes){const step=Number(el.dataset.riskStep);riskPath=riskPath.slice(0,step);riskPath[step]=el.dataset.riskValue;const rows=currentRows().filter(row=>String(row.year||'Non specificato')===riskPath[0]&&row.capexOpex===el.dataset.capexNotes);state.capexNotes={label:el.dataset.capexNotes,keys:M.investmentRows(rows).map(row=>row.key)};render();return;}
+
     if(el.dataset.riskDetail){const step=Number(el.dataset.riskStep);riskPath=riskPath.slice(0,step);riskPath[step]=el.dataset.riskValue;state.detail=el.dataset.riskDetail;render();return;}
     if(el.dataset.detail){state.detail=el.dataset.detail;render();return;}
     if(el.dataset.scope){setFilters({scope:el.dataset.scope});return;}
@@ -558,9 +544,9 @@
   });
   let searchTimer;document.addEventListener('input',e=>{if(e.target.id==='project-name'){state.projectName=e.target.value;}if(e.target.id==='search'||e.target.id==='presentation-search'){const value=e.target.value;clearTimeout(searchTimer);searchTimer=setTimeout(()=>setFilters({query:value}),150);}});
   document.addEventListener('keydown',event=>{
-    if(event.key==='Escape'){if(state.projectDialog){if(!state.busy){state.projectDialog=null;pendingFile=null;render();}}else if(state.capexNotes){closeCapexNotes();}else if(state.exportMenu){state.exportMenu=false;render();}else if(state.detail){state.detail=null;render();}else if(closeViewFilters({focus:true})){event.preventDefault();}else if(state.presentation){state.presentation=false;render();}return;}
+    if(event.key==='Escape'){if(state.projectDialog){if(!state.busy){state.projectDialog=null;pendingFile=null;render();}}else if(state.exportMenu){state.exportMenu=false;render();}else if(state.detail){state.detail=null;render();}else if(closeViewFilters({focus:true})){event.preventDefault();}else if(state.presentation){state.presentation=false;render();}return;}
     if((event.key==='Enter'||event.key===' ')&&event.target.matches('[role="button"]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}
-    if(event.key==='Tab'&&(state.detail||state.projectDialog||state.capexNotes)){const drawer=state.projectDialog?$('.project-dialog'):state.capexNotes?$('.capex-notes-dialog'):$('.detail-drawer'),items=[...drawer.querySelectorAll('button,a,input,select,[tabindex="0"]')].filter(el=>!el.disabled);if(!items.length)return;if(event.shiftKey&&document.activeElement===items[0]){event.preventDefault();items.at(-1).focus();}else if(!event.shiftKey&&document.activeElement===items.at(-1)){event.preventDefault();items[0].focus();}}
+    if(event.key==='Tab'&&(state.detail||state.projectDialog)){const drawer=state.projectDialog?$('.project-dialog'):$('.detail-drawer'),items=[...drawer.querySelectorAll('button,a,input,select,[tabindex="0"]')].filter(el=>!el.disabled);if(!items.length)return;if(event.shiftKey&&document.activeElement===items[0]){event.preventDefault();items.at(-1).focus();}else if(!event.shiftKey&&document.activeElement===items.at(-1)){event.preventDefault();items[0].focus();}}
   });
   document.addEventListener('dragover',e=>{if(!standalone){e.preventDefault();}});
   document.addEventListener('drop',e=>{if(!standalone){e.preventDefault();if(!state.busy)openProjectDialog('create',e.dataTransfer.files[0]);}});

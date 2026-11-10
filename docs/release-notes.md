@@ -1,5 +1,13 @@
 # Note di versione
 
+## 1.4.2
+
+Note Capex/Opex spostate nel pannello della singola remediation, soltanto quando il campo contiene una nota effettiva. Rimosso il popup dei box Capex/Opex.
+
+I box delle tre mappe conservano etichetta e importo del budget selezionato. Conteggi, ID, owner e riferimenti tecnici non occupano più spazio nel grafico; restano nei dettagli. Tutti i collegamenti utilizzano curve, inclusi i percorsi separati remediation→Impact Type: nessuna associazione rischio–impatto viene dedotta.
+
+Layout normale, presentazione e HTML offline condividono le modifiche. Nessuna variazione ai dati o alle logiche di calcolo; nessuna reimportazione richiesta per i progetti già salvati.
+
 ## 1.4.1
 
 Corretto l’import dell’ultimo consolidato: K1 può essere Priority oppure 2027 CMA Priority, con normalizzazione di spazi e maiuscole. L’intestazione originale resta tracciabile.
