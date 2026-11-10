@@ -1,5 +1,13 @@
 # Note di versione
 
+## 1.4.1
+
+Corretto l’import dell’ultimo consolidato: K1 può essere Priority oppure 2027 CMA Priority, con normalizzazione di spazi e maiuscole. L’intestazione originale resta tracciabile.
+
+La stringa letterale TBD nei budget indica una stima non disponibile: viene conservata come marcatore sorgente, non diventa zero e non genera una stima. La priorità N/A è rappresentata come Non applicabile, distinta dal dato vuoto. Formule e altri valori economici restano sottoposti ai controlli numerici.
+
+Dopo aver aggiornato l’immagine a 1.4.1, ripetere Aggiorna Excel usando lo stesso file. Il caricamento fallito non sostituisce il progetto precedentemente salvato.
+
 ## 1.4.0
 
 Nuovo importatore per All Remediations con LE_List, compatibile con i file precedenti. Il consolidato viene importato una sola volta, distinguendo OT dagli ID R.OT.; descrizioni e applicabilità dei fogli di dettaglio vengono aggiunte solo da abbinamenti verificabili. Riferimenti e formule originali restano tracciabili.

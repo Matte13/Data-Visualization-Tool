@@ -12,6 +12,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT));sys.path.insert(0,str(ROOT/'tests'))
 from app.server import WorkbookStore,ExplorerServer
 from consolidated_fixtures import make_consolidated_workbook
+from test_workbook import edited_cell
 from playwright.sync_api import sync_playwright,expect
 from pptx import Presentation
 
@@ -25,7 +26,7 @@ def group(page,field):
 def main():
     with tempfile.TemporaryDirectory() as directory:
         root=Path(directory);shutil.copytree(ROOT/'web',root/'web')
-        source=make_consolidated_workbook();store=WorkbookStore(root)
+        source=edited_cell(make_consolidated_workbook(),4,'K1',text='2027 CMA Priority');source=edited_cell(source,4,'K3',text='N/A');store=WorkbookStore(root)
         project=store.create(source,'consolidated.xlsx','Synthetic consolidated')['project']['id']
         server=ExplorerServer(('127.0.0.1',0),store)
         threading.Thread(target=server.serve_forever,daemon=True).start()
@@ -37,6 +38,8 @@ def main():
                 page.goto(f'http://127.0.0.1:{server.server_port}')
                 expect(page.locator('.kpi-value').nth(0)).to_have_text('11.022 €')
                 expect(page.locator('.kpi-value').nth(3)).to_have_text('07')
+                expect(page.locator('[data-top-filter="priority"][value="na"]')).to_have_count(1)
+                expect(page.locator('[data-top-group="priority"] summary')).to_contain_text('2027 CMA Priority')
                 for field in ('risk','impact','riskLevel'):
                     expect(page.locator(f'[data-top-filter="{field}"][value="Non specificato"]')).to_have_count(0)
                 expect(page.locator('[data-top-filter="impact"][value="Economic"]')).to_have_count(1)

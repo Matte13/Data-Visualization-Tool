@@ -66,7 +66,7 @@ def _filters(value):
             result[name] = None
         elif isinstance(selection, list) and len(selection) <= MAX_ROWS and all(isinstance(item, str) and len(item) <= 1000 for item in selection):
             result[name] = list(selection)
-        elif name in ('nis2', 'priority') and selection in ('all', 'yes', 'no', 'missing'):
+        elif name in ('nis2', 'priority') and selection in ('all', 'yes', 'no', 'na', 'missing'):
             result[name] = selection
         else:
             raise ValueError(f'Il filtro «{name}» non è valido.')

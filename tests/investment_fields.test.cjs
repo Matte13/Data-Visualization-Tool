@@ -42,3 +42,10 @@ test('multi-valued risk/impact filters count each source row once and remain ind
  assert.equal(M.attributeValues(multi[0],'impact').join(','),'Economic,Regulatory');
  assert.equal(M.attributeValues(multi[0],'riskLevel')[0],'High');
 });
+
+test('priority N/A is distinguishable from an empty priority',()=>{
+ const data=[{...rows[0],priority:'N/A'},{...rows[1],priority:''}];
+ assert.equal(M.filterRows(data,{priority:['na']}).length,1);
+ assert.equal(M.filterRows(data,{priority:['na']})[0].key,'a');
+ assert.equal(M.filterRows(data,{priority:['missing']})[0].key,'b');
+});

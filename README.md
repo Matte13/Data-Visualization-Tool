@@ -8,6 +8,13 @@ Tutte le logiche sono offline e deterministiche: nessun modello AI, API esterna,
 
 Ogni aggiornamento del tool viene documentato in questo README, indicando funzionalità, logiche dei dati e passaggi richiesti all’utente. Le spiegazioni estese restano nelle [note di versione](docs/release-notes.md).
 
+### 1.4.1 — Importazione dell’ultimo Excel
+
+- Corretto il blocco su `All Remediations!K1`: la colonna priorità accetta sia **Priority** sia **2027 CMA Priority**, conservando l’intestazione originale nei dettagli e nelle esportazioni.
+- Il budget letterale **TBD** viene importato come stima non disponibile, distinto da zero. Il marcatore originale è conservato e segnalato; altri testi non numerici non vengono convertiti silenziosamente in importi.
+- La priorità **N/A** è distinta dai campi vuoti e filtrabile come **Non applicabile**. Il filtro mostra il nome originale della colonna, senza estendere automaticamente la priorità 2027 ad altre annualità.
+- Immagine corretta: `ghcr.io/matte13/data-visualization-tool:1.4.1`. Dopo l’aggiornamento ripetere il caricamento dello stesso Excel; non occorre modificare le intestazioni o il file sorgente.
+
 ### 1.4.0 — Nuovo consolidato, tipi di impatto e note Capex/Opex
 
 - Supportato il nuovo file con **All Remediations + LE_List**. Il consolidato è l’unica fonte di budget, anno, owner e attributi; i fogli CMA/OT servono solo per recuperare descrizioni e note di applicabilità tramite abbinamenti verificabili. I fogli Budget non vengono sommati.
@@ -110,7 +117,7 @@ I budget Global sono importi di gruppo: non vengono ripartiti o moltiplicati per
 
 La **Composizione del budget** separa base Remediations e delta OT, per Global e Local. Con le intestazioni esplicite di LE_List o il profilo numerico originale validato mostra Local Complete + OT, Complete senza OT e Business, attribuendo i costi alla categoria delle rispettive entità anche quando una formula usa una colonna unitaria diversa. Il residuo senza attribuzione certa rimane nel totale di gruppo e viene mostrato separatamente. L'owner KPMG è visualizzato come **Advisor**, con il valore originale conservato e senza modificare branding o Excel sorgente.
 
-Le **[note della versione 1.4.0](docs/release-notes.md)** spiegano il riconoscimento del formato originale e le logiche di calcolo con formule ed esempi. Per i progetti già salvati con quel formato basta aggiornare l’immagine e riavviare: non serve importare di nuovo l’Excel e i file originali rimangono invariati. Prima di caricare formati diversi leggere anche la **[procedura di snapshot e rollback](docs/deployment.md#salvataggio-della-libreria-e-rollback-alla-112)**, che distingue il ritorno al software precedente dal ripristino dei dati.
+Le **[note della versione 1.4.1](docs/release-notes.md)** spiegano il riconoscimento del formato originale e le logiche di calcolo con formule ed esempi. Per i progetti già salvati con quel formato basta aggiornare l’immagine e riavviare: non serve importare di nuovo l’Excel e i file originali rimangono invariati. Prima di caricare formati diversi leggere anche la **[procedura di snapshot e rollback](docs/deployment.md#salvataggio-della-libreria-e-rollback-alla-112)**, che distingue il ritorno al software precedente dal ripristino dei dati.
 
 ## Presentazione ed esportazioni
 
@@ -134,7 +141,7 @@ python -m app.export --input percorso/progetto.xlsx --output dist/progetto-offli
 
 ## Azure Container Apps con Azure SQL esistente
 
-L'immagine `ghcr.io/matte13/data-visualization-tool:1.4.0` include Microsoft ODBC Driver 18 e il connettore Azure SQL. Configurazione richiesta: server **dbservertil.database.windows.net**, database **data-visualization-tool-db**, utente **fuddos**; la password va inserita come secret dall'operatore. Il pacchetto non crea server o database SQL.
+L'immagine `ghcr.io/matte13/data-visualization-tool:1.4.1` include Microsoft ODBC Driver 18 e il connettore Azure SQL. Configurazione richiesta: server **dbservertil.database.windows.net**, database **data-visualization-tool-db**, utente **fuddos**; la password va inserita come secret dall'operatore. Il pacchetto non crea server o database SQL.
 
 Per installare e cambiare versione dal portale Azure seguire **[docs/azure-portal.md](docs/azure-portal.md)**: contiene i campi della schermata Container details e i passaggi esatti per **Secrets → azure-sql-password → AZURE_SQL_PASSWORD**. La porta HTTP del container è **8000**. Per rete, template Bicep, Docker locale, aggiornamenti e backup consultare **[docs/deployment.md](docs/deployment.md)**.
 
@@ -149,7 +156,7 @@ Lo script chiede la password nel terminale senza visualizzarla. Salva solo in fi
 
 Il template Azure crea app, ambiente interno, log e DNS su una VNet/subnet esistente collegata ad Azure SQL. Non modifica database, utenti SQL o firewall. Il collegamento al database aziendale deve essere configurato dall'operatore; non è stato effettuato durante la preparazione del pacchetto.
 
-Il push di un tag Git come `v1.4.0` avvia i test e la pubblicazione GHCR con tag `1.4.0`. Le versioni stabili aggiornano anche `latest`; per installazioni e rollback usare il tag di versione. Il workflow include test su SQL Server compatibile con Azure SQL, senza accedere al database aziendale, e allega il pacchetto di installazione. È disponibile anche **Actions → Publish GitHub Container Registry image → Run workflow**.
+Il push di un tag Git come `v1.4.1` avvia i test e la pubblicazione GHCR con tag `1.4.1`. Le versioni stabili aggiornano anche `latest`; per installazioni e rollback usare il tag di versione. Il workflow include test su SQL Server compatibile con Azure SQL, senza accedere al database aziendale, e allega il pacchetto di installazione. È disponibile anche **Actions → Publish GitHub Container Registry image → Run workflow**.
 
 `python scripts/package-release.py` genera l'archivio installabile e il checksum, escludendo Excel, password e dati delle demo. La modalità desktop `python -m app.server` e `compose.yaml` conservano l'uso locale su file senza database esterno. La versione `1.0.0` e i relativi file PostgreSQL restano disponibili per compatibilità; questa installazione usa Azure SQL.
 

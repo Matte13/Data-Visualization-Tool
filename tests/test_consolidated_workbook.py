@@ -76,3 +76,22 @@ class ConsolidatedWorkbookTests(unittest.TestCase):
         self.assertEqual(row['riskLevel'],'Low')
         self.assertEqual(row['impactTypes'],['Economic','Regulatory'])
         self.assertEqual(row['globalBudget'],1000)
+
+    def test_latest_priority_header_and_tbd_budget_import_without_changing_source(self):
+        content=edited_cell(self.content,4,'K1',text='2027 CMA Priority')
+        content=edited_cell(content,4,'D2',text='TBD')
+        content=edited_cell(content,4,'K2',text='N/A')
+        document=parse_workbook(content,'latest.xlsx')
+        row=document['rows'][0]
+        self.assertEqual(row['prioritySourceHeader'],'2027 CMA Priority')
+        self.assertEqual(row['priority'],'N/A')
+        self.assertIsNone(row['globalBudget'])
+        self.assertEqual(row['sourceBudgetMarkers'],{'globalBudget':'TBD'})
+        self.assertEqual(document['totals']['Remediations']['missingGlobalEstimates'],1)
+        self.assertEqual(row['localTotal'],1380)
+        self.assertEqual(document['source']['sha256'],sha256(content).hexdigest())
+
+    def test_unexpected_text_in_budget_still_rejects_import(self):
+        content=edited_cell(self.content,4,'D2',text='not a valid amount')
+        with self.assertRaisesRegex(ValueError,'numero valido'):
+            parse_workbook(content,'invalid-budget.xlsx')

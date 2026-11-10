@@ -37,8 +37,8 @@ def _details(values):
                 'name': normalized(sheet.cell(row, 4).value),
                 'id': normalized(sheet.cell(row, 2).value),
                 'year': sheet.cell(row, 13 if main else 8).value,
-                'global': sheet.cell(row, 9 if main else 5).value,
-                'local': sheet.cell(row, 12 if main else 7).value,
+                'global': None if _label(sheet.cell(row, 9 if main else 5).value).casefold() == 'tbd' else sheet.cell(row, 9 if main else 5).value,
+                'local': None if _label(sheet.cell(row, 12 if main else 7).value).casefold() == 'tbd' else sheet.cell(row, 12 if main else 7).value,
                 'globalDescription': _text(sheet.cell(row, 5).value) if main else '',
                 'localDescription': _text(sheet.cell(row, 6).value) if main else '',
                 'applicableCountries': _text(sheet.cell(row, 7).value) if main else '',
@@ -47,11 +47,18 @@ def _details(values):
     return result
 
 
+def _budget_number(source, saved, coordinate):
+    if source[coordinate].data_type != 'f' and _label(saved[coordinate].value).casefold() == 'tbd':
+        return None
+    return _number(source, saved, coordinate)
+
+
 def parse_rows(formulas, values, entities, issues):
     source = formulas['All Remediations']; saved = values[source.title]
     for column, expected in HEADERS.items():
         actual = _label(source[f'{column}1'].value).split('\n')[0].strip()
-        if actual.casefold() != expected.casefold():
+        accepted = {'priority', '2027 cma priority'} if column == 'K' else {expected.casefold()}
+        if ' '.join(actual.casefold().split()) not in accepted:
             raise ValueError(f'All Remediations!{column}1: intestazione attesa «{expected}».')
     details = _details(values)
     result = []
@@ -62,10 +69,10 @@ def parse_rows(formulas, values, entities, issues):
         year = _number(source, saved, f'H{row}')
         if year is not None and int(year) != year:
             raise ValueError(f'All Remediations!H{row}: anno non intero.')
-        global_ = _number(source, saved, f'D{row}')
-        local = _number(source, saved, f'G{row}')
-        complete = _number(source, saved, f'E{row}')
-        business = _number(source, saved, f'F{row}')
+        global_ = _budget_number(source, saved, f'D{row}')
+        local = _budget_number(source, saved, f'G{row}')
+        complete = _budget_number(source, saved, f'E{row}')
+        business = _budget_number(source, saved, f'F{row}')
         candidates = [detail for detail in details if detail['year'] == year
                       and detail['global'] == global_ and detail['local'] == local]
         matches = [detail for detail in candidates
@@ -105,7 +112,7 @@ def parse_rows(formulas, values, entities, issues):
             'nis2': _text(saved[f'I{row}'].value), 'nis2CompleteCount': None, 'nis2BusinessCount': None,
             'sourceOwner': _text(saved[f'J{row}'].value),
             'owner': 'Advisor' if _label(saved[f'J{row}'].value).casefold() in ('kpmg', 'advisor') else _label(saved[f'J{row}'].value),
-            'priority': _text(saved[f'K{row}'].value), 'category': _text(saved[f'L{row}'].value),
+            'priority': _text(saved[f'K{row}'].value), 'prioritySourceHeader': _text(source['K1'].value), 'category': _text(saved[f'L{row}'].value),
             'remediationType': _label(saved[f'L{row}'].value),
             'capexOpex': {'capex': 'Capex', 'opex': 'Opex'}.get(capex.casefold(), capex),
             'riskTypes': tags(saved[f'M{row}'].value), 'impactTypes': tags(saved[f'N{row}'].value),
@@ -114,6 +121,11 @@ def parse_rows(formulas, values, entities, issues):
             'metadataSchema': 'risk-impact-types',
             'detailSources': [{'sheet': item['sheet'], 'excelRow': item['row']} for item in matches],
         }
+        markers = {field: 'TBD' for column, field in (('D', 'globalBudget'), ('E', 'localComplete'), ('F', 'localBusiness'), ('G', 'localTotal'))
+                   if source[f'{column}{row}'].data_type != 'f' and _label(saved[f'{column}{row}'].value).casefold() == 'tbd'}
+        if markers:
+            record['sourceBudgetMarkers'] = markers
+            _issue(issues, 'unspecified-budget-marker', 'Stima indicata come TBD nel file: importo non disponibile, distinto da zero.', [record['key']])
         record['risk'] = '\n'.join(record['riskTypes'])
         record['impact'] = ''  # Legacy impact levels must never become Impact Types.
         for field in ('globalDescription', 'localDescription', 'applicableCountries', 'existingCoverage'):
