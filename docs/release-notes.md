@@ -1,5 +1,11 @@
 # Note di versione
 
+## 1.4.4
+
+Aggiunta **Mappa per Risk Type** dopo la mappa rischi e investimenti: Anno → Risk Type → Remediation → Impact Type → Capex/Opex, senza dominio. Riutilizza il grafico e i filtri condivisi, con percorso di selezione indipendente, navigazione da tastiera e dettaglio remediation. La copia HTML offline conserva entrambi i percorsi.
+
+Aggiornati versione visibile, README e riferimenti di installazione. Nessuna migrazione, modifica dei budget o reimportazione Excel richiesta.
+
 ## 1.4.3
 
 Nelle mappe un click seleziona/prosegue, due click aprono il dettaglio. La gestione considera l’eventuale ridimensionamento del grafico dopo il primo click in presentazione. Invio mantiene l’accesso da tastiera ai dettagli; nelle schede non cambia il click singolo.
