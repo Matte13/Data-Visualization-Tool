@@ -1,5 +1,9 @@
 # Note di versione
 
+## 1.4.11
+
+Sbloccata la pubblicazione GHCR correggendo un’asserzione di test non portabile sulla formattazione compatta del Local: ICU/Node 22 usa 6,00K, altri runtime usano 6K. Nessuna modifica ai calcoli o alla rappresentazione dei budget nell’app. Rilascio tramite tag v1.4.11; il tag immagine diventa disponibile solo dopo il completamento del workflow Publish GitHub Container Registry image. La push su main aggiorna il sorgente ma non crea l’immagine. Nessuna migrazione dati richiesta.
+
 ## 1.4.10
 
 Corretto il blocco dell’esportazione nei Python Windows privi del database IANA: ZoneInfoNotFoundError durante la data dei separatori non interrompe più la creazione del PowerPoint. Europe/Rome usa il database quando disponibile; altrimenti applica le regole europee correnti per ora solare/legale a partire dall’UTC, indipendentemente dal fuso del computer. Test diretti e HTTP simulano l’assenza del database. Nessuna modifica a workbook, budget, fotografie o chiusura.

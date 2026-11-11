@@ -68,7 +68,7 @@ test('map remediation budgets show total and split only for combined scope, pres
  assert.match(M.remediationBudget(row),/128.*Global 50.*Local 78/);
  assert.equal(M.remediationBudget(row,null,'global'),M.money(50000,true));
  assert.equal(M.remediationBudget(row,null,'local'),M.money(78000,true));
- assert.match(M.remediationBudget(row,['one']),/56.*Global 50.*Local 6K/);
+ assert.match(M.remediationBudget(row,['one']),/56(?:,0+)?K.*Global 50(?:,0+)?K.*Local 6(?:,0+)?K/);
  assert.match(M.remediationBudget({...row,globalBudget:null}),/Global Non stimato/);
  assert.match(M.remediationBudget({...row,globalBudget:0}),/Global 0\s€/);
 });
