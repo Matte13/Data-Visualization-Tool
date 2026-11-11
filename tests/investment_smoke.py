@@ -33,6 +33,21 @@ def main():
                     expect(page.locator(f'[data-top-filter="{field}"][value="Non specificato"]')).to_have_count(0)
                     expect(page.locator(f'[data-filter="{field}"][value="Non specificato"]')).to_have_count(0)
                 expect(page.locator('.kpi-value').nth(0)).to_have_text('11.090 €')
+                page.locator('.view-tabs [data-view="risk-first-map"]').click()
+                for step,value in enumerate(['2027','Cyber','Remediations:4','Alto']):
+                    node=page.locator(f'[data-risk-step="{step}"][data-risk-value="{value}"]')
+                    node.scroll_into_view_if_needed()
+                    node.focus();page.keyboard.press('Enter')
+                expect(page.locator('.map-col-label')).to_have_text([
+                    '01 / ANNO','02 / RISK TYPE','03 / REMEDIATION','04 / IMPACT TYPE','05 / CAPEX/OPEX'])
+                expect(page.locator('[data-risk-step="4"][data-risk-value="Capex"]')).to_have_count(1)
+                expect(page.locator('.map-edge')).to_have_count(4)
+                page.locator('[data-risk-detail="Remediations:4"]').focus()
+                page.keyboard.press('Enter')
+                expect(page.locator('.detail-drawer')).to_contain_text('Cyber')
+                page.locator('#close-detail').click()
+                page.locator('[data-risk-step="3"][data-risk-value="Alto"]').focus()
+                page.keyboard.press('Enter')
                 page.locator('.view-tabs [data-view="risk-map"]').click()
                 expect(page.locator('.investment-map [role="status"]')).to_contain_text('5 righe escluse')
                 expect(page.locator('[data-risk-value="Non specificato"]')).to_have_count(0)
@@ -131,6 +146,10 @@ def main():
                 offline_page.set_content(offline.read_text(),wait_until='load')
                 expect(offline_page.locator('#view-content [data-risk-detail="Remediations:4"]')).to_have_count(1)
                 expect(offline_page.locator('.kpi-value').nth(0)).to_have_text('2380 €')
+                offline_page.locator('.view-tabs [data-view="risk-first-map"]').click()
+                expect(offline_page.locator('.map-col-label')).to_have_text([
+                    '01 / ANNO','02 / RISK TYPE','03 / REMEDIATION','04 / IMPACT TYPE','05 / CAPEX/OPEX'])
+                expect(offline_page.locator('[data-risk-step="4"][data-risk-value="Capex"]')).to_have_count(1)
                 offline_page.close()
                 assert not errors,errors
                 browser.close()

@@ -194,3 +194,5 @@ python tests/ui_smoke.py
 ```
 
 Il test UI usa solo store temporanei e dati fittizi. La navigazione diretta a URL `file://` può essere bloccata dalle policy del browser gestito: il test verifica il contenuto HTML autosufficiente con richieste esterne bloccate. Non viene eseguito un deployment.
+
+La vista **Mappa per Risk Type**, subito dopo **Mappa rischi e investimenti**, offre il percorso **Anno → Risk Type → Remediation → Impact Type → Capex/Opex**, senza il livello dominio. Mantiene filtri e budget condivisi, navigazione da tastiera, dettaglio con doppio click e percorso selezionato nella copia HTML offline. I due percorsi di esplorazione restano indipendenti.
