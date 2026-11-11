@@ -1,13 +1,13 @@
 """Source artwork, dates, randomized ordering and fixed closing are retained."""
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 import unittest
 from unittest.mock import patch
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pptx import Presentation
 from pptx.oxml.ns import qn
 from app.presentation import create_presentation
-from app.presentation_templates import TEMPLATE_PATH
+from app.presentation_templates import TEMPLATE_PATH, export_date
 from test_presentation import report_fixture, titles
 
 
@@ -43,3 +43,14 @@ class TemplateExportTests(unittest.TestCase):
         a=[s.slide_layout.name for s in first.slides if any(sh.name=='dvt-export-date' for sh in s.shapes)]
         b=[s.slide_layout.name for s in second.slides if any(sh.name=='dvt-export-date' for sh in s.shapes)]
         self.assertEqual(a,list(reversed(b)))
+
+    def test_windows_without_timezone_database_still_exports_with_rome_date(self):
+        with patch('app.presentation_templates.ZoneInfo',side_effect=ZoneInfoNotFoundError('Europe/Rome')):
+            for instant,expected in [(datetime(2026,1,1,23,30,tzinfo=timezone.utc),'02/01/2026'),
+                                     (datetime(2026,7,1,22,30,tzinfo=timezone.utc),'02/07/2026'),
+                                     (datetime(2026,3,29,0,30,tzinfo=timezone.utc),'29/03/2026'),
+                                     (datetime(2026,10,25,23,30,tzinfo=timezone.utc),'26/10/2026')]:
+                self.assertEqual(export_date(instant),expected)
+            deck=Presentation(BytesIO(create_presentation(report_fixture())))
+            self.assertLessEqual(len(deck.slides),15)
+            self.assertEqual(sum(any(sh.name=='dvt-export-date' for sh in slide.shapes) for slide in deck.slides),4)

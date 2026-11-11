@@ -1,8 +1,9 @@
 """Import the supplied editable separator designs and fixed closing slide."""
-from datetime import datetime
+from calendar import monthrange
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from random import SystemRandom
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pptx import Presentation
 from pptx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -15,6 +16,22 @@ from lxml import etree
 TEMPLATE_PATH = Path(__file__).with_name('assets') / 'export-separators.pptx'
 
 
+def export_date(now=None):
+    """Rome date even on Windows interpreters without an IANA timezone database."""
+    now = now or datetime.now(timezone.utc)
+    try:
+        local = now.astimezone(ZoneInfo('Europe/Rome'))
+    except ZoneInfoNotFoundError:
+        # Current EU rules: summer time starts/ends at 01:00 UTC on the
+        # last Sunday of March/October. Avoid using the host's timezone.
+        def transition(month):
+            last = datetime(now.year, month, monthrange(now.year, month)[1], 1, tzinfo=timezone.utc)
+            return last - timedelta(days=(last.weekday() + 1) % 7)
+        offset = 2 if transition(3) <= now < transition(10) else 1
+        local = now.astimezone(timezone(timedelta(hours=offset)))
+    return local.strftime('%d/%m/%Y')
+
+
 class ExportTemplates:
     def __init__(self, presentation):
         self.presentation = presentation
@@ -22,7 +39,7 @@ class ExportTemplates:
         self.parts = {}
         self.order = list(range(len(self.source.slides) - 1))
         SystemRandom().shuffle(self.order)
-        self.date = datetime.now(ZoneInfo('Europe/Rome')).strftime('%d/%m/%Y')
+        self.date = export_date()
 
     def _part(self, source):
         if source in self.parts:

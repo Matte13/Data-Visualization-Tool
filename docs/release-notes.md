@@ -1,5 +1,9 @@
 # Note di versione
 
+## 1.4.10
+
+Corretto il blocco dell’esportazione nei Python Windows privi del database IANA: ZoneInfoNotFoundError durante la data dei separatori non interrompe più la creazione del PowerPoint. Europe/Rome usa il database quando disponibile; altrimenti applica le regole europee correnti per ora solare/legale a partire dall’UTC, indipendentemente dal fuso del computer. Test diretti e HTTP simulano l’assenza del database. Nessuna modifica a workbook, budget, fotografie o chiusura.
+
 ## 1.4.9
 
 Verificato il workbook finale con le formule delle tre tabelle CMA nel foglio Budget CAPEX-OPEX estese dalla riga 62 alla 63. Tutte le 18 celle (CAPEX/OPEX × Global/Complete unitario/Business unitario × 2027/2028/2029) coincidono con le righe sorgente e con gli aggregati importati. Per il 2028 il totale è Global 1.035.000 €, Complete unitario 127.000 €, Business unitario 30.000 €.

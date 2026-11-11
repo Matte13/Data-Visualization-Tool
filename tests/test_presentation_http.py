@@ -74,6 +74,14 @@ class PresentationHttpTests(unittest.TestCase):
         self.assertEqual(self.store.catalog(), before)
         self.assertEqual(self.store.active_project_id, self.second['project']['id'])
 
+    def test_windows_download_without_timezone_database(self):
+        from zoneinfo import ZoneInfoNotFoundError
+        with patch('app.presentation_templates.ZoneInfo', side_effect=ZoneInfoNotFoundError('Europe/Rome')):
+            with self.request() as response:
+                self.assertEqual(response.status,200)
+                with ZipFile(BytesIO(response.read())) as archive:
+                    self.assertIsNone(archive.testzip())
+
     def test_json_must_be_valid_utf8_and_finite(self):
         for content in [b'not json', b'\xff', b'{"value":NaN}', b'']:
             with self.subTest(content=content):
