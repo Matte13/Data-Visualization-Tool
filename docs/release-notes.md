@@ -1,5 +1,11 @@
 # Note di versione
 
+## 1.4.7
+
+Esportazione PowerPoint aggiornata ai separatori fotografici del deck Italfarmaco_CMA_ppt. I quattro modelli distinti vengono mescolati per ogni esportazione e usati una volta ciascuno; l’ordine delle sezioni rimane Budget → Anni → Country / legal entity → Remediation. Titoli modificabili e data corrente calcolata in Europe/Rome. La slide finale originale è sempre l’ultima.
+
+Immagini, layout, loghi e collegamenti sono conservati in un pacchetto portabile, con risorse superflue, vecchia copertina e note sorgente rimosse. Il pacchetto di installazione include la risorsa. Grafici e dati rimangono modificabili e rispettano i filtri. Massimo 15 slide incluse le conclusioni: i riepiloghi annuali diventano al massimo due, con dettaglio completo nelle note. Nessuna migrazione dati o nuova importazione richiesta.
+
 ## 1.4.6
 
 Tutti i box remediation nelle mappe mostrano totale e split Global/Local quando è attivo il perimetro combinato, rispettando le entità selezionate. I perimetri singoli mostrano soltanto il relativo budget; importi mancanti restano distinti da zero.

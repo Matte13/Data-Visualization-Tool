@@ -1,4 +1,4 @@
-"""Editable, deterministic PowerPoint export for the filtered workbook snapshot.
+"""Editable PowerPoint export with randomized section designs and exact data.
 
 The layout and typography use the supplied reference slide themes. The corporate
 font is referenced by family name; font packaging is handled separately.
@@ -11,6 +11,7 @@ import json
 import math
 
 from .presentation_style import apply_presentation_style
+from .presentation_templates import ExportTemplates
 from .presentation_brand import (add_background, add_brand_details, add_footer,
                                  add_icon, gradient_fill)
 from .presentation_summary import (combine_groups, compact_groups, compact_years,
@@ -36,6 +37,7 @@ THEME = {
     'white': 'FFFFFF', 'amber': '94640F',
     'years': ['7213EA', '1E49E2', '007BA8', '510DBC', '00338D'],
 }
+
 MAX_SLIDES = 15
 W, H = 13.333333, 7.5
 MARGIN, BODY_TOP, BODY_BOTTOM = .58, 1.58, 6.76
@@ -185,13 +187,8 @@ def _slide(prs, report, title, subtitle='', *, section='', dark=False):
 
 
 def _divider(prs, report, title):
-    """Section title only; the corporate footer remains on every slide."""
-    slide = _slide(prs, report, title, section='Separatore', dark=True)
-    heading = next(shape for shape in slide.shapes if shape.name == 'dvt-title')
-    heading.top = Inches(2.65); heading.height = Inches(1.5)
-    for paragraph in heading.text_frame.paragraphs:
-        paragraph.font.size = Pt(72 if len(title) < 25 else 60)
-        paragraph.line_spacing = .90
+    """Use one supplied photographic design per section, without repetition."""
+    slide = prs._dvt_templates.divider(title)
     _notes(slide, _source_notes(report))
     return slide
 
@@ -539,8 +536,8 @@ def _remediation_list(slide, rows, scope):
 def create_presentation(report: dict) -> bytes:
     """Export an executive deck of at most 15 slides, with full source notes.
 
-    The cap is structural: 1 cover + 4 dividers + 3 budget + up to 3 years +
-    up to 2 country matrices + 2 remediation slides. Extra categories are
+    The cap is structural: 1 cover + 4 dividers + 3 budget + up to 2 years +
+    up to 2 country matrices + 2 remediation slides + 1 fixed closing. Extra categories are
     combined explicitly; no original source row is removed from the notes.
     """
     rows = report.get('rows') or []
@@ -548,6 +545,7 @@ def create_presentation(report: dict) -> bytes:
         raise ValueError('Non ci sono remediation da esportare con i filtri selezionati.')
     prs = Presentation(); prs.slide_width = Inches(W); prs.slide_height = Inches(H)
     _apply_reference_theme(prs)
+    prs._dvt_templates = ExportTemplates(prs)
     prs.core_properties.title = (report.get('projectName') or 'Progetto') + ' — Piano di remediation'
     prs.core_properties.subject = 'Sintesi dei dati filtrati: budget, anni, country e remediation'
     prs.core_properties.author = 'Data Visualization Tool'
@@ -611,7 +609,7 @@ def create_presentation(report: dict) -> bytes:
         _notes(slide, _source_notes(report, 'Gruppi completi: ' + json.dumps(groups, ensure_ascii=False, default=str)))
 
     _divider(prs, report, 'Anni')
-    for year_group in compact_years(annual, limit=3, scope=scope):
+    for year_group in compact_years(annual, limit=2, scope=scope):
         year = str(year_group.get('label', 'Anno non specificato'))
         year_rows = year_group.get('rows') or []
         members = year_group.get('members', [year])
@@ -683,6 +681,8 @@ def create_presentation(report: dict) -> bytes:
     method = '\n'.join(_filter_lines(report)) + '\nNote della fonte: ' + json.dumps(report.get('notes', []), ensure_ascii=False)
     _notes(slide, _source_notes(report, method + '\n' + marker +
                                json.dumps(rows[cut:], ensure_ascii=False, indent=2, default=str)))
+
+    prs._dvt_templates.closing()
 
     if len(prs.slides) > MAX_SLIDES:
         raise ValueError('La presentazione supera il limite di 15 slide.')

@@ -10,7 +10,7 @@ ROOT_FILES={'.env.example','.dockerignore','.gitignore','Dockerfile','compose.ya
             'requirements-dev.txt','requirements-azuresql.txt','compose.azuresql.yaml'}
 DOCS={'docs/deployment.md','docs/azure-portal.md','docs/workbook-format.md','docs/release-notes.md',
       'data/README.md','web/THIRD_PARTY_NOTICES.md'}
-ASSETS={'app/assets/presentation-style.pptx','app/assets/kpmg-footer-logo.xml'}
+ASSETS={'app/assets/export-separators.pptx','app/assets/presentation-style.pptx','app/assets/kpmg-footer-logo.xml'}
 
 
 def selected(relative):

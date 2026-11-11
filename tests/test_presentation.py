@@ -78,7 +78,7 @@ def contrast(first, second):
 
 
 def titles(presentation):
-    return [named_shape(slide, 'dvt-title').text for slide in presentation.slides]
+    return [next((shape.text for shape in slide.shapes if shape.name == 'dvt-title'), 'Chiusura') for slide in presentation.slides]
 
 
 def full_bleed_gradient(slide, presentation):
@@ -169,8 +169,8 @@ class PresentationTests(unittest.TestCase):
         self.assertEqual(positions, sorted(positions))
         self.assertLess(positions[0], headings.index('Budget per anno'))
         self.assertLess(headings.index('Budget per owner'), positions[1])
-        self.assertLess(positions[1], headings.index('2027 · Budget e remediation'))
-        self.assertLess(headings.index('2029 · Budget e remediation'), positions[2])
+        self.assertLess(positions[1], headings.index('2028 · Budget e remediation'))
+        self.assertLess(headings.index('Altri anni · Budget e remediation'), positions[2])
         self.assertLess(positions[2], headings.index('Budget Local per country e anno'))
         self.assertLess(headings.index('Budget Local per country e anno'), positions[3])
         self.assertLess(positions[3], headings.index('Remediation per anno e dominio'))
@@ -181,7 +181,8 @@ class PresentationTests(unittest.TestCase):
             slide = self.presentation.slides[headings.index(title)]
             body = [shape.text for shape in slide.shapes
                     if shape.has_text_frame and shape.text.strip() and shape.name not in footer_names]
-            self.assertEqual(body, [title])
+            self.assertEqual(body[0], title)
+            self.assertRegex(body[1], r'^\d{2}/\d{2}/\d{4}$')
 
     def test_native_editable_annual_chart_preserves_cents_and_missing(self):
         charts = [shape.chart for slide in self.presentation.slides for shape in slide.shapes if shape.has_chart]
@@ -206,7 +207,7 @@ class PresentationTests(unittest.TestCase):
 
     def test_country_does_not_get_a_fabricated_global_budget(self):
         country_slide = next(slide for slide in self.presentation.slides
-                             if named_shape(slide, 'dvt-title').text == 'Budget Local per country e anno')
+                             if any(shape.name == 'dvt-title' and shape.text == 'Budget Local per country e anno' for shape in slide.shapes))
         body = texts(country_slide)
         self.assertIn('Global resta di gruppo', body)
         self.assertIn('Budget Local', body)
@@ -239,7 +240,7 @@ class PresentationTests(unittest.TestCase):
         self.assertEqual(report, original)
         self.assertLessEqual(len(presentation.slides), 15)
         country_slide = next(slide for slide in presentation.slides
-                             if named_shape(slide, 'dvt-title').text == 'Budget Local per country e anno')
+                             if any(shape.name == 'dvt-title' and shape.text == 'Budget Local per country e anno' for shape in slide.shapes))
         body = texts(country_slide)
         self.assertIn('2035', body)
         self.assertIn('456,78 €', body)
@@ -277,7 +278,7 @@ class PresentationTests(unittest.TestCase):
         self.assertLessEqual(len(annual), 3)
         self.assertIn('Altri anni · Budget e remediation', annual)
         country_slides = [slide for slide in presentation.slides
-                          if named_shape(slide, 'dvt-title').text == 'Budget Local per country e anno']
+                          if any(shape.name == 'dvt-title' and shape.text == 'Budget Local per country e anno' for shape in slide.shapes)]
         self.assertLessEqual(len(country_slides), 2)
         country_notes = '\n'.join(slide.notes_slide.notes_text_frame.text for slide in country_slides)
         for country in report['countries']:
@@ -315,8 +316,10 @@ class PresentationTests(unittest.TestCase):
     def test_gradient_is_reserved_for_cover_and_section_dividers(self):
         dividers = {'Budget', 'Anni', 'Country / legal entity', 'Remediation'}
         for page, slide in enumerate(self.presentation.slides):
-            heading = named_shape(slide, 'dvt-title').text
-            dark = page == 0 or heading in dividers
+            heading = titles(self.presentation)[page]
+            if heading in dividers or heading == 'Chiusura':
+                continue  # Supplied photographic/closing designs are checked separately.
+            dark = page == 0
             gradient = full_bleed_gradient(slide, self.presentation)
             with self.subTest(title=heading):
                 if dark:
@@ -333,6 +336,8 @@ class PresentationTests(unittest.TestCase):
     def test_native_text_and_icon_gradients_use_valid_drawingml_order(self):
         gradients = []
         for slide in self.presentation.slides:
+            if not any(shape.name == 'dvt-copyright' for shape in slide.shapes):
+                continue
             title = named_shape(slide, 'dvt-title')
             for paragraph in title.text_frame.paragraphs:
                 properties = paragraph._p.find(qn('a:pPr')).find(qn('a:defRPr'))
@@ -354,6 +359,8 @@ class PresentationTests(unittest.TestCase):
         copyright = ('©2026 Copyright owned by one or more of the KPMG International entities.\n'
                      'KPMG International entities provide no services to clients. All rights reserved.')
         for page, slide in enumerate(self.presentation.slides, 1):
+            if not any(shape.name == 'dvt-copyright' for shape in slide.shapes):
+                continue  # Imported designs retain the supplied footer and closing.
             dark = full_bleed_gradient(slide, self.presentation) is not None
             with self.subTest(page=page):
                 logo = named_shape(slide, 'dvt-kpmg-logo')

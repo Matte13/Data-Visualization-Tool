@@ -36,7 +36,7 @@ class ContainerSetupTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
             examples=['app/server.py','web/app.js','infra/azure/main.bicep',
-                      'app/assets/presentation-style.pptx','.env.example',
+                      'app/assets/presentation-style.pptx','app/assets/export-separators.pptx','.env.example',
                       'data/client.xlsx','runtime/projects.json','deploy/secrets/password',
                       '.env','infra/azure/password.local.json','docs/data-audit.md','private.m4a']
             for name in examples:
@@ -46,5 +46,6 @@ class ContainerSetupTests(unittest.TestCase):
                 names=archive.namelist();self.assertIsNone(archive.testzip())
             self.assertIn('data-visualization-tool/app/server.py',names)
             self.assertIn('data-visualization-tool/app/assets/presentation-style.pptx',names)
-            self.assertEqual(len(names),5)
+            self.assertIn('data-visualization-tool/app/assets/export-separators.pptx',names)
+            self.assertEqual(len(names),6)
             self.assertTrue(output.with_suffix('.zip.sha256').exists())
