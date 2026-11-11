@@ -1,5 +1,11 @@
 # Note di versione
 
+## 1.4.6
+
+Tutti i box remediation nelle mappe mostrano totale e split Global/Local quando è attivo il perimetro combinato, rispettando le entità selezionate. I perimetri singoli mostrano soltanto il relativo budget; importi mancanti restano distinti da zero.
+
+Aggiunta Mappa remediation dopo Mappa per Risk Type: Anno → Remediation → Risk Type → Impact Type → Capex/Opex. Percorso indipendente, navigazione e dettaglio coerenti con le altre mappe, selezioni conservate nell’HTML offline. Rimossi i budget da box e tooltip degli impatti; livelli e colori sono mantenuti. Nessuna modifica alle righe o ai calcoli del file, nessuna reimportazione richiesta.
+
 ## 1.4.5
 
 Supporto al tracciato finale All Remediations: N = Risk Level, P–S = Reputational/Regulatory/Economic/Operational Impact, T = CAPEX/OPEX, U = Note. O è un campo di ragionamento personale, ignorato dall’importazione. I quattro impatti vengono conservati con livelli indipendenti dal rischio e mostrati nelle due mappe, nel dettaglio e nel CSV. I valori mancanti restano non specificati. Nessuna duplicazione delle righe o degli importi; supporto ai tracciati precedenti conservato.

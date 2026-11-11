@@ -5,7 +5,7 @@ targetScope = 'resourceGroup'
 @maxLength(20)
 param prefix string
 param location string = resourceGroup().location
-param containerImage string = 'ghcr.io/matte13/data-visualization-tool:1.4.5'
+param containerImage string = 'ghcr.io/matte13/data-visualization-tool:1.4.6'
 @description('Existing Azure SQL logical-server FQDN; no server/database is created.')
 param sqlServerFqdn string = 'dbservertil.${az.environment().suffixes.sqlServerHostname}'
 param sqlDatabase string = 'data-visualization-tool-db'

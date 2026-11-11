@@ -121,7 +121,7 @@
     }).join('');
     const leaves = visible.map((row, index) => {
       const y = leafY(index);
-      return `<g class="map-node leaf${options.selectedRemediation===rowKey(row)?' chosen':''}" role="button" tabindex="0" data-detail="${esc(rowKey(row))}" style="--domain-color:${esc(domainColor(domain))}" aria-label="Dettaglio ${esc(row.name)} · ${esc(ownerKey(row))} · ${esc(sourceRef(row))}"><title>${esc(row.name)} · ${esc(amount([row], false))}</title><rect x="860" y="${y}" width="440" height="108" rx="8"/>${text(row.name, 876, y + 41, 60, 2)}<text x="876" y="${y + 83}" class="node-sub">${esc(amount([row]))}</text></g>`;
+      return `<g class="map-node leaf${options.selectedRemediation===rowKey(row)?' chosen':''}" role="button" tabindex="0" data-detail="${esc(rowKey(row))}" style="--domain-color:${esc(domainColor(domain))}" aria-label="Dettaglio ${esc(row.name)} · ${esc(ownerKey(row))} · ${esc(sourceRef(row))}"><title>${esc(row.name)} · ${esc(amount([row], false))}</title><rect x="860" y="${y}" width="440" height="108" rx="8"/>${text(row.name, 876, y + 41, 60, 2)}<text x="876" y="${y + 83}" class="node-sub">${esc(model.remediationBudget(row,entities,scope))}</text></g>`;
     }).join('');
     const selectedYearY = yearY(years.indexOf(year)) + 54;
     const yearEdges = owners.map((label, index) => edge('year-owner', year, label,

@@ -62,3 +62,13 @@ test('four rated impacts stay independent of risk level and export without dupli
  assert.ok(csv.includes('"Reputational Impact";"Regulatory Impact";"Economic Impact";"Operational Impact"'));
  assert.ok(csv.endsWith('"Low";"High";"Medium";"High"'));
 });
+
+test('map remediation budgets show total and split only for combined scope, preserving missing values',()=>{
+ const row={globalBudget:50000,localTotal:78000,allocationStatus:'mapped',allocations:[{entityId:'one',amount:6000}]};
+ assert.match(M.remediationBudget(row),/128.*Global 50.*Local 78/);
+ assert.equal(M.remediationBudget(row,null,'global'),M.money(50000,true));
+ assert.equal(M.remediationBudget(row,null,'local'),M.money(78000,true));
+ assert.match(M.remediationBudget(row,['one']),/56.*Global 50.*Local 6K/);
+ assert.match(M.remediationBudget({...row,globalBudget:null}),/Global Non stimato/);
+ assert.match(M.remediationBudget({...row,globalBudget:0}),/Global 0\s€/);
+});
