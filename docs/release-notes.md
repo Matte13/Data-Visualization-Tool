@@ -1,5 +1,11 @@
 # Note di versione
 
+## 1.4.9
+
+Verificato il workbook finale con le formule delle tre tabelle CMA nel foglio Budget CAPEX-OPEX estese dalla riga 62 alla 63. Tutte le 18 celle (CAPEX/OPEX × Global/Complete unitario/Business unitario × 2027/2028/2029) coincidono con le righe sorgente e con gli aggregati importati. Per il 2028 il totale è Global 1.035.000 €, Complete unitario 127.000 €, Business unitario 30.000 €.
+
+L’app importa All Remediations e includeva già l’ultima remediation: non occorre modificare gli algoritmi o aggiungere importi ai totali. Il nuovo workbook produce le stesse 79 righe del precedente. Test sintetico di regressione: riga finale 63 nei due fogli, preservata in importazione e nei totali della presentazione filtrata per 2027, 2028 e 2029. Aggiornare il file del progetto per conservare il sorgente finale; nessun workbook del cliente è incluso nel repository.
+
 ## 1.4.8
 
 Rimosso il simbolo a croce dagli importi delle celle annuali, dai totali country e dalla legenda nelle tabelle budget PowerPoint. Nessuna modifica agli importi o ai calcoli: la nota testuale chiarisce che i totali sono calcolati sulle stime disponibili, mentre dati mancanti, zeri e dettagli originali rimangono distinguibili.
