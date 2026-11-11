@@ -488,8 +488,7 @@ def _country_matrix(slide, countries, columns, maximum):
             color = THEME['years'][index % len(THEME['years'])]
             group = _country_cell_group(country, column)
             value = _known_value(group, 'local') if group else None
-            partial = bool(group and value is not None and group.get('missingLocal'))
-            text = '—' if not group else 'n.d.' if value is None else _money(value) + (' †' if partial else '')
+            text = '—' if not group else 'n.d.' if value is None else _money(value)
             fraction = max(0, value or 0) / maximum
             _shape(slide, x + .025, y, column_width - .05, .36,
                    _tint(color, .04 + .22 * min(fraction, 1)), radius=True)
@@ -499,7 +498,7 @@ def _country_matrix(slide, countries, columns, maximum):
                   size=12 if len(columns) <= 3 else 10, color=THEME['ink'])
         totals = country.get('totals', {})
         total = _known_value(totals, 'local')
-        _text(slide, _money(total) + (' †' if total is not None and totals.get('missingLocal') else ''),
+        _text(slide, _money(total),
               total_x, y + .035, total_width - .10, .28,
               size=12, bold=True, color=THEME['navy'], align=PP_ALIGN.RIGHT)
 
@@ -655,8 +654,8 @@ def create_presentation(report: dict) -> bytes:
         else:
             _text(slide, 'Nessuna attribuzione per country nel perimetro selezionato.',
                   MARGIN, 2.40, 12.17, .60, size=20, color=THEME['navy'])
-        _text(slide, 'Il budget Global resta di gruppo. — nessuna voce · n.d. stima assente · † importo parziale. '
-              'Attribuzioni incerte escluse.', MARGIN, 6.55, 12.17, .23, size=9, color=THEME['muted'])
+        _text(slide, 'Il budget Global resta di gruppo. — nessuna voce · n.d. stima assente. '
+              'Totali sulle stime disponibili; attribuzioni incerte escluse.', MARGIN, 6.55, 12.17, .23, size=9, color=THEME['muted'])
         _notes(slide, _source_notes(report, 'Dettaglio completo delle country:\n' +
                   json.dumps(countries if index == 0 else page, ensure_ascii=False, default=str)))
 

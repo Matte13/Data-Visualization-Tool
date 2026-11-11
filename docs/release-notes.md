@@ -1,5 +1,9 @@
 # Note di versione
 
+## 1.4.8
+
+Rimosso il simbolo a croce dagli importi delle celle annuali, dai totali country e dalla legenda nelle tabelle budget PowerPoint. Nessuna modifica agli importi o ai calcoli: la nota testuale chiarisce che i totali sono calcolati sulle stime disponibili, mentre dati mancanti, zeri e dettagli originali rimangono distinguibili.
+
 ## 1.4.7
 
 Esportazione PowerPoint aggiornata ai separatori fotografici del deck Italfarmaco_CMA_ppt. I quattro modelli distinti vengono mescolati per ogni esportazione e usati una volta ciascuno; l’ordine delle sezioni rimane Budget → Anni → Country / legal entity → Remediation. Titoli modificabili e data corrente calcolata in Europe/Rome. La slide finale originale è sempre l’ultima.
