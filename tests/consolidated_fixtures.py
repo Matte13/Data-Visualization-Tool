@@ -32,3 +32,28 @@ def make_consolidated_workbook():
         'xl/worksheets/sheet3.xml':{'G2':120,'G3':180},
         'xl/worksheets/sheet4.xml':{'G2':1380,'G3':1000,'G4':810,'G5':120,'G6':180,'G7':96,'G8':96},
     })
+
+
+def make_rated_impact_workbook():
+    """Latest schema; preserve saved budget formula caches in the synthetic ZIP."""
+    from zipfile import ZipFile, ZIP_DEFLATED
+    from xml.etree import ElementTree as ET
+    namespace='http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    tag=lambda name:f'{{{namespace}}}{name}'
+    original=BytesIO(make_consolidated_workbook());output=BytesIO()
+    with ZipFile(original) as src, ZipFile(output,'w',ZIP_DEFLATED) as dest:
+        for item in src.infolist():
+            content=src.read(item.filename)
+            if item.filename=='xl/worksheets/sheet4.xml':
+                tree=ET.fromstring(content)
+                for row in tree.findall('.//'+tag('sheetData')+'/'+tag('row')):
+                    number=row.attrib['r']
+                    for cell in row.findall(tag('c')):
+                        column=''.join(c for c in cell.attrib['r'] if c.isalpha())
+                        cell.attrib['r']={'N':'O','O':'N','P':'T','Q':'U'}.get(column,column)+number
+                    for column,label,level in [('P','Reputational','Low'),('Q','Regulatory','High'),('R','Economic','Medium'),('S','Operational','High')]:
+                        cell=ET.SubElement(row,tag('c'),{'r':column+number,'t':'inlineStr'})
+                        ET.SubElement(ET.SubElement(cell,tag('is')),tag('t')).text=label+' Impact' if number=='1' else level
+                content=ET.tostring(tree)
+            dest.writestr(item,content)
+    return output.getvalue()

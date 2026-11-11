@@ -1,5 +1,11 @@
 # Note di versione
 
+## 1.4.5
+
+Supporto al tracciato finale All Remediations: N = Risk Level, P–S = Reputational/Regulatory/Economic/Operational Impact, T = CAPEX/OPEX, U = Note. O è un campo di ragionamento personale, ignorato dall’importazione. I quattro impatti vengono conservati con livelli indipendenti dal rischio e mostrati nelle due mappe, nel dettaglio e nel CSV. I valori mancanti restano non specificati. Nessuna duplicazione delle righe o degli importi; supporto ai tracciati precedenti conservato.
+
+Riconosciute anche le colonne spostate del foglio di dettaglio CMA, WIFI, VA Remediations. Aggiornare l’Excel del progetto per acquisire le nuove valutazioni; non serve migrare il database. L’Excel originale scaricabile conserva, come sempre, tutti i contenuti del file caricato, inclusa O.
+
 ## 1.4.4
 
 Aggiunta **Mappa per Risk Type** dopo la mappa rischi e investimenti: Anno → Risk Type → Remediation → Impact Type → Capex/Opex, senza dominio. Riutilizza il grafico e i filtri condivisi, con percorso di selezione indipendente, navigazione da tastiera e dettaglio remediation. La copia HTML offline conserva entrambi i percorsi.

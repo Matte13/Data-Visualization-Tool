@@ -49,3 +49,16 @@ test('priority N/A is distinguishable from an empty priority',()=>{
  assert.equal(M.filterRows(data,{priority:['na']})[0].key,'a');
  assert.equal(M.filterRows(data,{priority:['missing']})[0].key,'b');
 });
+
+test('four rated impacts stay independent of risk level and export without duplicating budgets',()=>{
+ const row={...rows[0],riskTypes:['Cyber','Compliance'],impactTypes:['Reputational','Regulatory','Economic','Operational'],riskLevel:'High',impactLevels:{Reputational:'Low',Regulatory:'High',Economic:'Medium',Operational:'High'}};
+ assert.deepEqual(M.attributeValues(row,'impact'),['Reputational','Regulatory','Economic','Operational']);
+ assert.deepEqual(Array.from(M.attributeValues(row,'riskLevel')),['High']);
+ assert.equal(M.filterRows([row],{impact:['Reputational']}).length,1);
+ const groups=M.attributeGroups([row],'impact');
+ assert.equal(groups.length,4);
+ assert.ok(groups.every(group=>group.rows.length===1));
+ const csv=M.csv([row]);
+ assert.ok(csv.includes('"Reputational Impact";"Regulatory Impact";"Economic Impact";"Operational Impact"'));
+ assert.ok(csv.endsWith('"Low";"High";"Medium";"High"'));
+});

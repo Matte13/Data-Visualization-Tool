@@ -56,7 +56,7 @@
       if (filters.localBudget === 'positive' && !(local > 0)) return false;
       if (filters.localBudget === 'zero' && local !== 0) return false;
       if (filters.localBudget === 'missing' && local !== null) return false;
-      if (query && ![row.id,row.name,row.domain,row.owner,row.globalDescription,row.localDescription,row.applicableCountries,row.capexOpex,row.risk,row.impact,row.riskTypes,row.impactTypes,row.riskLevel,row.remediationType,row.capexOpexNote,row.excelRow]
+      if (query && ![row.id,row.name,row.domain,row.owner,row.globalDescription,row.localDescription,row.applicableCountries,row.capexOpex,row.risk,row.impact,row.riskTypes,row.impactTypes,Object.values(row.impactLevels||{}),row.riskLevel,row.remediationType,row.capexOpexNote,row.excelRow]
         .join(' ').toLocaleLowerCase('it').includes(query)) return false;
       return true;
     });
@@ -134,7 +134,7 @@
       entities != null ? 'Budget Local EUR (entità selezionate)' : 'Budget Local complessivo EUR',
       'Local Complete unitario EUR','Local BO unitario EUR','Formula Local originale','Stato attribuzione','Nota attribuzione',
       'Country / LE selezionate','NIS2','Priorità','Descrizione Global','Descrizione Local','Applicabilità originale (da verificare)',
-      'Capex/Opex','Risk Type','Impact Type','Impatto legacy','Risk Level','Type Of Remediation','Note Capex/Opex','Foglio sorgente','Intestazione priorità originale','Stime da definire originali','Owner nel file originale','Budget visualizzato','Budget visualizzato EUR'];
+      'Capex/Opex','Risk Type','Impact Type','Impatto legacy','Risk Level','Type Of Remediation','Note Capex/Opex','Foglio sorgente','Intestazione priorità originale','Stime da definire originali','Owner nel file originale','Budget visualizzato','Budget visualizzato EUR',...(rows.some(row=>row.impactLevels)?['Reputational Impact','Regulatory Impact','Economic Impact','Operational Impact']:[])];
     const selectedAmount = row => {
       const global=number(row.globalBudget),local=localAmount(row,entities);
       return scope==='global'?global:scope==='local'?local:global==null&&local==null?null:(global??0)+(local??0);
@@ -142,7 +142,7 @@
     const values = rows.map(r => [r.sheet,r.excelRow,r.id,r.domain,r.name,r.year,r.owner,r.globalBudget,
       localAmount(r, entities),r.localComplete,r.localBusiness,r.localFormula,r.allocationStatus,r.allocationNote,
       (entities || []).join(' | '),r.nis2,r.priority,r.globalDescription,r.localDescription,r.applicableCountries,
-      r.capexOpex||'',attributeValues(r,'risk').filter(v=>v!=='Non specificato').join(' | '),(Array.isArray(r.impactTypes)?r.impactTypes.join(' | '):''),r.impact||'',attributeValues(r,'riskLevel').filter(v=>v!=='Non specificato').join(' | '),r.remediationType||'',r.capexOpexNote||'',r.sourceSheet||r.sheet,r.prioritySourceHeader||'',Object.entries(r.sourceBudgetMarkers||{}).map(([field,value])=>field+': '+value).join(' | '),r.sourceOwner??r.owner,{all:'Global + Local',global:'Global',local:'Local'}[scope],selectedAmount(r)]);
+      r.capexOpex||'',attributeValues(r,'risk').filter(v=>v!=='Non specificato').join(' | '),(Array.isArray(r.impactTypes)?r.impactTypes.join(' | '):''),r.impact||'',attributeValues(r,'riskLevel').filter(v=>v!=='Non specificato').join(' | '),r.remediationType||'',r.capexOpexNote||'',r.sourceSheet||r.sheet,r.prioritySourceHeader||'',Object.entries(r.sourceBudgetMarkers||{}).map(([field,value])=>field+': '+value).join(' | '),r.sourceOwner??r.owner,{all:'Global + Local',global:'Global',local:'Local'}[scope],selectedAmount(r),...(rows.some(row=>row.impactLevels)?['Reputational','Regulatory','Economic','Operational'].map(type=>r.impactLevels?.[type]||''):[])]);
     return '\uFEFF' + [headers, ...values].map(row => row.map(quote).join(';')).join('\r\n');
   }
   const api = {attributeValues,attributeGroups,number,sum,money,localAmount,filterRows,investmentRows,totals,aggregate,budgetBreakdown,csv};

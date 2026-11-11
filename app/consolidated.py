@@ -29,6 +29,9 @@ def _details(values):
         if name not in values:
             continue
         sheet = values[name]
+        shifted_main = main and _label(sheet['H2'].value).casefold() == 'budget global'
+        if shifted_main:
+            start = 3
         for row in range(start, sheet.max_row + 1):
             if not _label(sheet.cell(row, 4).value):
                 continue
@@ -36,13 +39,13 @@ def _details(values):
                 'sheet': name, 'row': row, 'main': main,
                 'name': normalized(sheet.cell(row, 4).value),
                 'id': normalized(sheet.cell(row, 2).value),
-                'year': sheet.cell(row, 13 if main else 8).value,
-                'global': None if _label(sheet.cell(row, 9 if main else 5).value).casefold() == 'tbd' else sheet.cell(row, 9 if main else 5).value,
-                'local': None if _label(sheet.cell(row, 12 if main else 7).value).casefold() == 'tbd' else sheet.cell(row, 12 if main else 7).value,
+                'year': sheet.cell(row, (12 if shifted_main else 13) if main else 8).value,
+                'global': None if _label(sheet.cell(row, (8 if shifted_main else 9) if main else 5).value).casefold() == 'tbd' else sheet.cell(row, (8 if shifted_main else 9) if main else 5).value,
+                'local': None if _label(sheet.cell(row, (11 if shifted_main else 12) if main else 7).value).casefold() == 'tbd' else sheet.cell(row, (11 if shifted_main else 12) if main else 7).value,
                 'globalDescription': _text(sheet.cell(row, 5).value) if main else '',
                 'localDescription': _text(sheet.cell(row, 6).value) if main else '',
                 'applicableCountries': _text(sheet.cell(row, 7).value) if main else '',
-                'existingCoverage': _text(sheet.cell(row, 8).value) if main else '',
+                'existingCoverage': _text(sheet.cell(row, 8).value) if main and not shifted_main else '',
             })
     return result
 
@@ -55,7 +58,13 @@ def _budget_number(source, saved, coordinate):
 
 def parse_rows(formulas, values, entities, issues):
     source = formulas['All Remediations']; saved = values[source.title]
-    for column, expected in HEADERS.items():
+    rated_impacts = _label(source['N1'].value).casefold() == 'risk level'
+    headers = dict(HEADERS)
+    if rated_impacts:
+        headers.update({'N': 'Risk Level', 'P': 'Reputational Impact', 'Q': 'Regulatory Impact',
+                        'R': 'Economic Impact', 'S': 'Operational Impact', 'T': 'CAPEX/OPEX', 'U': 'Note'})
+        headers.pop('O')  # Personal reasoning column: never read or expose its contents.
+    for column, expected in headers.items():
         actual = _label(source[f'{column}1'].value).split('\n')[0].strip()
         accepted = {'priority', '2027 cma priority'} if column == 'K' else {expected.casefold()}
         if ' '.join(actual.casefold().split()) not in accepted:
@@ -100,8 +109,13 @@ def parse_rows(formulas, values, entities, issues):
             else:
                 allocation_formula = (f'=F{row}*{numbers[1]}' if ot else
                                       f'=J{row}*{numbers[1]}+K{row}*{numbers[3]}')
-        capex = _label(saved[f'P{row}'].value)
-        risk_level = _label(saved[f'O{row}'].value)
+        capex = _label(saved[f"{'T' if rated_impacts else 'P'}{row}"].value)
+        risk_level = _label(saved[f"{'N' if rated_impacts else 'O'}{row}"].value)
+        impact_levels = {}
+        if rated_impacts:
+            for column, kind in (('P', 'Reputational'), ('Q', 'Regulatory'), ('R', 'Economic'), ('S', 'Operational')):
+                value = _label(saved[f'{column}{row}'].value)
+                impact_levels[kind] = {'high': 'High', 'medium': 'Medium', 'low': 'Low'}.get(value.casefold(), value)
         record = {
             'key': f'All Remediations:{row}', 'sheet': 'OT' if ot else 'Remediations',
             'sourceSheet': source.title, 'excelRow': row, 'id': ident or None,
@@ -115,12 +129,14 @@ def parse_rows(formulas, values, entities, issues):
             'priority': _text(saved[f'K{row}'].value), 'prioritySourceHeader': _text(source['K1'].value), 'category': _text(saved[f'L{row}'].value),
             'remediationType': _label(saved[f'L{row}'].value),
             'capexOpex': {'capex': 'Capex', 'opex': 'Opex'}.get(capex.casefold(), capex),
-            'riskTypes': tags(saved[f'M{row}'].value), 'impactTypes': tags(saved[f'N{row}'].value),
+            'riskTypes': tags(saved[f'M{row}'].value), 'impactTypes': list(impact_levels) if rated_impacts else tags(saved[f'N{row}'].value),
             'riskLevel': {'high': 'High', 'medium': 'Medium', 'low': 'Low'}.get(risk_level.casefold(), risk_level),
-            'capexOpexNote': _text(saved[f'Q{row}'].value),
+            'capexOpexNote': _text(saved[f"{'U' if rated_impacts else 'Q'}{row}"].value),
             'metadataSchema': 'risk-impact-types',
             'detailSources': [{'sheet': item['sheet'], 'excelRow': item['row']} for item in matches],
         }
+        if rated_impacts:
+            record['impactLevels'] = impact_levels
         markers = {field: 'TBD' for column, field in (('D', 'globalBudget'), ('E', 'localComplete'), ('F', 'localBusiness'), ('G', 'localTotal'))
                    if source[f'{column}{row}'].data_type != 'f' and _label(saved[f'{column}{row}'].value).casefold() == 'tbd'}
         if markers:

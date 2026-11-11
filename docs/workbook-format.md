@@ -125,3 +125,7 @@ Risk Type e Impact Type possono contenere più valori separati da ritorni a capo
 I risultati numerici delle formule devono essere salvati. La formula originale è conservata. Se una formula richiama un’altra riga o usa un gruppo non identificabile in LE_List, il totale viene conservato senza attribuzione country automatica. Gli anni delle righe annuali NIS2 devono essere corretti nel file, non vengono ricostruiti dal nome o dall’ID.
 
 Dalla 1.4.1, All Remediations!K1 accetta anche `2027 CMA Priority`. I valori N/A di questa colonna indicano priorità non applicabile e sono distinti dalle celle vuote. Nei campi budget è ammesso il marcatore letterale `TBD` per una stima da definire: l’importo resta non disponibile e il testo è conservato nei metadati sorgente. Non vengono convertiti in zero né testi arbitrari né formule senza risultati validi.
+
+## Tracciato finale con quattro impatti (1.4.5)
+
+In All Remediations: N = Risk Level; P = Reputational Impact; Q = Regulatory Impact; R = Economic Impact; S = Operational Impact; T = CAPEX/OPEX; U = Note. La colonna O è ignorata. Ogni impatto ha il proprio livello High/Medium/Low, distinto dal Risk Level. I campi vuoti restano non specificati; non vengono dedotti da O né dal Risk Level. I tracciati precedenti rimangono supportati.
