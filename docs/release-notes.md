@@ -1,5 +1,9 @@
 # Note di versione
 
+## 1.4.12
+
+Il test dello split budget accetta anche la formattazione dello zero con decimali usata da Node 22/ICU. La verifica numerica e tutti gli altri controlli rimangono attivi. Nessuna variazione agli importi, al frontend o alle esportazioni, oltre al numero di versione. Rilascio GHCR tramite tag v1.4.12.
+
 ## 1.4.11
 
 Sbloccata la pubblicazione GHCR correggendo un’asserzione di test non portabile sulla formattazione compatta del Local: ICU/Node 22 usa 6,00K, altri runtime usano 6K. Nessuna modifica ai calcoli o alla rappresentazione dei budget nell’app. Rilascio tramite tag v1.4.11; il tag immagine diventa disponibile solo dopo il completamento del workflow Publish GitHub Container Registry image. La push su main aggiorna il sorgente ma non crea l’immagine. Nessuna migrazione dati richiesta.
