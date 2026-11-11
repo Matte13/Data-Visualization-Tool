@@ -15,7 +15,9 @@ def main():
         root=Path(directory)
         shutil.copytree(Path(__file__).resolve().parents[1]/'web',root/'web')
         store=WorkbookStore(root)
-        content=edited_cell(investment_workbook(),1,'A2',text='Italia - ITF')
+        content=edited_cell(investment_workbook(),2,'W3',text='Risk Level')
+        content=edited_cell(content,2,'W4',text='High')
+        content=edited_cell(content,1,'A2',text='Italia - ITF')
         content=edited_cell(content,1,'A3',text='Paesi Bassi & Belgio')
         store.create(content,'synthetic.xlsx','Investments')
         server=ExplorerServer(('127.0.0.1',0),store)
@@ -49,6 +51,16 @@ def main():
                 page.wait_for_timeout(550)
                 leaf.dblclick()
                 expect(page.locator('.detail-drawer')).to_contain_text('Cyber')
+                drawer=page.locator('.detail-drawer')
+                box=drawer.bounding_box()
+                assert box['width']==860 and abs(box['x']-(1600-860)/2)<1
+                expect(drawer.locator('.risk-level-high')).to_have_text('High')
+                expect(drawer.locator('.risk-level-high')).to_have_css('color','rgb(198, 69, 69)')
+                page.set_viewport_size({'width':390,'height':844})
+                box=drawer.bounding_box()
+                assert box['width']==358 and box['x']==16
+                page.set_viewport_size({'width':1600,'height':1000})
+
                 expect(page.locator('.detail-drawer')).to_contain_text('Alto')
                 for code in ('it','nl','be'):
                     expect(page.locator(f'.allocation-list [data-country-code="{code}"]')).to_have_count(1)
