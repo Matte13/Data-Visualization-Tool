@@ -20,9 +20,12 @@ def check_badges(leaf,scope='CMA, WIFI & VA',budget='CAPEX'):
       return [...node.querySelectorAll('.map-tag')].map(tag=>{
         const box=tag.querySelector('rect').getBBox(),text=tag.querySelector('text').getBBox();
         return {width:box.width,height:box.height,inside:box.x>=outer.x&&box.y>=outer.y&&box.x+box.width<=outer.x+outer.width&&box.y+box.height<=outer.y+outer.height,
-          textFits:text.x>=box.x-1&&text.x+text.width<=box.x+box.width+1,font:getComputedStyle(tag.querySelector('text')).fontSize};
+          textFits:text.x>=box.x-1&&text.x+text.width<=box.x+box.width+1,kind:tag.dataset.mapTag,x:box.x,y:box.y,right:box.x+box.width,outerRight:outer.x+outer.width,outerTop:outer.y,outerBottom:outer.y+outer.height,font:getComputedStyle(tag.querySelector('text')).fontSize};
       });
     }''')
+    for tag in geometry:
+        if tag['kind'] in ('capex','opex'):assert abs(tag['right']-(tag['outerRight']-14))<.1 and tag['y']==tag['outerBottom']-22
+        if tag['kind'] in ('ot','cma'):assert tag['y']==tag['outerTop']+10
     assert all(g['width']==90 and g['height']==16 and g['inside'] and g['textFits'] and g['font']=='8px' for g in geometry),geometry
 
 

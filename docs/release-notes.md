@@ -1,5 +1,9 @@
 # Note di versione
 
+## 1.4.16
+
+Allineate le posizioni dei badge al riferimento fornito: appartenenza in alto a destra, CAPEX/OPEX nell’angolo inferiore destro, NIS2 a fianco. Dimensioni uniformi e colori invariati. Test browser verificano esplicitamente margini e coordinate oltre alla scala stabile e alla compatibilità offline. Tutte le modifiche grafiche della 1.4.15 sono incluse.
+
 ## 1.4.15
 
 Larghezza fissa delle mappe fin dall’inizio: l’apertura dei livelli successivi popola il percorso senza cambiare scala. Badge SVG condivisi per tutti i box remediation, arrotondati e di dimensione uniforme: CAPEX/OPEX, appartenenza OT o CMA/WIFI/VA e NIS2 solo per valori affermativi. Spaziatura verticale adeguata per separare titolo, budget e badge.

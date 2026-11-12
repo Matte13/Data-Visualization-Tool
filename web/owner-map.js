@@ -38,10 +38,11 @@
 
   function badges(row,x,y,width,height,esc=escapeHtml,model=root.RemediationModel) {
     const items=model.remediationTags(row).map(tag=>({...tag,width:90}));
-    let left=x+width-14-items.reduce((sum,tag)=>sum+tag.width,0)-Math.max(0,items.length-1)*5;
+    const bottom=items.filter(tag=>!['cma','ot'].includes(tag.kind)).sort((a,b)=>(a.kind==='nis2'?-1:1)-(b.kind==='nis2'?-1:1));
+    const positions=new Map(bottom.map((tag,index)=>[tag.kind,x+width-14-bottom.length*90-Math.max(0,bottom.length-1)*5+index*95]));
     return `<g class="map-tags" aria-label="Attributi remediation">${items.map(tag=>{
-      const start=left;left+=tag.width+5;
-      return `<g class="map-tag map-tag-${tag.kind}" data-map-tag="${tag.kind}"><rect x="${start}" y="${y+height-22}" width="${tag.width}" height="16" rx="5"/><text x="${start+tag.width/2}" y="${y+height-11}" text-anchor="middle">${esc(tag.label)}</text></g>`;
+      const scope=['cma','ot'].includes(tag.kind),start=scope?x+width-104:positions.get(tag.kind),top=scope?y+10:y+height-22;
+      return `<g class="map-tag map-tag-${tag.kind}" data-map-tag="${tag.kind}"><rect x="${start}" y="${top}" width="90" height="16" rx="5"/><text x="${start+45}" y="${top+11}" text-anchor="middle">${esc(tag.label)}</text></g>`;
     }).join('')}</g>`;
   }
 
