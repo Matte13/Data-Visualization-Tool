@@ -25,3 +25,7 @@ infra/azure/*.local.json
 # Private complete-library rollback snapshots
 .library-backups/
 *.library-backup.json
+
+# Microsoft Open XML validation build outputs
+tests/office_compatibility/bin/
+tests/office_compatibility/obj/

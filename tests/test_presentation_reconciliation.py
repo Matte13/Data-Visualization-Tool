@@ -64,7 +64,7 @@ class PresentationReconciliationTests(unittest.TestCase):
         text = '\n'.join(shape.text for shape in annual.shapes if shape.has_text_frame)
         self.assertIn('Local Complete + OT · 1 LE', text)
         self.assertIn('Non stimato', text)
-        self.assertIn('stime mancanti restano distinte da zero', text)
+        self.assertNotIn('stime mancanti', text)
         self.assertNotIn('Global di gruppo', text)
         self.assertEqual(report['budgetBreakdown']['categories'][0]['baseMissing'], 1)
         self.assertEqual(report['budgetBreakdown']['categories'][0]['baseKnown'], 0)

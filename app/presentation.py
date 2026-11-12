@@ -162,7 +162,23 @@ def _text(slide, text, x, y, width, height, *, size=16, color=None, bold=False,
 
 
 def _notes(slide, text):
-    slide.notes_slide.notes_text_frame.text = str(text)
+    # Office text runs have a 32,767-character limit. In particular, country
+    # JSON can otherwise create a single multi-megabyte a:t and unreadable PPTX.
+    # Split runs, rather than the text itself, preserving source notes exactly.
+    frame = slide.notes_slide.notes_text_frame
+    frame.text = str(text)
+    for paragraph in frame.paragraphs:
+        for run in list(paragraph.runs):
+            if len(run.text) <= 16000:
+                continue
+            original = run.text
+            run.text = original[:16000]
+            previous = run._r
+            for start in range(16000, len(original), 16000):
+                new = paragraph.add_run()
+                new.text = original[start:start + 16000]
+                previous.addnext(new._r)
+                previous = new._r
 
 
 def _slide(prs, report, title, subtitle='', *, section='', dark=False):
@@ -278,8 +294,6 @@ def _reconciliation_strip(slide, breakdown, scope):
         parts = ['Global non ripartito alle legal entity.'] if scope == 'all' else []
         if breakdown.get('unallocated'):
             parts.append('Local senza attribuzione certa: ' + _money(breakdown['unallocated']) + '.')
-        if breakdown.get('missingLocal') or breakdown.get('missingAllocationCount'):
-            parts.append('Le stime mancanti restano distinte da zero.')
         if not breakdown.get('classificationAvailable'):
             parts.append('Classificazione Complete/Business non dichiarata nel file.')
         _text(slide, ' '.join(parts), MARGIN, 6.27, 12.17, .24,
@@ -422,6 +436,14 @@ def _annual_chart(slide, groups, x, y, width, height, scope):
     plot.data_labels.number_format = '#,##0.##" €";-#,##0.##" €";'
     plot.data_labels.font.name = THEME['font']; plot.data_labels.font.size = Pt(11)
     plot.data_labels.font.color.rgb = _rgb(THEME['white'])
+    # python-pptx's legacy chart template supplies signed axis identifiers.
+    # Office requires positive IDs below 2^31, with matching cross references.
+    axis_ids = {}
+    for node in chart._chartSpace.iter():
+        if node.tag in (qn('c:axId'), qn('c:crossAx')):
+            original = node.get('val')
+            axis_ids.setdefault(original, str(len(axis_ids) + 1))
+            node.set('val', axis_ids[original])
     return chart
 
 
@@ -583,14 +605,11 @@ def create_presentation(report: dict) -> bytes:
             _text(slide, '›', x + 2.06, 5.89, .23, .28, size=16, color='ACEAFF')
     _text(slide, 'Fonte: ' + _short(source.get('filename', ''), 100), MARGIN, 6.31, 7.6, .23,
           size=10, color=_tone(slide, 'muted'))
-    if totals.get('missingGlobal') or totals.get('missingLocal'):
-        _text(slide, 'Totali sulle stime disponibili; attribuzioni incerte separate.', MARGIN, 6.62,
-              W - MARGIN * 2, .22, size=10, color=_tone(slide, 'amber'))
     _notes(slide, _source_notes(report, '\n'.join(_filter_lines(report))))
 
     _divider(prs, report, 'Budget')
     annual_overview = compact_years(annual, limit=8, scope=scope)
-    slide = _slide(prs, report, 'Budget per anno', 'Importi disponibili nel perimetro selezionato')
+    slide = _slide(prs, report, 'Budget per anno', 'Importi nel perimetro selezionato')
     reconciliation = report.get('budgetBreakdown')
     _annual_chart(slide, annual_overview, .75, 1.80, 11.8, 2.75 if reconciliation else 4.60, scope)
     if reconciliation:
@@ -654,8 +673,8 @@ def create_presentation(report: dict) -> bytes:
         else:
             _text(slide, 'Nessuna attribuzione per country nel perimetro selezionato.',
                   MARGIN, 2.40, 12.17, .60, size=20, color=THEME['navy'])
-        _text(slide, 'Il budget Global resta di gruppo. — nessuna voce · n.d. stima assente. '
-              'Totali sulle stime disponibili; attribuzioni incerte escluse.', MARGIN, 6.55, 12.17, .23, size=9, color=THEME['muted'])
+        _text(slide, 'Il budget Global resta di gruppo. — nessuna voce · n.d. valore assente. '
+              'Totali dal file Excel; attribuzioni incerte escluse.', MARGIN, 6.55, 12.17, .23, size=9, color=THEME['muted'])
         _notes(slide, _source_notes(report, 'Dettaglio completo delle country:\n' +
                   json.dumps(countries if index == 0 else page, ensure_ascii=False, default=str)))
 

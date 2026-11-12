@@ -1,5 +1,13 @@
 # Note di versione
 
+## 1.4.13
+
+Corretto il formato del PowerPoint esportato: gli identificativi negativi degli assi e i riferimenti incrociati del template grafico vengono rimappati coerentemente in interi positivi validi per Office. Le note JSON delle country potevano superare 10 milioni di caratteri in un solo nodo XML; ora i run sono limitati a 16.000 caratteri, rispettando anche i limiti UTF-16 e conservando esattamente i testi originali. File riapribile con i lettori standard, validato da Microsoft Open XML SDK senza errori. La CI verifica tutte le modalità di budget, progetti grandi e note lunghe prima del rilascio.
+
+Rimossi gli avvisi sulle stime mancanti o parziali dai box, dai KPI e dalle schede country in tutte le viste, anche in copia HTML offline, stampa e testi visibili dei PowerPoint. Nessuna modifica ai valori, ai filtri o ai calcoli; importi assenti e zeri rimangono distinti.
+
+Scaricare nuovamente i PowerPoint già esportati; nessuna reimportazione Excel richiesta. Per Azure selezionare l’immagine 1.4.13 pubblicata e creare una nuova revisione: il servizio non si aggiorna automaticamente dopo la push del sorgente.
+
 ## 1.4.12
 
 Il test dello split budget accetta anche la formattazione dello zero con decimali usata da Node 22/ICU. La verifica numerica e tutti gli altri controlli rimangono attivi. Nessuna variazione agli importi, al frontend o alle esportazioni, oltre al numero di versione. Rilascio GHCR tramite tag v1.4.12.

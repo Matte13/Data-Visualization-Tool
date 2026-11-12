@@ -8,6 +8,13 @@ Tutte le logiche sono offline e deterministiche: nessun modello AI, API esterna,
 
 Ogni aggiornamento del tool viene documentato in questo README, indicando funzionalità, logiche dei dati e passaggi richiesti all’utente. Le spiegazioni estese restano nelle [note di versione](docs/release-notes.md).
 
+### 1.4.13 — Compatibilità PowerPoint e viste per il cliente
+
+- Corrette due incompatibilità dei file esportati: identificativi degli assi del grafico convertiti in riferimenti positivi validi per Office; note lunghe suddivise in blocchi di testo compatibili, senza eliminare o modificare contenuti.
+- Verifica automatica con **Microsoft Open XML SDK** su Global, Local, combinato, progetto grande e note superiori a 10 milioni di caratteri. La validazione blocca la pubblicazione dell’immagine se trova errori.
+- Rimossi da KPI, box di composizione del budget, schede country e viste condivise gli avvisi sulle stime mancanti/parziali e sugli importi disponibili. La pulizia si riflette nella copia offline, nella stampa e nei testi visibili dei PowerPoint. Dati, formule, totali e distinzione degli importi assenti restano invariati.
+- Versione **1.4.13**, immagine prevista `ghcr.io/matte13/data-visualization-tool:1.4.13`. I PowerPoint precedenti vanno scaricati nuovamente. In Azure aggiornare il tag dell’immagine e distribuire una nuova revisione dopo il completamento del workflow GHCR; la push su GitHub non aggiorna da sola l’app Azure.
+
 ### 1.4.12 — Controlli di rilascio compatibili con Node 22
 
 - Completata la compatibilità dei test con la formattazione monetaria ICU, incluso lo zero visualizzato come 0 oppure 0,00 €. Tutti i controlli rimangono attivi; valori e logica dell’app invariati.
@@ -191,7 +198,7 @@ I budget Global sono importi di gruppo: non vengono ripartiti o moltiplicati per
 
 La **Composizione del budget** separa base Remediations e delta OT, per Global e Local. Con le intestazioni esplicite di LE_List o il profilo numerico originale validato mostra Local Complete + OT, Complete senza OT e Business, attribuendo i costi alla categoria delle rispettive entità anche quando una formula usa una colonna unitaria diversa. Il residuo senza attribuzione certa rimane nel totale di gruppo e viene mostrato separatamente. L'owner KPMG è visualizzato come **Advisor**, con il valore originale conservato e senza modificare branding o Excel sorgente.
 
-Le **[note della versione 1.4.12](docs/release-notes.md)** spiegano il riconoscimento del formato originale e le logiche di calcolo con formule ed esempi. Per i progetti già salvati con quel formato basta aggiornare l’immagine e riavviare: non serve importare di nuovo l’Excel e i file originali rimangono invariati. Prima di caricare formati diversi leggere anche la **[procedura di snapshot e rollback](docs/deployment.md#salvataggio-della-libreria-e-rollback-alla-112)**, che distingue il ritorno al software precedente dal ripristino dei dati.
+Le **[note della versione 1.4.13](docs/release-notes.md)** spiegano il riconoscimento del formato originale e le logiche di calcolo con formule ed esempi. Per i progetti già salvati con quel formato basta aggiornare l’immagine e riavviare: non serve importare di nuovo l’Excel e i file originali rimangono invariati. Prima di caricare formati diversi leggere anche la **[procedura di snapshot e rollback](docs/deployment.md#salvataggio-della-libreria-e-rollback-alla-112)**, che distingue il ritorno al software precedente dal ripristino dei dati.
 
 ## Presentazione ed esportazioni
 
@@ -215,7 +222,7 @@ python -m app.export --input percorso/progetto.xlsx --output dist/progetto-offli
 
 ## Azure Container Apps con Azure SQL esistente
 
-L'immagine `ghcr.io/matte13/data-visualization-tool:1.4.12` include Microsoft ODBC Driver 18 e il connettore Azure SQL. Configurazione richiesta: server **dbservertil.database.windows.net**, database **data-visualization-tool-db**, utente **fuddos**; la password va inserita come secret dall'operatore. Il pacchetto non crea server o database SQL.
+L'immagine `ghcr.io/matte13/data-visualization-tool:1.4.13` include Microsoft ODBC Driver 18 e il connettore Azure SQL. Configurazione richiesta: server **dbservertil.database.windows.net**, database **data-visualization-tool-db**, utente **fuddos**; la password va inserita come secret dall'operatore. Il pacchetto non crea server o database SQL.
 
 Per installare e cambiare versione dal portale Azure seguire **[docs/azure-portal.md](docs/azure-portal.md)**: contiene i campi della schermata Container details e i passaggi esatti per **Secrets → azure-sql-password → AZURE_SQL_PASSWORD**. La porta HTTP del container è **8000**. Per rete, template Bicep, Docker locale, aggiornamenti e backup consultare **[docs/deployment.md](docs/deployment.md)**.
 
@@ -230,7 +237,7 @@ Lo script chiede la password nel terminale senza visualizzarla. Salva solo in fi
 
 Il template Azure crea app, ambiente interno, log e DNS su una VNet/subnet esistente collegata ad Azure SQL. Non modifica database, utenti SQL o firewall. Il collegamento al database aziendale deve essere configurato dall'operatore; non è stato effettuato durante la preparazione del pacchetto.
 
-Il push di un tag Git come `v1.4.12` avvia i test e la pubblicazione GHCR con tag `1.4.12`. Le versioni stabili aggiornano anche `latest`; per installazioni e rollback usare il tag di versione. Il workflow include test su SQL Server compatibile con Azure SQL, senza accedere al database aziendale, e allega il pacchetto di installazione. È disponibile anche **Actions → Publish GitHub Container Registry image → Run workflow**.
+Il push di un tag Git come `v1.4.13` avvia i test e la pubblicazione GHCR con tag `1.4.13`. Le versioni stabili aggiornano anche `latest`; per installazioni e rollback usare il tag di versione. Il workflow include test su SQL Server compatibile con Azure SQL, senza accedere al database aziendale, e allega il pacchetto di installazione. È disponibile anche **Actions → Publish GitHub Container Registry image → Run workflow**.
 
 `python scripts/package-release.py` genera l'archivio installabile e il checksum, escludendo Excel, password e dati delle demo. La modalità desktop `python -m app.server` e `compose.yaml` conservano l'uso locale su file senza database esterno. La versione `1.0.0` e i relativi file PostgreSQL restano disponibili per compatibilità; questa installazione usa Azure SQL.
 

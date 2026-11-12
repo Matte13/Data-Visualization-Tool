@@ -21,6 +21,13 @@ jobs:
       - run: python -m pip install -r requirements.txt -r requirements-postgres.txt
       - name: Python unit and local HTTP tests (fictional generated workbooks)
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Validate exported PowerPoint with Microsoft Open XML SDK
+        run: |
+          python tests/office_compatibility/generate.py "$RUNNER_TEMP/pptx-compatibility"
+          dotnet run --project tests/office_compatibility/Validate.csproj -- "$RUNNER_TEMP"/pptx-compatibility/*.pptx
       - name: JavaScript data logic and owner map
         run: node --test tests/*.test.cjs
       - run: python -m pip install -r requirements-dev.txt
@@ -32,6 +39,7 @@ jobs:
           python tests/semantic_budget_smoke.py
           python tests/investment_smoke.py
           python tests/consolidated_smoke.py
+          python tests/client_budget_annotations_smoke.py
 
   azure-sql-and-container:
     runs-on: ubuntu-latest

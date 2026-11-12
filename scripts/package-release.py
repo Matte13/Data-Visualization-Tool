@@ -15,11 +15,11 @@ ASSETS={'app/assets/export-separators.pptx','app/assets/presentation-style.pptx'
 
 def selected(relative):
     name=relative.as_posix()
-    if any(part in {'__pycache__','secrets','.git','runtime','dist'} for part in relative.parts):return False
+    if any(part in {'__pycache__','secrets','.git','runtime','dist','bin','obj'} for part in relative.parts):return False
     if name in ROOT_FILES|DOCS|ASSETS:return True
     return ((name.startswith('app/') and relative.suffix=='.py') or
             (name.startswith('web/') and relative.suffix in {'.js','.css','.html'}) or
-            (name.startswith('tests/') and relative.suffix in {'.py','.cjs'}) or
+            (name.startswith('tests/') and relative.suffix in {'.py','.cjs','.cs','.csproj'}) or
             (name.startswith('scripts/') and relative.suffix in {'.py','.sh'}) or
             (name.startswith('.github/workflows/') and relative.suffix in {'.yml','.yaml'}) or
             (name.startswith('infra/azure/') and (relative.suffix=='.bicep' or relative.name=='parameters.example.json')))
