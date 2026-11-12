@@ -56,6 +56,41 @@ def _budget_number(source, saved, coordinate):
     return _number(source, saved, coordinate)
 
 
+def _confirmed_nis2_allocation(record, entities):
+    """Confirmed R.23 scope: seven Complete entities plus Sweden Business.
+
+    This profile is restricted to the declared country list and 2027/2028
+    formula 7+1; it never turns arbitrary multipliers into inferred geography.
+    """
+    if record.get('id') != 'R.23' or normalized(record.get('name')) != 'nis2 alignment' or record.get('year') not in (2027, 2028):
+        return False
+    formula = str(record.get('allocationFormula') or '').replace(' ', '')
+    row = record['excelRow']
+    if not re.fullmatch(rf'=J{row}\*7\+K{row}\*1', formula, re.IGNORECASE):
+        return False
+    declared = _text(record.get('applicableCountries'))
+    declared = re.sub(r'^specific countries\s*:\s*', '', declared, flags=re.IGNORECASE)
+    names = {normalized(name) for name in re.split(r'[,;\n]', declared) if name.strip()}
+    expected = {'germany', 'spain lacer', 'spain itf', 'greece', 'france', 'benelux', 'portugal', 'sweden'}
+    if names != expected:
+        return False
+    complete = ('Germania', 'Spagna - Lacer', 'Spagna - ITF', 'Grecia', 'Francia', 'Paesi Bassi & Belgio', 'Portogallo')
+    by_id = {entity['id']: entity for entity in entities}
+    if not all(name in by_id for name in (*complete, 'Svezia')):
+        return False
+    if by_id['Svezia'].get('localCategory') != 'business' or any(by_id[name].get('localCategory') not in ('complete', 'complete-ot') for name in complete):
+        return False
+    a, b = record.get('localComplete'), record.get('localBusiness')
+    if a is None or b is None or record.get('localTotal') is None:
+        return False
+    if not math.isclose(a * 7 + b, record['localTotal'], rel_tol=0, abs_tol=.005):
+        raise ValueError('NIS2 Alignment: il totale Local non coincide con la ripartizione confermata 7 Complete + Sweden Business.')
+    record['allocations'] = [{'entityId': name, 'amount': a} for name in complete] + [{'entityId': 'Svezia', 'amount': b}]
+    record['allocationStatus'] = 'mapped'
+    record['allocationNote'] = 'Ripartizione NIS2 Alignment confermata: sette entità Complete e Svezia Business, identica nel 2027 e 2028. Formula e valori sorgente invariati.'
+    return True
+
+
 def parse_rows(formulas, values, entities, issues):
     source = formulas['All Remediations']; saved = values[source.title]
     rated_impacts = _label(source['N1'].value).casefold() == 'risk level'
@@ -151,7 +186,8 @@ def parse_rows(formulas, values, entities, issues):
             _issue(issues, 'unmatched-detail', 'Descrizioni di dettaglio non abbinate in modo verificabile; dati e attributi provengono da All Remediations.', [record['key']], 'info')
         if not record['domain']:
             raise ValueError(f'All Remediations!B{row}: dominio obbligatorio.')
-        _allocate(record, entities, issues)
+        if not _confirmed_nis2_allocation(record, entities):
+            _allocate(record, entities, issues)
         result.append(record)
     if not result:
         raise ValueError('All Remediations non contiene remediation importabili.')

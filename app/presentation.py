@@ -300,6 +300,19 @@ def _reconciliation_strip(slide, breakdown, scope):
               size=9, color=THEME['muted'])
 
 
+def _note_json(value):
+    """Store summary memberships as references; full source rows occur once."""
+    def compact(item):
+        if isinstance(item, dict):
+            return {key: ([{'key': row.get('key'), 'displayLocal': row.get('displayLocal')}
+                            for row in content] if key == 'rows' and isinstance(content, list)
+                          else compact(content)) for key, content in item.items()}
+        if isinstance(item, list):
+            return [compact(child) for child in item]
+        return item
+    return json.dumps(compact(value), ensure_ascii=False, default=str)
+
+
 def _source_notes(report, extra=''):
     source = report.get('source', {})
     return '\n'.join([
@@ -616,7 +629,7 @@ def create_presentation(report: dict) -> bytes:
         _reconciliation_strip(slide, reconciliation, scope)
     _text(slide, 'Global: budget di gruppo. Local: importo complessivo o attribuito alle entità selezionate.',
           MARGIN, 6.55, 12.1, .23, size=10, color=THEME['muted'])
-    _notes(slide, _source_notes(report, 'Budget annuali completi: ' + json.dumps(annual, ensure_ascii=False, default=str)))
+    _notes(slide, _source_notes(report, 'Budget annuali completi: ' + _note_json(annual)))
     for groups, title, other in [(domains, 'Budget per dominio', 'Altri domini'),
                                  (owners, 'Budget per owner', 'Altri owner')]:
         shown = compact_groups(groups, limit=8, scope=scope, other_label=other)
@@ -624,7 +637,7 @@ def create_presentation(report: dict) -> bytes:
         slide = _slide(prs, report, title, subtitle)
         _legend(slide, MARGIN, 1.64, scope=scope)
         _bars(slide, shown, MARGIN, 2.15, W - MARGIN * 2, 4.40, scope=scope)
-        _notes(slide, _source_notes(report, 'Gruppi completi: ' + json.dumps(groups, ensure_ascii=False, default=str)))
+        _notes(slide, _source_notes(report, 'Gruppi completi: ' + _note_json(groups)))
 
     _divider(prs, report, 'Anni')
     for year_group in compact_years(annual, limit=2, scope=scope):
@@ -646,14 +659,16 @@ def create_presentation(report: dict) -> bytes:
               MARGIN, 3.22, 5.95, 3.33, scope=scope, title='Domini')
         _bars(slide, compact_groups(year_owners, limit=6, scope=scope, other_label='Altri owner'),
               6.95, 3.22, 5.79, 3.33, scope=scope, title='Owner')
-        _notes(slide, _source_notes(report, json.dumps({'years': members, 'domains': year_domains,
+        _notes(slide, _source_notes(report, _note_json({'years': members, 'domains': year_domains,
                   'owners': year_owners,
-                  'budgetBreakdowns': [group.get('budgetBreakdown') for group in annual if group['label'] in members]},
-                  ensure_ascii=False, default=str)))
+                  'budgetBreakdowns': [group.get('budgetBreakdown') for group in annual if group['label'] in members]})))
 
     _divider(prs, report, 'Country / legal entity')
     countries = report.get('countries', [])
     shown_countries = compact_countries(countries, limit=22)
+    primary_keys = {row['key'] for row in rows}
+    outside_rows = {row['key']: row for country in countries for row in country.get('rows', [])
+                    if row['key'] not in primary_keys}
     # A per-entity Local-budget filter can include rows absent from the group
     # overview. Build country columns from those actual associations as well.
     country_years = defaultdict(list)
@@ -676,7 +691,8 @@ def create_presentation(report: dict) -> bytes:
         _text(slide, 'Il budget Global resta di gruppo. — nessuna voce · n.d. valore assente. '
               'Totali dal file Excel; attribuzioni incerte escluse.', MARGIN, 6.55, 12.17, .23, size=9, color=THEME['muted'])
         _notes(slide, _source_notes(report, 'Dettaglio completo delle country:\n' +
-                  json.dumps(countries if index == 0 else page, ensure_ascii=False, default=str)))
+                  _note_json({'countries': countries if index == 0 else page,
+                              'sourceRows': list(outside_rows.values()) if index == 0 else []})))
 
     _divider(prs, report, 'Remediation')
     cut = (len(rows) + 1) // 2
@@ -687,7 +703,7 @@ def create_presentation(report: dict) -> bytes:
     _stat(slide, 8.82, 1.64, 3.93, 'Owner', str(len(owners)))
     _count_bars(slide, annual, 'Anni', MARGIN, 3.22, 5.95, 3.22, THEME['purple'])
     _count_bars(slide, domains, 'Domini', 6.95, 3.22, 5.79, 3.22, THEME['blue'])
-    _text(slide, 'Tutte le voci e i testi originali sono conservati nelle note delle ultime due slide.',
+    _text(slide, 'Tutte le voci e i testi originali sono conservati nelle note delle due slide remediation.',
           MARGIN, 6.55, 12.17, .23, size=10, color=THEME['muted'])
     _notes(slide, _source_notes(report, marker + json.dumps(rows[:cut], ensure_ascii=False, indent=2, default=str)))
 

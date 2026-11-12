@@ -10,7 +10,8 @@ ROOT_FILES={'.env.example','.dockerignore','.gitignore','Dockerfile','compose.ya
             'requirements-dev.txt','requirements-azuresql.txt','compose.azuresql.yaml'}
 DOCS={'docs/deployment.md','docs/azure-portal.md','docs/workbook-format.md','docs/release-notes.md',
       'data/README.md','web/THIRD_PARTY_NOTICES.md'}
-ASSETS={'app/assets/export-separators.pptx','app/assets/presentation-style.pptx','app/assets/kpmg-footer-logo.xml'}
+ASSETS={*(f'app/assets/ppt-backgrounds/{name}' for name in
+          ['separator-01.png','separator-02.png','separator-03.png','separator-04.png','closing.png']),'app/assets/export-separators.pptx','app/assets/presentation-style.pptx','app/assets/kpmg-footer-logo.xml'}
 
 
 def selected(relative):

@@ -8,6 +8,14 @@ Tutte le logiche sono offline e deterministiche: nessun modello AI, API esterna,
 
 Ogni aggiornamento del tool viene documentato in questo README, indicando funzionalità, logiche dei dati e passaggi richiesti all’utente. Le spiegazioni estese restano nelle [note di versione](docs/release-notes.md).
 
+### 1.4.14 — PowerPoint standard e ripartizione NIS2 confermata
+
+- Separata l’esportazione dai master complessi del deck: i quattro sfondi e la chiusura originali sono risorse PNG standard, con distribuzione casuale dei separatori e chiusura fissa. Titoli, data, numeri di pagina, grafici e dati restano elementi PowerPoint modificabili; le immagini mantengono l’aspetto del materiale fornito.
+- Rimossi i programmi binari dei font compressi dall’output. I font sono riferimenti ai caratteri installati, con sostituzione standard di Office quando necessario. Le note dei riepiloghi usano riferimenti alle righe, evitando migliaia di copie degli stessi record; tutti i dati originali restano nelle note delle remediation e le ulteriori righe country sono conservate separatamente.
+- **NIS2 Alignment R.23**, 2027 e 2028: attribuzione confermata a Germania, Spagna Lacer, Spagna ITF, Grecia, Francia, Benelux e Portogallo come Complete; Svezia come unica Business. 12.000 € per entità e anno. Il profilo si applica soltanto a questa lista esplicita e alla formula 7 + 1, senza riscrivere il file Excel: il riferimento corretto di K26 è I26 (errore I25 confermato dall’utente), senza variazioni di importo.
+- I 192.000 € ora entrano nelle categorie: Complete + OT **2.959.000 €**, Complete senza OT **2.365.500 €**, Business **604.000 €**. Totale Local invariato a **5.928.500 €**, residuo da attribuire zero sul file finale.
+- Versione **1.4.14**, immagine prevista `ghcr.io/matte13/data-visualization-tool:1.4.14`. Aggiornare il server locale/Azure e scaricare di nuovo il PPT. Gli Excel già salvati vengono riletti al riavvio; nessuna migrazione o reimportazione richiesta.
+
 ### 1.4.13 — Compatibilità PowerPoint e viste per il cliente
 
 - Corrette due incompatibilità dei file esportati: identificativi degli assi del grafico convertiti in riferimenti positivi validi per Office; note lunghe suddivise in blocchi di testo compatibili, senza eliminare o modificare contenuti.
@@ -198,7 +206,7 @@ I budget Global sono importi di gruppo: non vengono ripartiti o moltiplicati per
 
 La **Composizione del budget** separa base Remediations e delta OT, per Global e Local. Con le intestazioni esplicite di LE_List o il profilo numerico originale validato mostra Local Complete + OT, Complete senza OT e Business, attribuendo i costi alla categoria delle rispettive entità anche quando una formula usa una colonna unitaria diversa. Il residuo senza attribuzione certa rimane nel totale di gruppo e viene mostrato separatamente. L'owner KPMG è visualizzato come **Advisor**, con il valore originale conservato e senza modificare branding o Excel sorgente.
 
-Le **[note della versione 1.4.13](docs/release-notes.md)** spiegano il riconoscimento del formato originale e le logiche di calcolo con formule ed esempi. Per i progetti già salvati con quel formato basta aggiornare l’immagine e riavviare: non serve importare di nuovo l’Excel e i file originali rimangono invariati. Prima di caricare formati diversi leggere anche la **[procedura di snapshot e rollback](docs/deployment.md#salvataggio-della-libreria-e-rollback-alla-112)**, che distingue il ritorno al software precedente dal ripristino dei dati.
+Le **[note della versione 1.4.14](docs/release-notes.md)** spiegano il riconoscimento del formato originale e le logiche di calcolo con formule ed esempi. Per i progetti già salvati con quel formato basta aggiornare l’immagine e riavviare: non serve importare di nuovo l’Excel e i file originali rimangono invariati. Prima di caricare formati diversi leggere anche la **[procedura di snapshot e rollback](docs/deployment.md#salvataggio-della-libreria-e-rollback-alla-112)**, che distingue il ritorno al software precedente dal ripristino dei dati.
 
 ## Presentazione ed esportazioni
 
@@ -208,7 +216,7 @@ L’esportazione PowerPoint funziona nell’app locale; la copia HTML autonoma m
 
 Per rispettare il limite anche con progetti grandi, i riepiloghi raggruppano esplicitamente le categorie eccedenti in **Altri**, senza perdere i relativi importi: fino a otto categorie nei grafici budget, due riepiloghi annuali e 22 righe country in due slide. Se gli anni sono più di due, viene mostrato quello con maggiore budget e un riepilogo degli altri. Le viste country mostrano fino a cinque colonne annuali, aggregando le altre. Le note conservano tutti gli anni, country, domini e owner; le due slide remediation precedenti la chiusura conservano tutte le righe filtrate. Valori mancanti e zero restano distinti.
 
-I font sono incorporati usando le risorse originali. PowerPoint è il riferimento per la resa tipografica; altri programmi possono sostituire i font incorporati. Le risorse dei separatori contengono soltanto i quattro modelli distinti e la chiusura del deck fornito, senza la vecchia data di copertina, note o slide inutilizzate.
+I font sono riferiti per nome, senza incorporare programmi binari compressi. Office usa i caratteri installati o la propria sostituzione standard. L’esportazione usa immagini standard dei quattro sfondi e della chiusura, senza importare master o layout del deck. Titoli delle sezioni e date restano modificabili; grafici e dati rimangono nativi di PowerPoint.
 
 `Presentazione` nasconde la barra laterale e le azioni di gestione, mantenendo disponibili i filtri sopra le viste; Escape chiude un menu o un dettaglio aperto, poi esce dalla modalità. `Esporta` offre CSV delle righe filtrate, Excel sorgente, copia HTML offline e stampa/PDF. La mappa si può salvare in PNG.
 
@@ -222,7 +230,7 @@ python -m app.export --input percorso/progetto.xlsx --output dist/progetto-offli
 
 ## Azure Container Apps con Azure SQL esistente
 
-L'immagine `ghcr.io/matte13/data-visualization-tool:1.4.13` include Microsoft ODBC Driver 18 e il connettore Azure SQL. Configurazione richiesta: server **dbservertil.database.windows.net**, database **data-visualization-tool-db**, utente **fuddos**; la password va inserita come secret dall'operatore. Il pacchetto non crea server o database SQL.
+L'immagine `ghcr.io/matte13/data-visualization-tool:1.4.14` include Microsoft ODBC Driver 18 e il connettore Azure SQL. Configurazione richiesta: server **dbservertil.database.windows.net**, database **data-visualization-tool-db**, utente **fuddos**; la password va inserita come secret dall'operatore. Il pacchetto non crea server o database SQL.
 
 Per installare e cambiare versione dal portale Azure seguire **[docs/azure-portal.md](docs/azure-portal.md)**: contiene i campi della schermata Container details e i passaggi esatti per **Secrets → azure-sql-password → AZURE_SQL_PASSWORD**. La porta HTTP del container è **8000**. Per rete, template Bicep, Docker locale, aggiornamenti e backup consultare **[docs/deployment.md](docs/deployment.md)**.
 
@@ -237,7 +245,7 @@ Lo script chiede la password nel terminale senza visualizzarla. Salva solo in fi
 
 Il template Azure crea app, ambiente interno, log e DNS su una VNet/subnet esistente collegata ad Azure SQL. Non modifica database, utenti SQL o firewall. Il collegamento al database aziendale deve essere configurato dall'operatore; non è stato effettuato durante la preparazione del pacchetto.
 
-Il push di un tag Git come `v1.4.13` avvia i test e la pubblicazione GHCR con tag `1.4.13`. Le versioni stabili aggiornano anche `latest`; per installazioni e rollback usare il tag di versione. Il workflow include test su SQL Server compatibile con Azure SQL, senza accedere al database aziendale, e allega il pacchetto di installazione. È disponibile anche **Actions → Publish GitHub Container Registry image → Run workflow**.
+Il push di un tag Git come `v1.4.14` avvia i test e la pubblicazione GHCR con tag `1.4.14`. Le versioni stabili aggiornano anche `latest`; per installazioni e rollback usare il tag di versione. Il workflow include test su SQL Server compatibile con Azure SQL, senza accedere al database aziendale, e allega il pacchetto di installazione. È disponibile anche **Actions → Publish GitHub Container Registry image → Run workflow**.
 
 `python scripts/package-release.py` genera l'archivio installabile e il checksum, escludendo Excel, password e dati delle demo. La modalità desktop `python -m app.server` e `compose.yaml` conservano l'uso locale su file senza database esterno. La versione `1.0.0` e i relativi file PostgreSQL restano disponibili per compatibilità; questa installazione usa Azure SQL.
 

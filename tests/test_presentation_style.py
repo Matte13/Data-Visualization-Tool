@@ -20,23 +20,15 @@ class PresentationStyleTests(unittest.TestCase):
         output = BytesIO(); presentation.save(output)
         cls.content = apply_presentation_style(output.getvalue())
 
-    def test_font_parts_are_embedded_without_changing_original_font_data(self):
-        with ZipFile(BytesIO(self.content)) as package, ZipFile(STYLE_PATH) as resource:
+    def test_fonts_are_referenced_without_binary_embedding(self):
+        with ZipFile(BytesIO(self.content)) as package:
             self.assertIsNone(package.testzip())
             presentation = etree.fromstring(package.read('ppt/presentation.xml'))
-            self.assertEqual(presentation.get('embedTrueTypeFonts'), '1')
-            fonts = presentation.find(f'{{{NS_P}}}embeddedFontLst')
-            self.assertEqual(len(fonts), 1)
-            self.assertEqual(fonts[0].find(f'{{{NS_P}}}font').get('typeface'), 'KPMG Bold')
-            rels = {element.get('Id'): element for element in etree.fromstring(package.read('ppt/_rels/presentation.xml.rels'))}
-            for face in list(fonts[0])[1:]:
-                relationship = rels[face.get(f'{{{NS_R}}}id')]
-                self.assertEqual(relationship.get('Type'), FONT_REL)
-                self.assertIsNone(relationship.get('TargetMode'))
-                filename = relationship.get('Target')
-                blob = package.read('ppt/' + filename)
-                self.assertEqual(blob, resource.read('ppt/fonts/' + filename.split('/')[-1].removeprefix('dvt-')))
-                self.assertTrue(struct.unpack_from('<H', blob, 32)[0] & 0x08)
+            self.assertIsNone(presentation.get('embedTrueTypeFonts'))
+            self.assertIsNone(presentation.find(f'{{{NS_P}}}embeddedFontLst'))
+            self.assertFalse(any(name.startswith('ppt/fonts/') for name in package.namelist()))
+            rels = etree.fromstring(package.read('ppt/_rels/presentation.xml.rels'))
+            self.assertFalse(any(rel.get('Type') == FONT_REL for rel in rels))
             parsed = Presentation(BytesIO(self.content))
             self.assertEqual(parsed.slides[0].shapes[0].text, 'Original editable content')
 

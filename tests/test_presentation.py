@@ -192,7 +192,9 @@ class PresentationTests(unittest.TestCase):
         self.assertEqual(list(chart.series[0].values), [1000.15, 5000.0, None])
         self.assertEqual(list(chart.series[1].values), [1380.25, 1000.0, 0.0])
         self.assertEqual([c.label for c in chart.plots[0].categories], ['2027', '2028', '2029'])
-        self.assertFalse(any(shape.shape_type == 13 for slide in self.presentation.slides for shape in slide.shapes))
+        self.assertFalse(any(shape.shape_type == 13 for slide in self.presentation.slides
+                             if any(sh.name == 'dvt-copyright' for sh in slide.shapes)
+                             for shape in slide.shapes))
 
     def test_every_row_and_original_text_are_retained_in_two_remediation_notes(self):
         blocks = original_row_payloads(self.presentation)

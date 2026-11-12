@@ -1,5 +1,13 @@
 # Note di versione
 
+## 1.4.14
+
+Ulteriore intervento di compatibilità dopo l’analisi del PPTX effettivamente rifiutato da PowerPoint, che già superava il controllo XML. Eliminata l’importazione dei master/layout in percorsi personalizzati e l’incorporamento dei programmi font compressi EOT. Gli sfondi fotografici e la chiusura sono immagini standard ricavate dal deck originale; titoli, date, pagine, grafici e dati restano modificabili. Le note di riepilogo rimandano alle righe sorgente anziché ripeterne descrizioni e allocazioni in tutti i gruppi; i dati completi sono conservati una volta e le righe country fuori dalla selezione principale sono incluse esplicitamente.
+
+Ripartizione NIS2 Alignment confermata dall’utente: Germania, Spagna Lacer, Spagna ITF, Grecia, Francia, Benelux, Portogallo sono Complete; Sweden/Svezia è l’unica Business; 12.000 € per entità sia nel 2027 sia nel 2028. Profilo limitato a R.23, lista esplicita di quelle otto entità, anni e formula 7+1. I 192.000 € rimangono nel totale Local e sono ripartiti nelle categorie, con residuo zero; nessuna modifica del file Excel sorgente; l’utente ha confermato che in K26 il riferimento corretto è I26 anziché I25, senza variazioni di importo.
+
+Dopo l’aggiornamento riavviare il server o creare una nuova revisione Azure e scaricare nuovamente il PowerPoint. Gli originali Excel salvati rimangono invariati.
+
 ## 1.4.13
 
 Corretto il formato del PowerPoint esportato: gli identificativi negativi degli assi e i riferimenti incrociati del template grafico vengono rimappati coerentemente in interi positivi validi per Office. Le note JSON delle country potevano superare 10 milioni di caratteri in un solo nodo XML; ora i run sono limitati a 16.000 caratteri, rispettando anche i limiti UTF-16 e conservando esattamente i testi originali. File riapribile con i lettori standard, validato da Microsoft Open XML SDK senza errori. La CI verifica tutte le modalità di budget, progetti grandi e note lunghe prima del rilascio.

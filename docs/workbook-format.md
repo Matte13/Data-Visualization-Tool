@@ -129,3 +129,7 @@ Dalla 1.4.1, All Remediations!K1 accetta anche `2027 CMA Priority`. I valori N/A
 ## Tracciato finale con quattro impatti (1.4.5)
 
 In All Remediations: N = Risk Level; P = Reputational Impact; Q = Regulatory Impact; R = Economic Impact; S = Operational Impact; T = CAPEX/OPEX; U = Note. La colonna O è ignorata. Ogni impatto ha il proprio livello High/Medium/Low, distinto dal Risk Level. I campi vuoti restano non specificati; non vengono dedotti da O né dal Risk Level. I tracciati precedenti rimangono supportati.
+
+## NIS2 Alignment: ambito confermato 7 + 1
+
+Per R.23 NIS2 Alignment nel consolidato, negli anni 2027 e 2028, la lista specifica Germany, Spain Lacer, Spain ITF, Greece, France, Benelux, Portugal, Sweden e la formula 7 Complete + 1 Business sono riconosciute secondo la conferma dell’utente: Sweden è Business, le altre sette Complete. I nomi sono associati alle rispettive voci italiane di LE_List. I costi restano quelli delle colonne Complete e Business, con verifica del totale; il profilo non viene applicato a formule, liste o anni diversi. Nessuna formula sorgente viene riscritta.

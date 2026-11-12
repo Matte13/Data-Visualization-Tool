@@ -6,14 +6,11 @@ from random import SystemRandom
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pptx import Presentation
-from pptx.opc.constants import RELATIONSHIP_TYPE as RT
-from pptx.opc.packuri import PackURI
-from pptx.oxml.ns import qn
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
-from lxml import etree
 
 TEMPLATE_PATH = Path(__file__).with_name('assets') / 'export-separators.pptx'
+BACKGROUND_PATH = Path(__file__).with_name('assets') / 'ppt-backgrounds'
 
 
 def export_date(now=None):
@@ -35,54 +32,24 @@ def export_date(now=None):
 class ExportTemplates:
     def __init__(self, presentation):
         self.presentation = presentation
-        self.source = Presentation(TEMPLATE_PATH)
-        self.parts = {}
-        self.order = list(range(len(self.source.slides) - 1))
+        self.order = list(range(1, 5))
         SystemRandom().shuffle(self.order)
         self.date = export_date()
 
-    def _part(self, source):
-        if source in self.parts:
-            return self.parts[source]
-        package = self.presentation.part.package
-        name = PackURI(f'/ppt/dvt-template/part{len(self.parts)+1}{source.partname.ext and "."+source.partname.ext}')
-        target = source.__class__.load(name, source.content_type, package, source.blob)
-        self.parts[source] = target  # Masters/layouts have cyclic relationships.
-        mapping = {}
-        for rel in source.rels.values():
-            if rel.reltype in (RT.NOTES_SLIDE, RT.TAGS):
-                continue
-            destination = rel.target_ref if rel.is_external else self._part(rel.target_part)
-            mapping[rel.rId] = target.relate_to(destination, rel.reltype, is_external=rel.is_external)
-        if hasattr(target, '_element'):
-            for element in target._element.iter():
-                for attribute, value in list(element.attrib.items()):
-                    if attribute.startswith('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}') and value in mapping:
-                        element.set(attribute, mapping[value])
-        return target
-
-    def _slide(self, index):
-        # Each source design is used once, so imported slide parts stay distinct.
-        part = self._part(self.source.slides[index].part)
-        master = part.slide_layout.slide_master.part
+    def _slide(self, filename, name):
+        # Only standard SlidePart/ImagePart resources are written to the deck.
+        # Original artwork is flattened once, rather than importing masters,
+        # layouts, printer settings, extensions and binary font dependencies.
         prs = self.presentation
-        if not any(rel.reltype == RT.SLIDE_MASTER and rel.target_part is master for rel in prs.part.rels.values()):
-            rid = prs.part.relate_to(master, RT.SLIDE_MASTER)
-            masters = prs._element.sldMasterIdLst
-            node = etree.SubElement(masters, qn('p:sldMasterId'))
-            node.set('id', str(max(int(child.get('id')) for child in masters[:-1]) + 1))
-            node.set(qn('r:id'), rid)
-        for shape in part.slide_layout.shapes:
-            for field in shape._element.iter(qn('a:fld')):
-                if field.get('type') == 'slidenum':
-                    for text in field.iter(qn('a:t')):
-                        text.text = str(len(prs.slides) + 1)
-        rid = prs.part.relate_to(part, RT.SLIDE)
-        prs.slides._sldIdLst.add_sldId(rid)
-        return part.slide
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        picture = slide.shapes.add_picture(str(BACKGROUND_PATH / filename), 0, 0,
+                                          width=prs.slide_width, height=prs.slide_height)
+        picture.name = name
+        return slide
 
     def divider(self, title):
-        slide = self._slide(self.order.pop())
+        design = self.order.pop()
+        slide = self._slide(f'separator-{design:02}.png', f'dvt-separator-background-{design}')
         # The source's blank dividers inherit their artwork from the layout.
         # Use its original title/date region, leaving photographs and footer intact.
         title_box = slide.shapes.add_textbox(Inches(1.41), Inches(2.62), Inches(5.74), Inches(2.59))
@@ -97,7 +64,12 @@ class ExportTemplates:
         paragraph = date_box.text_frame.paragraphs[0]
         paragraph.font.name = 'Arial'; paragraph.font.size = Pt(18)
         paragraph.font.color.rgb = RGBColor(255, 255, 255)
+        page = slide.shapes.add_textbox(Inches(11.97), Inches(6.85), Inches(.27), Inches(.16))
+        page.name = 'dvt-template-page-number'; page.text = str(len(self.presentation.slides))
+        paragraph = page.text_frame.paragraphs[0]
+        paragraph.font.name = 'Arial'; paragraph.font.size = Pt(7)
+        paragraph.font.color.rgb = RGBColor(255,255,255)
         return slide
 
     def closing(self):
-        return self._slide(len(self.source.slides) - 1)
+        return self._slide('closing.png', 'dvt-closing-background')

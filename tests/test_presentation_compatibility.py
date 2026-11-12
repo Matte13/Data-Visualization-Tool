@@ -37,3 +37,16 @@ class PresentationCompatibilityTests(unittest.TestCase):
                     self.assertTrue(ids)
                     self.assertTrue(all(0<value<=2147483647 for value in ids+cross))
                     self.assertTrue(set(cross).issubset(ids))
+
+    def test_export_uses_only_standard_parts_and_no_embedded_font_programs(self):
+        content=create_presentation(report_fixture())
+        with ZipFile(BytesIO(content)) as package:
+            names=package.namelist()
+            self.assertFalse(any('dvt-template' in name or name.startswith('ppt/fonts/') for name in names))
+            self.assertFalse(any(name.endswith('.fntdata') for name in names))
+            self.assertTrue(any(name.startswith('ppt/media/') and name.endswith('.png') for name in names))
+            pres=etree.fromstring(package.read('ppt/presentation.xml'))
+            self.assertIsNone(pres.find(qn('p:embeddedFontLst')))
+        deck=Presentation(BytesIO(content))
+        self.assertEqual(len(deck.slide_masters),1)
+        self.assertTrue(any(sh.has_chart for slide in deck.slides for sh in slide.shapes))

@@ -1,9 +1,4 @@
-"""Apply the supplied presentation's visual theme and embedded document fonts.
-
-The resource is a newly created, content-free presentation: it contains only the
-KPMG color/font settings and editable embedded fonts taken from the user's deck.
-Original template slides, notes, charts, images and metadata are not distributed.
-"""
+"""Apply the reference color/font scheme without binary font embedding."""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -27,52 +22,28 @@ def _xml(element):
 
 
 def apply_presentation_style(content: bytes) -> bytes:
-    """Embed the supplied KPMG Bold font and theme, preserving editable content."""
+    """Apply the reference theme using installed fonts and standard Office parts."""
     with ZipFile(STYLE_PATH) as source, ZipFile(BytesIO(content)) as original:
-        resource_pres = ET.fromstring(source.read('ppt/presentation.xml'))
-        fonts = resource_pres.find(f'{{{NS_P}}}embeddedFontLst')
-        source_rels = ET.fromstring(source.read('ppt/_rels/presentation.xml.rels'))
-        resource_rels = {node.attrib['Id']: node for node in source_rels}
-        if fonts is None:
-            raise ValueError('Il tema PowerPoint non contiene i font richiesti.')
         files = {name: original.read(name) for name in original.namelist()}
         pres = ET.fromstring(files['ppt/presentation.xml'])
         rels = ET.fromstring(files['ppt/_rels/presentation.xml.rels'])
         types = ET.fromstring(files['[Content_Types].xml'])
-        known_ids = {node.attrib['Id'] for node in rels}
-        existing = pres.find(f'{{{NS_P}}}embeddedFontLst')
-        if existing is not None:
-            pres.remove(existing)
-        embedded = deepcopy(fonts)
-        index = 1
-        for family in embedded:
-            for face in list(family)[1:]:
-                source_rel = resource_rels[face.attrib[f'{{{NS_R}}}id']]
-                target = source_rel.attrib['Target']
-                if source_rel.attrib.get('Type') != FONT_REL or source_rel.attrib.get('TargetMode') == 'External' or not target.startswith('fonts/') or '..' in target:
-                    raise ValueError('Il tema PowerPoint contiene un riferimento font non valido.')
-                font_bytes = source.read('ppt/' + target)
-                while f'rId{index}' in known_ids:
-                    index += 1
-                relationship_id = f'rId{index}'
-                known_ids.add(relationship_id)
-                filename = 'fonts/dvt-' + posixpath.basename(target)
-                ET.SubElement(rels, f'{{{NS_REL}}}Relationship', {
-                    'Id': relationship_id, 'Type': FONT_REL, 'Target': filename,
-                })
-                face.attrib[f'{{{NS_R}}}id'] = relationship_id
-                files['ppt/' + filename] = font_bytes
-                index += 1
-        # embeddedFontLst precedes defaultTextStyle in the presentation schema.
-        insert_before = next((i for i, node in enumerate(pres)
-                              if node.tag in {f'{{{NS_P}}}custShowLst', f'{{{NS_P}}}photoAlbum',
-                                              f'{{{NS_P}}}custDataLst', f'{{{NS_P}}}kinsoku',
-                                              f'{{{NS_P}}}defaultTextStyle', f'{{{NS_P}}}modifyVerifier',
-                                              f'{{{NS_P}}}extLst'}), len(pres))
-        pres.insert(insert_before, embedded)
-        pres.attrib['embedTrueTypeFonts'] = '1'
-        if not any(node.attrib.get('Extension') == 'fntdata' for node in types):
-            ET.SubElement(types, f'{{{NS_CT}}}Default', {'Extension': 'fntdata', 'ContentType': 'application/x-fontdata'})
+        # Keep typeface references, but no compressed EOT font programs. They
+        # are binary resources outside XML validation and vary by Office host.
+        embedded = pres.find(f'{{{NS_P}}}embeddedFontLst')
+        if embedded is not None:
+            pres.remove(embedded)
+        for attribute in ('embedTrueTypeFonts', 'saveSubsetFonts'):
+            pres.attrib.pop(attribute, None)
+        for relationship in list(rels):
+            if relationship.get('Type') == FONT_REL:
+                rels.remove(relationship)
+        for name in list(files):
+            if name.startswith('ppt/fonts/'):
+                del files[name]
+        for entry in list(types):
+            if entry.get('Extension') == 'fntdata' or entry.get('PartName', '').startswith('/ppt/fonts/'):
+                types.remove(entry)
         # Preserve all chart/source data. Only the font and color scheme change.
         if 'ppt/theme/theme1.xml' in files:
             current_theme = ET.fromstring(files['ppt/theme/theme1.xml'])

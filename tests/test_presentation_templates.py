@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pptx import Presentation
 from pptx.oxml.ns import qn
 from app.presentation import create_presentation
-from app.presentation_templates import TEMPLATE_PATH, export_date
+from app.presentation_templates import TEMPLATE_PATH, BACKGROUND_PATH, export_date
 from test_presentation import report_fixture, titles
 
 
@@ -17,14 +17,17 @@ class TemplateExportTests(unittest.TestCase):
         deck=Presentation(BytesIO(create_presentation(report_fixture())))
         dividers=[slide for slide in deck.slides if any(shape.name=='dvt-export-date' for shape in slide.shapes)]
         self.assertEqual(len(dividers),4)
-        self.assertEqual({slide.slide_layout.name for slide in dividers},{s.slide_layout.name for s in list(source.slides)[:-1]})
+        self.assertEqual({sh.name for slide in dividers for sh in slide.shapes if sh.name.startswith('dvt-separator-background-')},
+                         {f'dvt-separator-background-{i}' for i in range(1,5)})
         for slide in dividers:
             date=next(shape.text for shape in slide.shapes if shape.name=='dvt-export-date')
             self.assertEqual(date,datetime.now(ZoneInfo('Europe/Rome')).strftime('%d/%m/%Y'))
-            self.assertTrue(any(sh.shape_type==13 for sh in slide.slide_layout.shapes))
-        self.assertEqual([sh.text for sh in deck.slides[-1].shapes if sh.has_text_frame],
-                         [sh.text for sh in source.slides[-1].shapes if sh.has_text_frame])
-        self.assertEqual(deck.slides[-1].slide_layout.name,source.slides[-1].slide_layout.name)
+            picture=next(sh for sh in slide.shapes if sh.name.startswith('dvt-separator-background-'))
+            design=int(picture.name.rsplit('-',1)[1])
+            self.assertEqual(picture.image.blob,(BACKGROUND_PATH/f'separator-{design:02}.png').read_bytes())
+        closing=next(sh for sh in deck.slides[-1].shapes if sh.name=='dvt-closing-background')
+        self.assertEqual(closing.image.blob,(BACKGROUND_PATH/'closing.png').read_bytes())
+        self.assertEqual(len(deck.slide_masters),1)
         self.assertLessEqual(len(deck.slides),15)
         # All r:id/r:embed references still point to real package relationships.
         for part in deck.part.package.iter_parts():
@@ -40,8 +43,8 @@ class TemplateExportTests(unittest.TestCase):
         with patch('app.presentation_templates.SystemRandom.shuffle',lambda self,items:items.reverse()):
             second=Presentation(BytesIO(create_presentation(report_fixture())))
         self.assertEqual(titles(first),titles(second))
-        a=[s.slide_layout.name for s in first.slides if any(sh.name=='dvt-export-date' for sh in s.shapes)]
-        b=[s.slide_layout.name for s in second.slides if any(sh.name=='dvt-export-date' for sh in s.shapes)]
+        a=[next(sh.name for sh in s.shapes if sh.name.startswith('dvt-separator-background-')) for s in first.slides if any(sh.name=='dvt-export-date' for sh in s.shapes)]
+        b=[next(sh.name for sh in s.shapes if sh.name.startswith('dvt-separator-background-')) for s in second.slides if any(sh.name=='dvt-export-date' for sh in s.shapes)]
         self.assertEqual(a,list(reversed(b)))
 
     def test_windows_without_timezone_database_still_exports_with_rome_date(self):
