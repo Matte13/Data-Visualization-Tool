@@ -490,3 +490,16 @@ h1 { font-size: 42px; line-height: 1.12; letter-spacing: -.4px; color: #00338d; 
 .detail-section .risk-level-high{color:#c64545}
 .detail-section .risk-level-medium{color:#a97500}
 .detail-section .risk-level-low{color:#32835c}
+
+/* Attribute badges keep their colors when a remediation is selected or hovered. */
+.map-tag { --tag-bg:#edf2ff; --tag-ink:#1e49e2; --tag-border:#b8c9f4; }
+.map-tag-opex, .map-tag-ot { --tag-bg:#f3edff; --tag-ink:#7213ea; --tag-border:#d2b6f7; }
+.map-node.leaf .map-tag rect { fill:var(--tag-bg); stroke:var(--tag-border); stroke-width:.7; }
+.map-node.leaf .map-tag text { fill:var(--tag-ink); font-size:8px; font-weight:650; font-family:Inter,'Segoe UI',sans-serif; }
+.map-tags { pointer-events:none; }
+@media screen {
+  .map-scroll > svg { height:auto; }
+}
+
+.presentation-logo { display:none; }
+.presentation .presentation-logo { display:block; height:28px; width:70px; object-fit:contain; margin-right:auto; flex-shrink:0; }

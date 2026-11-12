@@ -36,6 +36,15 @@
     return result.map(line => line.length > width ? line.slice(0, width - 1) + '…' : line);
   }
 
+  function badges(row,x,y,width,height,esc=escapeHtml,model=root.RemediationModel) {
+    const items=model.remediationTags(row).map(tag=>({...tag,width:90}));
+    let left=x+width-14-items.reduce((sum,tag)=>sum+tag.width,0)-Math.max(0,items.length-1)*5;
+    return `<g class="map-tags" aria-label="Attributi remediation">${items.map(tag=>{
+      const start=left;left+=tag.width+5;
+      return `<g class="map-tag map-tag-${tag.kind}" data-map-tag="${tag.kind}"><rect x="${start}" y="${y+height-22}" width="${tag.width}" height="16" rx="5"/><text x="${start+tag.width/2}" y="${y+height-11}" text-anchor="middle">${esc(tag.label)}</text></g>`;
+    }).join('')}</g>`;
+  }
+
   function render(options = {}) {
     const {
       data, rows: suppliedRows, year: requestedYear, owner: requestedOwner,
@@ -121,7 +130,7 @@
     }).join('');
     const leaves = visible.map((row, index) => {
       const y = leafY(index);
-      return `<g class="map-node leaf${options.selectedRemediation===rowKey(row)?' chosen':''}" role="button" tabindex="0" data-detail="${esc(rowKey(row))}" style="--domain-color:${esc(domainColor(domain))}" aria-label="Dettaglio ${esc(row.name)} · ${esc(ownerKey(row))} · ${esc(sourceRef(row))}"><title>${esc(row.name)} · ${esc(amount([row], false))}</title><rect x="860" y="${y}" width="440" height="108" rx="8"/>${text(row.name, 876, y + 41, 60, 2)}<text x="876" y="${y + 83}" class="node-sub">${esc(model.remediationBudget(row,entities,scope))}</text></g>`;
+      return `<g class="map-node leaf${options.selectedRemediation===rowKey(row)?' chosen':''}" role="button" tabindex="0" data-detail="${esc(rowKey(row))}" style="--domain-color:${esc(domainColor(domain))}" aria-label="Dettaglio ${esc(row.name)} · ${esc(ownerKey(row))} · ${esc(sourceRef(row))}"><title>${esc(row.name)} · ${esc(amount([row], false))}</title><rect x="860" y="${y}" width="440" height="108" rx="8"/>${text(row.name, 876, y + 41, 60, 2)}<text x="876" y="${y + 78}" class="node-sub">${esc(model.remediationBudget(row,entities,scope))}</text>${badges(row,860,y,440,108,esc,model)}</g>`;
     }).join('');
     const selectedYearY = yearY(years.indexOf(year)) + 54;
     const yearEdges = owners.map((label, index) => edge('year-owner', year, label,
@@ -150,7 +159,7 @@
     return {html: `<section class="panel map-panel owner-map-panel">${title}${explanation}${path}<div class="map-scroll">${svg}</div></section>`, year, owner, domain, page};
   }
 
-  const api = {render};
+  const api = {render,badges};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.OwnerMap = api;
 })(typeof globalThis !== 'undefined' ? globalThis : window);

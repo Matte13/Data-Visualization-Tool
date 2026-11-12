@@ -1,5 +1,11 @@
 # Note di versione
 
+## 1.4.15
+
+Larghezza fissa delle mappe fin dall’inizio: l’apertura dei livelli successivi popola il percorso senza cambiare scala. Badge SVG condivisi per tutti i box remediation, arrotondati e di dimensione uniforme: CAPEX/OPEX, appartenenza OT o CMA/WIFI/VA e NIS2 solo per valori affermativi. Spaziatura verticale adeguata per separare titolo, budget e badge.
+
+Eliminata la colonna CAPEX/OPEX da tutti i percorsi; filtro e dettaglio restano disponibili. I vecchi percorsi salvati possono essere convertiti allo schema aggiornato. Perimetro visualizzato come OT/CMA, senza cambiare chiavi o selezioni dei dati. Logo KPMG bianco in PNG incorporato nella barra di presentazione, anche offline, senza cambiare l’altezza della barra. Rimossa l’indicazione Dati locali e semplificato il footer laterale a versione e © 2026 KPMG. Nessuna modifica a dati o budget.
+
 ## 1.4.14
 
 Ulteriore intervento di compatibilità dopo l’analisi del PPTX effettivamente rifiutato da PowerPoint, che già superava il controllo XML. Eliminata l’importazione dei master/layout in percorsi personalizzati e l’incorporamento dei programmi font compressi EOT. Gli sfondi fotografici e la chiusura sono immagini standard ricavate dal deck originale; titoli, date, pagine, grafici e dati restano modificabili. Le note di riepilogo rimandano alle righe sorgente anziché ripeterne descrizioni e allocazioni in tutti i gruppi; i dati completi sono conservati una volta e le righe country fuori dalla selezione principale sono incluse esplicitamente.

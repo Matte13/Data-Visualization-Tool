@@ -24,6 +24,15 @@
     const total=scope==='global'?global:scope==='local'?local:global==null&&local==null?null:(global??0)+(local??0);
     return money(total,true)+(scope==='all'?` · Global ${money(global,true)} · Local ${money(local,true)}`:'');
   }
+  function remediationTags(row) {
+    const tags=[];
+    const budget=String(row.capexOpex||'').trim().toLowerCase();
+    if(budget==='capex'||budget==='opex')tags.push({label:budget.toUpperCase(),kind:budget});
+    if(row.sheet==='OT')tags.push({label:'OT',kind:'ot'});
+    else if(row.sheet==='Remediations')tags.push({label:'CMA, WIFI & VA',kind:'cma'});
+    if(['yes','nis 2','nis2'].includes(String(row.nis2||'').trim().toLowerCase()))tags.push({label:'NIS2',kind:'nis2'});
+    return tags;
+  }
   function attributeValues(row, field) {
     if(field==='risk'&&Array.isArray(row.riskTypes))return row.riskTypes.length?row.riskTypes:['Non specificato'];
     if(field==='impact'&&Array.isArray(row.impactTypes))return row.impactTypes.length?row.impactTypes:['Non specificato'];
@@ -150,7 +159,7 @@
       r.capexOpex||'',attributeValues(r,'risk').filter(v=>v!=='Non specificato').join(' | '),(Array.isArray(r.impactTypes)?r.impactTypes.join(' | '):''),r.impact||'',attributeValues(r,'riskLevel').filter(v=>v!=='Non specificato').join(' | '),r.remediationType||'',r.capexOpexNote||'',r.sourceSheet||r.sheet,r.prioritySourceHeader||'',Object.entries(r.sourceBudgetMarkers||{}).map(([field,value])=>field+': '+value).join(' | '),r.sourceOwner??r.owner,{all:'Global + Local',global:'Global',local:'Local'}[scope],selectedAmount(r),...(rows.some(row=>row.impactLevels)?['Reputational','Regulatory','Economic','Operational'].map(type=>r.impactLevels?.[type]||''):[])]);
     return '\uFEFF' + [headers, ...values].map(row => row.map(quote).join(';')).join('\r\n');
   }
-  const api = {remediationBudget,attributeValues,attributeGroups,number,sum,money,localAmount,filterRows,investmentRows,totals,aggregate,budgetBreakdown,csv};
+  const api = {remediationTags,remediationBudget,attributeValues,attributeGroups,number,sum,money,localAmount,filterRows,investmentRows,totals,aggregate,budgetBreakdown,csv};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RemediationModel = api;
 })(typeof globalThis !== 'undefined' ? globalThis : window);

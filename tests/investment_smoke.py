@@ -39,9 +39,9 @@ def main():
                     node.scroll_into_view_if_needed()
                     node.focus();page.keyboard.press('Enter')
                 expect(page.locator('.map-col-label')).to_have_text([
-                    '01 / ANNO','02 / RISK TYPE','03 / REMEDIATION','04 / IMPACT TYPE','05 / CAPEX/OPEX'])
-                expect(page.locator('[data-risk-step="4"][data-risk-value="Capex"]')).to_have_count(1)
-                expect(page.locator('.map-edge')).to_have_count(4)
+                    '01 / ANNO','02 / RISK TYPE','03 / REMEDIATION','04 / IMPACT TYPE'])
+                expect(page.locator('[data-map-tag="capex"]')).to_have_count(1)
+                expect(page.locator('.map-edge')).to_have_count(3)
                 page.locator('[data-risk-detail="Remediations:4"]').focus()
                 page.keyboard.press('Enter')
                 expect(page.locator('.detail-drawer')).to_contain_text('Cyber')
@@ -51,7 +51,7 @@ def main():
                 page.locator('.view-tabs [data-view="risk-map"]').click()
                 expect(page.locator('.investment-map [role="status"]')).to_contain_text('5 righe escluse')
                 expect(page.locator('[data-risk-value="Non specificato"]')).to_have_count(0)
-                for step,value in enumerate(['2027','Capex','Governance']):
+                for step,value in enumerate(['2027','Governance']):
                     node=page.locator(f'[data-risk-step="{step}"][data-risk-value="{value}"]')
                     node.scroll_into_view_if_needed()
                     node.focus();page.keyboard.press('Enter')
@@ -59,10 +59,10 @@ def main():
                 leaf=page.locator('#view-content [data-risk-detail="Remediations:4"]')
                 expect(leaf).to_have_count(1)
                 expect(leaf).to_have_class('map-node leaf')
-                expect(leaf.locator('rect')).to_have_attribute('width','440')
+                expect(leaf.locator(':scope > rect')).to_have_attribute('width','440')
                 leaf.click()
                 expect(page.locator('.detail-drawer')).to_have_count(0)
-                expect(page.locator('[data-risk-step="4"]')).to_have_count(1)
+                expect(page.locator('[data-risk-step="3"]')).to_have_count(1)
                 page.wait_for_timeout(550)
                 leaf.dblclick()
                 expect(page.locator('.detail-drawer')).to_contain_text('Cyber')
@@ -80,8 +80,8 @@ def main():
                 for code in ('it','nl','be'):
                     expect(page.locator(f'.allocation-list [data-country-code="{code}"]')).to_have_count(1)
                 page.locator('#close-detail').click()
-                page.locator('[data-risk-step="4"][data-risk-value="Cyber"]').click()
-                expect(page.locator('[data-risk-step="5"][data-risk-value="Alto"]')).to_have_count(1)
+                page.locator('[data-risk-step="3"][data-risk-value="Cyber"]').click()
+                expect(page.locator('[data-risk-step="4"][data-risk-value="Alto"]')).to_have_count(1)
                 for view in ('map','owner-map'):
                     page.locator(f'.view-tabs [data-view="{view}"]').click()
                     attribute='data-map-domain' if view=='map' else 'data-owner-map-domain'
@@ -148,8 +148,8 @@ def main():
                 expect(offline_page.locator('.kpi-value').nth(0)).to_have_text('2380 €')
                 offline_page.locator('.view-tabs [data-view="risk-first-map"]').click()
                 expect(offline_page.locator('.map-col-label')).to_have_text([
-                    '01 / ANNO','02 / RISK TYPE','03 / REMEDIATION','04 / IMPACT TYPE','05 / CAPEX/OPEX'])
-                expect(offline_page.locator('[data-risk-step="4"][data-risk-value="Capex"]')).to_have_count(1)
+                    '01 / ANNO','02 / RISK TYPE','03 / REMEDIATION','04 / IMPACT TYPE'])
+                expect(offline_page.locator('[data-map-tag="capex"]')).to_have_count(1)
                 offline_page.close()
                 assert not errors,errors
                 browser.close()

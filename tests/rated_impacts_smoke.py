@@ -22,7 +22,7 @@ def main():
                 page.on('pageerror',lambda e:errors.append(str(e)))
                 page.goto(f'http://127.0.0.1:{server.server_port}')
                 expect(page.locator('.kpi-value').nth(0)).to_have_text('11.022 €')
-                for view,path in [('risk-map',['2027','Capex','Governance','All Remediations:2']),('risk-first-map',['2027','Cyber','All Remediations:2']),('remediation-map',['2027','All Remediations:2','Cyber'])]:
+                for view,path in [('risk-map',['2027','Governance','All Remediations:2']),('risk-first-map',['2027','Cyber','All Remediations:2']),('remediation-map',['2027','All Remediations:2','Cyber'])]:
                     page.locator(f'.view-tabs [data-view="{view}"]').click()
                     for step,value in enumerate(path):
                         node=page.locator(f'[data-risk-step="{step}"][data-risk-value="{value}"]')
@@ -40,7 +40,7 @@ def main():
                 page.locator('[data-risk-step="2"][data-risk-value="Cyber"]').focus();page.keyboard.press('Enter')
                 expect(page.locator('.map-col-label')).to_have_text(['01 / ANNO','02 / REMEDIATION','03 / RISK TYPE','04 / IMPACT TYPE'])
                 page.locator('[data-risk-value="Regulatory"]').focus();page.keyboard.press('Enter')
-                expect(page.locator('[data-risk-step="4"][data-risk-value="Capex"]')).to_have_count(1)
+                expect(page.locator('[data-map-tag="capex"]')).to_have_count(1)
                 for view,attribute in [('map','data-map-domain'),('owner-map','data-owner-map-domain')]:
                     page.locator(f'.view-tabs [data-view="{view}"]').click()
                     page.locator(f'[{attribute}="Governance"]').click()

@@ -72,3 +72,9 @@ test('map remediation budgets show total and split only for combined scope, pres
  assert.match(M.remediationBudget({...row,globalBudget:null}),/Global Non stimato/);
  assert.match(M.remediationBudget({...row,globalBudget:0}),/Global 0(?:,0+)?\s€/);
 });
+
+test('remediation tags use declared values and NIS2 only for affirmative source values',()=>{
+ assert.deepEqual(Array.from(M.remediationTags({sheet:'Remediations',capexOpex:'CAPEX',nis2:'Yes'}),tag=>tag.label),['CAPEX','CMA, WIFI & VA','NIS2']);
+ assert.deepEqual(Array.from(M.remediationTags({sheet:'OT',capexOpex:'Opex',nis2:'No'}),tag=>tag.label),['OPEX','OT']);
+ assert.deepEqual(Array.from(M.remediationTags({sheet:'Remediations',nis2:''}),tag=>tag.label),['CMA, WIFI & VA']);
+});
