@@ -1,5 +1,9 @@
 # Note di versione
 
+## 1.4.17
+
+Il consolidato aggiornato include i nuovi importi di R.52, i moltiplicatori NIS2 7 + 1 di R.23 e i riferimenti Global per dominio corretti nella sezione TOTAL CMA. Il tracciato è già supportato. Dopo l’aggiornamento del container, caricare il consolidato con **Aggiorna Excel** nel progetto esistente per applicare i nuovi valori.
+
 ## 1.4.16
 
 Allineate le posizioni dei badge al riferimento fornito: appartenenza in alto a destra, CAPEX/OPEX nell’angolo inferiore destro, NIS2 a fianco. Dimensioni uniformi e colori invariati. Test browser verificano esplicitamente margini e coordinate oltre alla scala stabile e alla compatibilità offline. Tutte le modifiche grafiche della 1.4.15 sono incluse.
